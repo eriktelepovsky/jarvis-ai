@@ -4,6 +4,10 @@ Jarvis is your personal AI-powered daily briefing dashboard. It connects to emai
 
 > 🚧 Work in progress.
 
+## Roadmap
+
+See the [roadmap](ROADMAP.md) for planned features and their order.
+
 ## Contributing
 
 Contributions are welcome! Before your first pull request can be merged, you need to sign the [Contributor License Agreement](CLA.md). The CLA bot will guide you through it with a single comment in your pull request.
