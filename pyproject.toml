@@ -1,0 +1,33 @@
+[project]
+name = "jarvis-hud"
+version = "0.0.1"
+description = "Personal AI-powered daily briefing dashboard that summarizes your email, calendar, tasks, finances and more."
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{ name = "Erik Telepovský", email = "erik.telepovsky@gmail.com" }]
+requires-python = ">=3.11"
+keywords = ["assistant", "dashboard", "ai", "productivity", "briefing", "jarvis"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/eriktelepovsky/jarvis-hud"
+Repository = "https://github.com/eriktelepovsky/jarvis-hud"
+Issues = "https://github.com/eriktelepovsky/jarvis-hud/issues"
+
+[project.scripts]
+jarvis = "jarvis_hud.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_hud"]
