@@ -25,4 +25,4 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/eriktelepovsky/jarvis-hud/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: eriktelepovsky,bot*
+          allowlist: eriktelepovsky,claude,bot*
