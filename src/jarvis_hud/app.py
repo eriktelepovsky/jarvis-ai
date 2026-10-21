@@ -1,0 +1,55 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
+
+from jarvis_hud import __version__
+from jarvis_hud.config import Settings
+from jarvis_hud.db import create_engine, create_sessionmaker
+from jarvis_hud.plugins import Plugin, discover_plugins
+from jarvis_hud.web.routes import router
+
+WEB_DIR = Path(__file__).parent / "web"
+
+
+def create_templates(plugins: dict[str, Plugin]) -> Jinja2Templates:
+    """Jinja environment with app templates and each plugin's templates under its id prefix."""
+    plugin_loaders = {
+        plugin.id: FileSystemLoader(plugin.templates_dir)
+        for plugin in plugins.values()
+        if plugin.templates_dir is not None
+    }
+    env = Environment(
+        loader=ChoiceLoader(
+            [FileSystemLoader(WEB_DIR / "templates"), PrefixLoader(plugin_loaders)]
+        ),
+        autoescape=select_autoescape(),
+    )
+    env.globals["version"] = __version__
+    return Jinja2Templates(env=env)
+
+
+def create_app(
+    settings: Settings | None = None, plugins: dict[str, Plugin] | None = None
+) -> FastAPI:
+    settings = settings or Settings()
+    plugins = discover_plugins() if plugins is None else plugins
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        engine = create_engine(settings.database_url)
+        app.state.sessionmaker = create_sessionmaker(engine)
+        yield
+        await engine.dispose()
+
+    app = FastAPI(title="Jarvis", version=__version__, lifespan=lifespan)
+    app.state.settings = settings
+    app.state.plugins = plugins
+    app.state.templates = create_templates(plugins)
+    app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
+    app.include_router(router)
+    return app

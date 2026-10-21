@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid">
+  {% for plugin, widget in widgets %}
+  <section class="widget" id="widget-{{ plugin.id }}-{{ widget.id }}">
+    <h2>{{ widget.title }}</h2>
+    <div class="widget-body"
+         hx-get="{{ url_for('widget', plugin_id=plugin.id, widget_id=widget.id) }}"
+         hx-trigger="load, every 5m">
+      <p class="loading">Loading…</p>
+    </div>
+  </section>
+  {% else %}
+  <p>No plugins installed.</p>
+  {% endfor %}
+</div>
+{% endblock %}
