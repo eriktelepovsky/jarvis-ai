@@ -4,6 +4,16 @@ Jarvis is your personal AI-powered daily briefing dashboard. It connects to emai
 
 > 🚧 Work in progress.
 
+## Development
+
+```sh
+uv sync
+uv run jarvis serve --reload
+uv run pytest
+```
+
+The dashboard runs at http://127.0.0.1:8000. See the [architecture](docs/ARCHITECTURE.md) for how Jarvis is built.
+
 ## Roadmap
 
 See the [roadmap](ROADMAP.md) for planned features and their order.
