@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Set up Jarvis{% endblock %}
+
+{% block content %}
+<section class="panel narrow">
+  <h2>Welcome to Jarvis</h2>
+  {% if allowed %}
+  <p>Choose the password you will use to sign in. You can add passkeys after signing in.</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/setup" class="form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label>Password
+      <input type="password" name="password" autocomplete="new-password" minlength="{{ min_password_length }}" required autofocus>
+    </label>
+    <label>Confirm password
+      <input type="password" name="password_confirmation" autocomplete="new-password" minlength="{{ min_password_length }}" required>
+    </label>
+    <button type="submit">Set password</button>
+  </form>
+  {% else %}
+  <p>Jarvis has no password yet. To protect it, setup is only possible from the machine Jarvis runs on, or with the setup link printed in the Jarvis server log.</p>
+  <p>Find the line starting with <code>No password is set</code> in the log (for Docker: <code>docker logs jarvis</code>) and open the link it contains.</p>
+  {% endif %}
+</section>
+{% endblock %}

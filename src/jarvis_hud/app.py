@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,12 +8,18 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
 
 from jarvis_hud import __version__
+from jarvis_hud.auth import passkeys
+from jarvis_hud.auth import routes as auth_routes
+from jarvis_hud.auth.middleware import auth_middleware
+from jarvis_hud.auth.store import load_auth_state
 from jarvis_hud.config import Settings
-from jarvis_hud.db import create_engine, create_sessionmaker
+from jarvis_hud.db import create_engine, create_sessionmaker, run_migrations
 from jarvis_hud.plugins import Plugin, discover_plugins
 from jarvis_hud.web.routes import router
 
 WEB_DIR = Path(__file__).parent / "web"
+
+logger = logging.getLogger(__name__)
 
 
 def create_templates(plugins: dict[str, Plugin]) -> Jinja2Templates:
@@ -42,7 +49,18 @@ def create_app(
     async def lifespan(app: FastAPI):
         settings.data_dir.mkdir(parents=True, exist_ok=True)
         engine = create_engine(settings.database_url)
+        await run_migrations(engine)
         app.state.sessionmaker = create_sessionmaker(engine)
+        async with app.state.sessionmaker() as db:
+            app.state.auth = await load_auth_state(db)
+        if not app.state.auth.password_set:
+            setup_url = f"{(settings.public_url or '').rstrip('/')}/setup"
+            logger.warning(
+                "No password is set. Open %s on this machine, or from anywhere with %s?token=%s",
+                setup_url,
+                setup_url,
+                app.state.auth.setup_token,
+            )
         yield
         await engine.dispose()
 
@@ -50,6 +68,9 @@ def create_app(
     app.state.settings = settings
     app.state.plugins = plugins
     app.state.templates = create_templates(plugins)
+    app.middleware("http")(auth_middleware)
     app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
+    app.include_router(auth_routes.router)
+    app.include_router(passkeys.router)
     app.include_router(router)
     return app

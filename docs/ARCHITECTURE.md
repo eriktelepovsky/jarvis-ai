@@ -32,7 +32,9 @@ src/jarvis_hud/
 ├── app.py            # FastAPI application factory (create_app)
 ├── cli.py            # `jarvis` command: `jarvis serve`
 ├── config.py         # Settings from JARVIS_* environment variables
-├── db.py             # SQLAlchemy base and engine
+├── db.py             # SQLAlchemy base, engine and migrations
+├── auth/             # Login: passwords, passkeys, sessions, access gate
+├── migrations/       # Alembic database migrations
 ├── plugins/
 │   ├── base.py       # Plugin and Widget interfaces
 │   ├── registry.py   # Entry point discovery
@@ -156,13 +158,21 @@ Data from integrations is cached with **stale-while-revalidate**:
 - **Logic separate from the web layer:** decisions (access control, ranking, cache freshness) live in pure functions that are unit-tested without a running server.
 - **Sample data mode:** Jarvis can run with a built-in set of fictional data for development, screenshots and demos.
 
+## Login
+
+Jarvis has a single user who signs in with a password or a passkey (WebAuthn). The code is in `src/jarvis_hud/auth/`.
+
+- **First run:** until a password is set, every page redirects to `/setup`. Setup is allowed from the machine Jarvis runs on (loopback address) or anywhere with a one-time token that Jarvis prints to its log at startup (`No password is set. Open …/setup?token=…`). A fresh installation is therefore never open to whoever finds it first, also in Docker where requests do not come from the loopback address.
+- **Password:** at least 12 characters, hashed with scrypt (memory-hard, from the Python standard library). Failed sign-ins are limited to 10 per client in 15 minutes.
+- **Sessions:** an HMAC-signed, httpOnly, `SameSite=Lax` cookie valid for 30 days, marked `Secure` when Jarvis runs over HTTPS. The signing key is stored in the database and replaced on every password change, which signs out all other devices.
+- **Passkeys:** added on the Security page after signing in. They are discoverable credentials with required user verification (Face ID, Touch ID, Windows Hello, PIN), so signing in needs no user name. The WebAuthn challenge is kept in a signed cookie valid for 5 minutes.
+- **Access gate:** a middleware calls `decide()` in `auth/gate.py`, a pure function that returns allow, redirect to setup, redirect to login, or reject. State-changing requests (`POST` and others) must carry an `Origin` header matching Jarvis (CSRF protection). If the decision cannot be made, the request is refused (fail closed).
+- **Public address:** set `JARVIS_PUBLIC_URL` (e.g. `https://jarvis.example.com`) in production. It is the origin used for the CSRF check and the domain passkeys are bound to; without it, the address of each request is used.
+
+Migrations run automatically at startup. During development, new migrations are created with `uv run alembic revision --autogenerate -m "…"`.
+
 ## Planned for the MVP
 
 - **Configuration and secrets:** settings come from `JARVIS_*` environment variables (or a `.env` file). OAuth tokens and API keys entered in the UI are stored in the database, encrypted with a key from the environment.
-- **Login:** password and passkeys (WebAuthn) with a session cookie. Every route except login and static files requires authentication.
-  - Until a password is set, Jarvis only accepts requests on the loopback interface (`127.0.0.1`); requests from elsewhere get a page explaining how to set the password. A fresh installation is therefore never exposed to the internet.
-  - The password is hashed with a memory-hard algorithm. Changing it rotates the session signing key, which signs out all other devices.
-  - The access decision (allow, redirect to login, reject) is a pure, unit-tested function. It includes a CSRF check of the `Origin` header for state-changing requests and fails closed on errors.
 - **Background refresh:** see [Data refresh and caching](#data-refresh-and-caching).
-- **Database migrations:** Alembic is set up together with the first database model.
 - **Docker:** a multi-stage image built with `uv`, running as a non-root user, with `/data` as the volume for the database.

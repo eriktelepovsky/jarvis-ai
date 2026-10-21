@@ -2,19 +2,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import ORIGIN, complete_setup
 from fastapi.testclient import TestClient
 
 from jarvis_hud.app import create_app
 from jarvis_hud.config import Settings
 from jarvis_hud.plugins import Plugin, Widget, discover_plugins
 from jarvis_hud.plugins.core import CorePlugin, greeting
-
-
-@pytest.fixture
-def client(tmp_path: Path):
-    app = create_app(Settings(data_dir=tmp_path), plugins={"core": CorePlugin()})
-    with TestClient(app) as client:
-        yield client
 
 
 def test_core_plugin_is_discovered_via_entry_point():
@@ -54,7 +48,8 @@ def test_widget_context_is_autoescaped(tmp_path: Path):
             return [Widget(id="echo", title="Echo", template="echo.html", load=load)]
 
     app = create_app(Settings(data_dir=tmp_path / "data"), plugins={"echo": EchoPlugin()})
-    with TestClient(app) as client:
+    with TestClient(app, headers={"Origin": ORIGIN}) as client:
+        complete_setup(client)
         assert client.get("/widgets/echo/echo").text == "&lt;script&gt;"
 
 

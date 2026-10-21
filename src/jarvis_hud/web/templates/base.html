@@ -6,10 +6,19 @@
   <title>{% block title %}Jarvis{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
+  {% block head %}{% endblock %}
 </head>
 <body>
   <header class="topbar">
-    <h1>Jarvis</h1>
+    <h1><a href="/">Jarvis</a></h1>
+    {% if request.state.authenticated %}
+    <nav class="nav">
+      <a href="/settings/security">Security</a>
+      <form method="post" action="/logout">
+        <button type="submit" class="link">Sign out</button>
+      </form>
+    </nav>
+    {% endif %}
   </header>
   <main>
     {% block content %}{% endblock %}

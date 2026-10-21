@@ -12,7 +12,7 @@ uv run jarvis serve --reload
 uv run pytest
 ```
 
-The dashboard runs at http://127.0.0.1:8000. See the [architecture](docs/ARCHITECTURE.md) for how Jarvis is built.
+The dashboard runs at http://127.0.0.1:8000. On the first visit, Jarvis asks you to set a password. See the [architecture](docs/ARCHITECTURE.md) for how Jarvis is built.
 
 ## Roadmap
 

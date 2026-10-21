@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     host: str = "127.0.0.1"
     port: int = 8000
+    # Public address of Jarvis, e.g. https://jarvis.example.com. Used for the CSRF origin check
+    # and passkeys; when unset, the address of each request is used.
+    public_url: str | None = None
 
     @property
     def database_url(self) -> str:
