@@ -13,6 +13,8 @@ The smallest useful version for a daily morning routine.
 - [ ] Self-hosted deployment as a Docker image (VPS, NAS)
 - [ ] Built-in login with password and passkeys
 - [ ] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
+- [ ] Integrations page and setup checklist that guides the user through connecting services
+- [ ] Sample data mode with fictional data for development and demos
 - [ ] AI powered by Claude (Anthropic API)
 
 ### Features
@@ -42,7 +44,9 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 ## Phase 3: Chat and actions
 
 - [ ] **Chat with Jarvis:** ask questions about your data, e.g. "How much did I spend on restaurants this month?"
-- [ ] **Actions:** reply to an email, add a TODO, create a calendar event
+- [ ] **Actions:** reply to an email (as a Gmail draft), add a TODO, create a calendar event; disabled until enabled in settings, each confirmed in the UI
+- [ ] **Triage:** mark items as done or snooze them for later
+- [ ] **Command palette:** quick search and commands with ⌘K
 - [ ] **Voice control:** talk to Jarvis using speech-to-text and text-to-speech
   - Swappable voice providers, so each speech service is a plugin
   - Speech-to-text: self-hosted Whisper (faster-whisper), so recordings never leave the server

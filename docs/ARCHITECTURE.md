@@ -84,8 +84,8 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 
 Users find out what to do in three places:
 
-1. **Onboarding** after the first login asks what the user wants on the dashboard (email, calendar, tasks…) and walks them through connecting it.
-2. **Integrations page** lists available integrations with a description, status (connected, error, last sync) and a **Connect** button.
+1. **Onboarding** after the first login asks what the user wants on the dashboard (email, calendar, tasks…) and walks them through connecting it. It then becomes a **setup checklist**: each step's state (done, to do, blocked, skipped) is detected from the actual state of Jarvis, never ticked by hand, and links to the place where the step is completed.
+2. **Integrations page** lists available integrations with a description, status per capability (see below), last sync and a **Connect** button.
 3. **Empty widgets** show a call to action (e.g. "Connect Gmail") that opens the setup wizard directly.
 
 Every setup wizard follows the same structure:
@@ -112,6 +112,12 @@ This is the hardest step of the whole setup, so its wizard is the most detailed 
 
 Google accepts redirect URIs only over **HTTPS with a domain name** or on `localhost`. A Jarvis server therefore needs a domain; a bare IP address is not enough. The installation guide must state this clearly.
 
+The OAuth flow is shared by all OAuth plugins:
+
+- `state` and a PKCE verifier are kept in a short-lived (10 minutes), httpOnly, `SameSite=Lax` cookie scoped to the callback path, and compared in constant time in the callback.
+- Only the refresh token is stored (encrypted); access tokens are obtained when needed.
+- Query parameters from the provider are never echoed back into the page.
+
 ### Connection API
 
 The `Plugin` interface gains a declaration of the connection it needs, and Jarvis generates the setup wizard from it:
@@ -120,15 +126,43 @@ The `Plugin` interface gains a declaration of the connection it needs, and Jarvi
 - **Form fields:** a Pydantic model, rendered as a form with validation.
 - **Instructions:** setup steps in Markdown, shown in the wizard.
 - **`test()`:** a check used by the Test connection button.
+- **Status per capability:** instead of a single "connected" flag, each capability has its own state, e.g. Gmail "read: OK, create drafts: missing permission". The UI shows exactly what works and what to fix.
 - **Multiple connections per plugin:** e.g. several Jira workspaces or two Gmail accounts.
 - **Shared connections:** one Google connection is used by the Gmail, Calendar and YouTube plugins. Each requests additional OAuth scopes only when it needs them (incremental authorization).
 
 Credentials are stored encrypted in the database (see below).
 
+## Data refresh and caching
+
+Data from integrations is cached with **stale-while-revalidate**:
+
+- Each data source has its own freshness window (e.g. email 30 seconds, calendar 5 minutes, finances 30 minutes) and a maximum age after which stale data is no longer shown.
+- While data is being refreshed, the previous data is shown immediately.
+- Concurrent requests for the same data share one call to the provider (single flight).
+- Failed calls are not cached; the widget shows the error together with the last good data and its age.
+- Saving or changing a connection invalidates its cache.
+- Caches are warmed at startup, and an in-process scheduler refreshes them in the background so the dashboard stays fast and API rate limits are respected.
+
+## AI and actions
+
+- **Morning brief:** rules first, AI second. Plugins rank their items with deterministic rules (e.g. a client or a real person ranks above a newsletter; items waiting for a reply carry over with the time they were first seen). Claude then writes the brief from this ranked list instead of from raw data, which makes the brief cheaper, faster and more predictable. The brief is generated on schedule and stored, so opening the dashboard does not call any API.
+- **Chat context:** the chat receives a short summary of what is currently on screen, so questions like "what about this one?" work.
+- **Safe actions:** actions that change something outside Jarvis (send, create, pay) are disabled until the user enables them in settings. Every action needs explicit confirmation in the UI, and email replies are never sent directly: Jarvis creates a Gmail draft for the user to review and send.
+- **Testing without the API:** a stub AI provider returns deterministic responses and can trigger tools, so the brief, chat and actions are tested without calling Claude.
+
+## Principles
+
+- **Honest states:** Jarvis never shows "connected" for a connection that has not been verified, and never draws a chart or number without real data. Empty, loading and error states are explicit. Tests enforce this.
+- **Logic separate from the web layer:** decisions (access control, ranking, cache freshness) live in pure functions that are unit-tested without a running server.
+- **Sample data mode:** Jarvis can run with a built-in set of fictional data for development, screenshots and demos.
+
 ## Planned for the MVP
 
 - **Configuration and secrets:** settings come from `JARVIS_*` environment variables (or a `.env` file). OAuth tokens and API keys entered in the UI are stored in the database, encrypted with a key from the environment.
 - **Login:** password and passkeys (WebAuthn) with a session cookie. Every route except login and static files requires authentication.
-- **Background refresh:** an in-process scheduler periodically fetches data from integrations and caches it in the database. Widgets render from the cache, so the dashboard stays fast and API rate limits are respected.
+  - Until a password is set, Jarvis only accepts requests on the loopback interface (`127.0.0.1`); requests from elsewhere get a page explaining how to set the password. A fresh installation is therefore never exposed to the internet.
+  - The password is hashed with a memory-hard algorithm. Changing it rotates the session signing key, which signs out all other devices.
+  - The access decision (allow, redirect to login, reject) is a pure, unit-tested function. It includes a CSRF check of the `Origin` header for state-changing requests and fails closed on errors.
+- **Background refresh:** see [Data refresh and caching](#data-refresh-and-caching).
 - **Database migrations:** Alembic is set up together with the first database model.
 - **Docker:** a multi-stage image built with `uv`, running as a non-root user, with `/data` as the volume for the database.
