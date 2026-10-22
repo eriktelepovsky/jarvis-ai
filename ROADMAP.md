@@ -9,7 +9,7 @@ The smallest useful version for a daily morning routine.
 ### Platform
 
 - [x] Welcome screen: orb with numbers and details, today's schedule, clock, ambient music and interface sounds
-- [ ] Responsive layout and PWA, so Jarvis works on a phone
+- [x] Responsive layout and PWA, so Jarvis works on a phone
 - [x] Self-hosted deployment as a Docker image (VPS, NAS)
 - [x] Built-in login with password and passkeys
 - [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)

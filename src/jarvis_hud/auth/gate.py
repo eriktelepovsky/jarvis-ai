@@ -4,8 +4,9 @@ from enum import Enum
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 PUBLIC_PATHS = frozenset({"/login", "/login/passkey/options", "/login/passkey/verify"})
 SETUP_PATH = "/setup"
-# Liveness check for Docker and uptime monitors; reveals nothing but "ok".
-HEALTH_PATH = "/healthz"
+# Open to everyone, also before setup: the liveness check for Docker and uptime monitors, and
+# the files that make Jarvis installable as an app. None of them reveals any data.
+ALWAYS_PUBLIC = frozenset({"/healthz", "/manifest.webmanifest", "/sw.js"})
 
 
 class Decision(Enum):
@@ -27,7 +28,7 @@ class AccessRequest:
 
 def decide(request: AccessRequest) -> Decision:
     """Decide whether a request may reach the application."""
-    if request.path.startswith("/static/") or request.path == HEALTH_PATH:
+    if request.path.startswith("/static/") or request.path in ALWAYS_PUBLIC:
         return Decision.ALLOW
     if request.method not in SAFE_METHODS and request.origin != request.expected_origin:
         return Decision.REJECT_ORIGIN

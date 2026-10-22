@@ -94,7 +94,8 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 20px;
-  padding: 26px 28px 8px;
+  /* Installed on a phone, the page runs under the status bar: keep clear of it. */
+  padding: max(26px, env(safe-area-inset-top)) 28px 8px;
 }
 
 .header-line {
@@ -377,7 +378,7 @@ a.ti:hover .t1 {
   .stage { --d: min(94vw, calc(100vh - 120px)); }
 
   .welcome-header {
-    padding: 20px 16px 8px;
+    padding: max(20px, env(safe-area-inset-top)) 16px 8px;
   }
 
   .header-controls {

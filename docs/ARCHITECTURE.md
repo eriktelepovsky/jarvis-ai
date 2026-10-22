@@ -222,6 +222,12 @@ Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, bu
 - **CI:** every pull request builds the image and checks that the container becomes healthy and redirects to setup.
 - **Plugins:** installing custom plugins with `JARVIS_PLUGINS` comes with the plugin system (phase 1).
 
+## Installable app (PWA)
+
+Jarvis can be installed on a phone or desktop like an app: `/manifest.webmanifest` describes it (name, colors, icons in `web/static/icons/`), and `/sw.js` is a small service worker served from the root so it controls every page. The service worker never caches pages or data, only static files (network first, so updates arrive at once) and an offline page shown when the server cannot be reached. Both URLs and the icons are public, like `/healthz`. Pages respect the phone's safe areas (`viewport-fit=cover`, `env(safe-area-inset-*)`), since an installed app runs under the status bar.
+
+Browsers install apps and run service workers only over HTTPS or on `localhost`, so on a phone Jarvis needs its HTTPS address (`JARVIS_PUBLIC_URL`); iOS can still add a plain-HTTP Jarvis to the home screen, without the offline page.
+
 ## Planned for the MVP
 
 - **Configuration:** settings come from `JARVIS_*` environment variables (or a `.env` file).

@@ -134,3 +134,40 @@ def test_server_app_trusts_forwarded_headers_only_from_proxies(
     with TestClient(create_server_app(), client=("198.51.100.7", 50000)) as client:
         local = {"X-Forwarded-For": "127.0.0.1"}
         assert 'name="password"' not in client.get("/setup", headers=local).text
+
+
+# Installable app (PWA)
+
+
+@pytest.mark.parametrize("setup_done", [False, True])
+def test_app_files_are_public(make_client: MakeClient, setup_done: bool):
+    client = make_client()
+    if setup_done:
+        complete_setup(client)
+        client.cookies.clear()
+    manifest = client.get("/manifest.webmanifest", follow_redirects=False)
+    assert manifest.status_code == 200
+    assert manifest.headers["content-type"].startswith("application/manifest+json")
+    assert manifest.json()["display"] == "standalone"
+    worker = client.get("/sw.js", follow_redirects=False)
+    assert worker.status_code == 200
+    assert worker.headers["content-type"].startswith("text/javascript")
+    assert "__VERSION__" not in worker.text
+    assert client.get("/static/offline.html").status_code == 200
+
+
+def test_manifest_icons_exist(make_client: MakeClient):
+    client = make_client()
+    for icon in client.get("/manifest.webmanifest").json()["icons"]:
+        response = client.get(icon["src"])
+        assert response.status_code == 200
+        assert response.content.startswith(b"\x89PNG")
+
+
+def test_pages_link_the_manifest(make_client: MakeClient):
+    client = make_client()
+    complete_setup(client)
+    for path in ["/", "/tasks", "/login"]:
+        text = client.get(path).text
+        assert '<link rel="manifest" href="/manifest.webmanifest">' in text
+        assert "app.js" in text

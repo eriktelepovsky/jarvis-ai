@@ -1,10 +1,12 @@
 import asyncio
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
+from jarvis_hud import __version__
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
 
 router = APIRouter()
@@ -41,6 +43,46 @@ def ordered_plugins(request: Request) -> list[Plugin]:
 @router.get("/healthz", response_class=PlainTextResponse)
 async def health() -> str:
     return "ok"
+
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@router.get("/manifest.webmanifest")
+async def manifest() -> JSONResponse:
+    """Web app manifest: lets phones and desktops install Jarvis as an app."""
+    icons = "/static/icons"
+    return JSONResponse(
+        {
+            "name": "Jarvis",
+            "short_name": "Jarvis",
+            "description": "Personal AI daily briefing dashboard",
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "background_color": "#06080b",
+            "theme_color": "#07090c",
+            "icons": [
+                {"src": f"{icons}/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                {"src": f"{icons}/icon-512.png", "sizes": "512x512", "type": "image/png"},
+                {
+                    "src": f"{icons}/icon-maskable-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable",
+                },
+            ],
+        },
+        media_type="application/manifest+json",
+    )
+
+
+@router.get("/sw.js")
+async def service_worker() -> Response:
+    # Served from the root, not /static, so it controls every page. The cache name changes
+    # with each version, which drops files cached by the previous one.
+    script = (STATIC_DIR / "sw.js").read_text().replace("__VERSION__", __version__)
+    return Response(script, media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
 
 @router.get("/", response_class=HTMLResponse)
