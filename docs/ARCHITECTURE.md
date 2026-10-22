@@ -97,7 +97,7 @@ Widget rows can carry **actions** (buttons that POST to a URL, e.g. "Done") and 
 
 ## Tasks
 
-The to-do list is built into myOrb (`src/myorb/tasks/`) and appears as the "To-do" widget, a side panel with what is overdue or due today, and the `/tasks` page for editing, deleting and the last week's done tasks.
+The to-do list is built into myOrb (`src/myorb/tasks/`) and appears as the "Tasks" widget, a side panel with what is overdue or due today, and the `/tasks` page for editing, deleting and the last week's done tasks.
 
 Due dates are written in plain language and recognized by rules, not AI (`tasks/parse.py`), in Slovak and English: today/dnes, tomorrow/zajtra, pozajtra, weekdays (Friday, v piatok), dates (24.10., 24.10.2026, 2026-10-24) and times (10:00, 3pm, o 10). Only full weekday names count, and only valid dates are taken out of the title, so "verzia 2.0" or "the sun" stay as written. A task is overdue when its date has passed, or when its time today has.
 
