@@ -72,4 +72,4 @@ def test_quiet_day_still_lists_the_latest(make_client: MakeClient):
     text = client.get("/activity").text
     assert "Brief written" in text
     when = (datetime.now(UTC) - timedelta(days=2)).astimezone(client.app.state.timezone)
-    assert f"{when:%-d %b}" in text
+    assert f'<span class="tt">{when:%a}</span>' in text

@@ -1770,6 +1770,23 @@ dialog.is-refreshing .modal-head::after {
   color: var(--warn);
 }
 
+.ask-as-task {
+  align-self: flex-end;
+  padding: 0;
+  margin-top: -8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-3);
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.ask-as-task:hover:not(:disabled) {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .ask-thinking {
   font-family: var(--font-mono);
   font-size: 11px;

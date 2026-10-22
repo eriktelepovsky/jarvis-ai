@@ -390,12 +390,30 @@
     return dialog;
   }
 
-  async function askQuestion(question) {
+  // A line from the command line that was meant as a task (it just ends with "?").
+  function offerTask(log, text) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ask-as-task";
+    button.textContent = "Add as a task instead";
+    button.addEventListener("click", async () => {
+      const body = new FormData();
+      body.set("text", text);
+      const response = await fetch("/command", { method: "POST", body, headers: { "HX-Request": "true" } });
+      button.disabled = true;
+      button.textContent = response.ok ? "Added as a task." : "The task could not be added.";
+      if (response.ok) htmx.trigger(document.body, "myorb:refresh");
+    });
+    log.append(button);
+  }
+
+  async function askQuestion(question, { fromCommand = false } = {}) {
     const dialog = showAsk();
     if (!dialog || dialog.dataset.busy) return;
     const log = dialog.querySelector("[data-ask-log]");
     ask.messages.push({ role: "user", content: question });
     log.append(askBubble("user", question));
+    if (fromCommand) offerTask(log, question);
     const bubble = askBubble("assistant", "", "thinking");
     bubble.innerHTML = '<span class="ask-thinking">Looking at your dashboard…</span>';
     log.append(bubble);
@@ -456,7 +474,7 @@
     event.preventDefault();
     const question = input.value.trim().replace(/^\?\s*/, "");
     form.reset();
-    askQuestion(question);
+    askQuestion(question, { fromCommand: true });
   });
 
   document.addEventListener("submit", (event) => {
