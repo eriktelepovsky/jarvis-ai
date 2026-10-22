@@ -257,8 +257,14 @@ def jira_site(apis: FakeApis, name: str, issues: list[dict[str, Any]]) -> None:
     apis.routes[(host, "/rest/api/3/myself")] = basic(*auth, {"displayName": "Tony"})
 
     def search(request: httpx2.Request) -> httpx2.Response:
+        # Pages as Jira's /search/jql does: maxResults per page, then nextPageToken.
         assert "assignee = currentUser()" in request.url.params["jql"]
-        return httpx2.Response(200, json={"issues": issues})
+        start = int(request.url.params.get("nextPageToken", 0))
+        end = start + int(request.url.params["maxResults"])
+        page = {"issues": issues[start:end], "isLast": end >= len(issues)}
+        if end < len(issues):
+            page["nextPageToken"] = str(end)
+        return httpx2.Response(200, json=page)
 
     apis.routes[(host, "/rest/api/3/search/jql")] = search
 
@@ -294,6 +300,14 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     assert workspaces and workspaces.group(1) == "2"
     assert text.index("SUP-88") < text.index("TRP-412") < text.index("TRP-409")
     assert "https://support.atlassian.net/browse/SUP-88" in text
+
+
+def test_jira_lists_every_issue(client: TestClient, apis: FakeApis):
+    jira_site(apis, "acme", [issue(f"AC-{n}", "new") for n in range(1, 151)])
+    connect_jira(client, "acme")
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">150</span>' in text
+    assert "AC-150 Summary of AC-150" in text  # all of them, read over two pages
 
 
 def test_jira_rejects_non_https_address(client: TestClient):
