@@ -186,6 +186,7 @@ class SlackPlugin(Plugin):
                 icon=ICON,
                 load=self._widget,
                 weight=0.9,
+                refresh=3 * 60,
             )
         ]
 

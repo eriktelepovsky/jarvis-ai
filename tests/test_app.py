@@ -235,3 +235,40 @@ def test_static_files_are_revalidated(make_client: MakeClient):
     response = make_client().get("/static/style.css")
     assert response.headers["cache-control"] == "no-cache"
     assert response.headers.get("etag")
+
+
+class CountingPlugin(Plugin):
+    """A widget whose data comes through the cache, counting how often it is fetched."""
+
+    id = "counting"
+    name = "Counting"
+    position = 1
+
+    def __init__(self) -> None:
+        self.fetches = 0
+
+    def widgets(self) -> list[Widget]:
+        return [Widget(id="n", label="N", title="N", icon="M0 0", load=self._widget, refresh=120)]
+
+    async def _widget(self, context: WidgetContext) -> WidgetData:
+        async def fetch() -> int:
+            self.fetches += 1
+            return self.fetches
+
+        cached = await context.cache.get("counting", fetch, 60, 3600)
+        return WidgetData(value=cached.value, updated_at=cached.fetched_at)
+
+
+def test_due_widget_is_fetched_again(make_client: MakeClient):
+    plugin = CountingPlugin()
+    client = make_client(plugins={"counting": plugin})
+    complete_setup(client)
+    text = client.get("/welcome/widget/counting/n").text
+    assert 'data-refresh="120"' in text and 'data-age="0' in text
+    client.get("/welcome/widget/counting/n")
+    assert plugin.fetches == 1  # fresh: from memory
+    # Its border filled up: the service is asked again now.
+    assert (
+        '<span class="node-value">2</span>'
+        in client.get("/welcome/widget/counting/n?due=true").text
+    )

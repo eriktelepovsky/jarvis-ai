@@ -107,7 +107,13 @@ class GmailPlugin(Plugin):
     def widgets(self) -> list[Widget]:
         return [
             Widget(
-                id="inbox", label="Unread", title="Email", icon=ICON, load=self._load, weight=1.2
+                id="inbox",
+                label="Unread",
+                title="Email",
+                icon=ICON,
+                load=self._load,
+                weight=1.2,
+                refresh=2 * 60,
             )
         ]
 

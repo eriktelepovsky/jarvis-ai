@@ -54,6 +54,8 @@ class WalletPlugin(Plugin):
 
 ### Widgets
 
+`Widget(refresh=…)` is how often, in seconds, the welcome screen fetches the widget's data again (default 5 minutes). The node's border fills up until then. Set `WidgetData.updated_at` (e.g. `Cached.fetched_at`) so the border starts from the data's real age.
+
 `load(context)` returns `WidgetData`. myOrb renders the number around the orb and the details dialog from it, so all widgets look alike and plugins write no HTML for them:
 
 | Field | Shown as |

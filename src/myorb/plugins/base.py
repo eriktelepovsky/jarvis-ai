@@ -130,6 +130,8 @@ class Widget:
     `label` names the number (e.g. "Unread"), `title` heads its details (e.g. "Email") and
     `icon` is an SVG path in a 24×24 box. The node is large when its data needs
     attention and small when it has nothing to show; `weight` adjusts that a little.
+    `refresh` is how often, in seconds, the welcome screen loads it from the service again;
+    the node's border fills up until then.
     """
 
     id: str
@@ -138,6 +140,7 @@ class Widget:
     icon: str
     load: Callable[[WidgetContext], Awaitable[WidgetData]]
     weight: float = 1.0
+    refresh: float = 5 * 60
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -151,6 +152,9 @@ async def _finish(
     for item in items:
         item["change"] = snapshots.change_label(previous.get(item["key"]))
         item["size"] = node_size(item["widget"].weight, item["data"])
+        # How old the data is, by the server's clock: the node's border shows it filling up.
+        updated = item["data"].updated_at
+        item["age"] = round(max(0.0, time.time() - updated), 1) if updated else 0
     return items
 
 
@@ -176,14 +180,23 @@ def widget_slots(request: Request) -> list[tuple[Plugin, Widget]]:
 
 
 @router.get("/welcome/widget/{plugin_id}/{widget_id}", response_class=HTMLResponse)
-async def one_widget(request: Request, plugin_id: str, widget_id: str) -> Response:
-    """One number and its details, as soon as its service answers; empty when not set up."""
+async def one_widget(
+    request: Request, plugin_id: str, widget_id: str, due: bool = False
+) -> Response:
+    """One number and its details, as soon as its service answers; empty when not set up.
+
+    `due`: its time to refresh came (the border filled up), so it is fetched again now.
+    """
     plugin = request.app.state.plugins.get(plugin_id)
     widget = plugin and next((w for w in plugin.widgets() if w.id == widget_id), None)
     if not widget:
         raise HTTPException(status_code=404, detail="Widget not found")
     context = widget_context(request)
-    data = await _load_widget(context, plugin, widget)
+    token = refreshing.set(due)
+    try:
+        data = await _load_widget(context, plugin, widget)
+    finally:
+        refreshing.reset(token)
     if not data.connected:
         return HTMLResponse("")
     [item] = await _finish(

@@ -522,12 +522,50 @@
     event.detail.elt.closest?.(".refresh-btn")?.closest("dialog")?.classList.remove("is-refreshing");
   });
 
+  // Each number refreshes at its own pace (its widget's `refresh`): the node's border fills up
+  // as its data gets older, and when it is full the number is fetched again (`due`).
+  const ringTimers = new WeakMap();
+
+  function startRing(slot, { due = false } = {}) {
+    const node = slot.querySelector(".node[data-refresh]");
+    clearTimeout(ringTimers.get(slot));
+    if (!node) return;
+    const refresh = Number(node.dataset.refresh) || 300;
+    let elapsed = Math.max(0, Number(node.dataset.age) || 0);
+    if (elapsed >= refresh) {
+      // Older than its time: after a refresh that failed (the old data stays), wait a whole
+      // round before trying again; otherwise (e.g. the page was closed a while) refresh soon.
+      elapsed = due ? 0 : Math.max(0, refresh - 3);
+    }
+    node.style.setProperty("--ring-time", `${refresh}s`);
+    node.style.setProperty("--ring-delay", `${-elapsed}s`);
+    node.classList.add("has-ring");
+    ringTimers.set(
+      slot,
+      setTimeout(() => {
+        slot.dataset.due = "true";
+        htmx.trigger(slot, "myorb:due");
+      }, (refresh - elapsed) * 1000),
+    );
+  }
+
+  // A due load asks the server to fetch the data again now, not to answer from memory.
+  document.addEventListener("htmx:configRequest", (event) => {
+    const slot = event.detail.elt;
+    if (slot.matches?.("[data-slot]") && slot.dataset.due === "true") event.detail.parameters.due = "true";
+  });
+
   // Periodic refreshes must not replace a number while its details are open...
   let reopen = null;
   document.addEventListener("htmx:beforeSwap", (event) => {
     if (!event.detail.target.matches?.("[data-slot]")) return;
-    const open = event.detail.target.querySelector("dialog[data-detail][open]");
-    if (open && open.id !== reopen) event.detail.shouldSwap = false;
+    const slot = event.detail.target;
+    const open = slot.querySelector("dialog[data-detail][open]");
+    if (open && open.id !== reopen) {
+      event.detail.shouldSwap = false;
+      delete slot.dataset.due;
+      startRing(slot, { due: true }); // the next round, with the details still showing
+    }
   });
 
   // ...but after a change made in a dialog (a task added, Refresh), the numbers reload and the
@@ -538,6 +576,10 @@
 
   document.addEventListener("htmx:afterSwap", (event) => {
     if (!event.detail.target.matches?.("[data-slot]")) return;
+    const slot = event.detail.target;
+    const due = slot.dataset.due === "true";
+    delete slot.dataset.due;
+    startRing(slot, { due });
     layoutOrb();
     if (reopen) {
       const dialog = event.detail.target.querySelector(`#${CSS.escape(reopen)}`);

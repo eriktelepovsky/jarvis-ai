@@ -52,7 +52,13 @@ class HealthPlugin(Plugin):
     def widgets(self) -> list[Widget]:
         return [
             Widget(
-                id="today", label="Sleep", title="Health", icon=ICON, load=self._widget, weight=0.85
+                id="today",
+                label="Sleep",
+                title="Health",
+                icon=ICON,
+                load=self._widget,
+                weight=0.85,
+                refresh=15 * 60,
             )
         ]
 

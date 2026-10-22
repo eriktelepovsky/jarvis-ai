@@ -246,6 +246,7 @@ class JiraPlugin(Plugin):
                 title="Jira · assigned to you",
                 icon=ICON,
                 load=self._widget,
+                refresh=3 * 60,
             )
         ]
 
