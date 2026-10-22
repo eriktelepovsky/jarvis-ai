@@ -1018,6 +1018,9 @@ button.row-btn {
 
 .modal-report {
   width: min(1180px, calc(100% - 48px));
+  /* As tall as the report needs, up to the window; it scrolls only when it does not fit. */
+  height: fit-content;
+  max-height: calc(100vh - 48px);
 }
 
 .report {
