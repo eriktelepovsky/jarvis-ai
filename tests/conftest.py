@@ -1,6 +1,7 @@
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
@@ -22,8 +23,9 @@ def make_client(tmp_path: Path) -> Iterator[MakeClient]:
     """
     clients: list[TestClient] = []
 
-    def make(**kwargs) -> TestClient:
-        app = create_app(Settings(data_dir=tmp_path / "data"), plugins={"core": CorePlugin()})
+    def make(transport: httpx2.AsyncBaseTransport | None = None, **kwargs) -> TestClient:
+        settings = Settings(data_dir=tmp_path / "data")
+        app = create_app(settings, plugins={"core": CorePlugin()}, http_transport=transport)
         client = TestClient(app, headers={"Origin": ORIGIN}, **kwargs)
         client.__enter__()
         clients.append(client)

@@ -191,3 +191,111 @@ button.link {
 .list li span {
   display: grid;
 }
+
+.wide {
+  max-width: 44rem;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  color: var(--bg);
+  text-decoration: none;
+  background: var(--accent);
+  border-radius: 0.5rem;
+}
+
+.button.secondary {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.integration-header,
+.connection-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.integration h3 {
+  margin: 0;
+}
+
+.badge {
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.connection {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.capabilities {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.capabilities li {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.capabilities li > span:last-child {
+  display: grid;
+}
+
+.status {
+  flex: none;
+  width: 7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status.ok {
+  color: #7ee2a8;
+}
+
+.status.failed {
+  color: #ff8a8a;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.steps > li {
+  margin-bottom: 1.25rem;
+}
+
+.steps h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.copy {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.copy code {
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}

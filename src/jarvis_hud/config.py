@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers are trusted:
     # comma-separated IP addresses or networks, or * to trust any client.
     trusted_proxies: str = "127.0.0.1"
+    # Key that encrypts stored credentials (OAuth tokens, API keys). When unset, a random key is
+    # generated in data_dir/secret.key on first start.
+    secret_key: str | None = None
 
     @property
     def database_url(self) -> str:

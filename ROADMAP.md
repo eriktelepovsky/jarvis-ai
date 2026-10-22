@@ -12,7 +12,7 @@ The smallest useful version for a daily morning routine.
 - [ ] Responsive layout and PWA, so the dashboard works on a phone
 - [x] Self-hosted deployment as a Docker image (VPS, NAS)
 - [x] Built-in login with password and passkeys
-- [ ] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
+- [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
 - [ ] Integrations page and setup checklist that guides the user through connecting services
 - [ ] Sample data mode with fictional data for development and demos
 - [ ] AI powered by Claude (Anthropic API)

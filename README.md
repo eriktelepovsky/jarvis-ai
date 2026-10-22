@@ -16,6 +16,8 @@ The log contains a setup link (`/setup?token=…`). Open it at http://your-serve
 
 When Jarvis runs behind a reverse proxy with HTTPS, set `JARVIS_PUBLIC_URL` (e.g. `https://jarvis.example.com`) and `JARVIS_TRUSTED_PROXIES` (the IP address or network of the proxy) in `compose.yaml` or a `.env` file next to it. Passkeys require HTTPS, except on `localhost`.
 
+Connected accounts are stored encrypted with a key that Jarvis generates in the data volume. To keep the key separate from the data, set `JARVIS_SECRET_KEY` to a long random value (e.g. `openssl rand -hex 32`) and keep it; changing or losing it means connecting all accounts again.
+
 ## Development
 
 ```sh

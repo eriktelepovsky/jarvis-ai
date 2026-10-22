@@ -34,6 +34,8 @@ src/jarvis_hud/
 ├── cli.py            # `jarvis` command: `jarvis serve`
 ├── config.py         # Settings from JARVIS_* environment variables
 ├── db.py             # SQLAlchemy base, engine and migrations
+├── crypto.py         # Encryption of stored credentials
+├── connections/      # Connected accounts: Google OAuth, integrations page
 ├── auth/             # Login: passwords, passkeys, sessions, access gate
 ├── migrations/       # Alembic database migrations
 ├── plugins/
@@ -133,7 +135,21 @@ The `Plugin` interface gains a declaration of the connection it needs, and Jarvi
 - **Multiple connections per plugin:** e.g. several Jira workspaces or two Gmail accounts.
 - **Shared connections:** one Google connection is used by the Gmail, Calendar and YouTube plugins. Each requests additional OAuth scopes only when it needs them (incremental authorization).
 
-Credentials are stored encrypted in the database (see below).
+### Stored credentials
+
+OAuth client secrets and tokens are stored in the database encrypted with Fernet (AES with an HMAC, from the `cryptography` package) and are never sent to the browser. The key comes from `JARVIS_SECRET_KEY`; when it is unset, Jarvis generates a random key in `secret.key` in the data directory (readable only by its owner) on first start.
+
+The generated key protects copies of the database on their own, e.g. in a backup. Anyone with the whole data directory also has the key; setting `JARVIS_SECRET_KEY` from a secret store keeps the two apart. Losing the key means connecting all accounts again.
+
+### Google implementation
+
+The first connection, Google, lives in `src/jarvis_hud/connections/`; the generic Connection API above will be extracted from it when the second provider arrives.
+
+- The setup wizard (`/integrations/google/setup`) walks through creating the Google Cloud project, enabling the Gmail and Calendar APIs, publishing the app (apps in *Testing* lose access every 7 days) and creating the OAuth client. It shows the exact redirect URI to copy.
+- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `calendar.readonly`) with offline access.
+- After connecting and on **Test connection**, Jarvis refreshes the access token and makes a cheap read request per capability. The result tells apart a revoked connection, a permission that was not granted and an API that is not enabled in the Google project (with a link to enable it).
+- Disconnecting revokes the token at Google and deletes it.
+- Tests run the whole flow against a fake Google that verifies the PKCE challenge, client credentials and redirect URI.
 
 ## Data refresh and caching
 
@@ -185,5 +201,5 @@ Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, bu
 
 ## Planned for the MVP
 
-- **Configuration and secrets:** settings come from `JARVIS_*` environment variables (or a `.env` file). OAuth tokens and API keys entered in the UI are stored in the database, encrypted with a key from the environment.
+- **Configuration:** settings come from `JARVIS_*` environment variables (or a `.env` file).
 - **Background refresh:** see [Data refresh and caching](#data-refresh-and-caching).

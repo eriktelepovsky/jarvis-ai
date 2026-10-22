@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Set up Google · Jarvis{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', path='copy.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<section class="panel narrow wide">
+  <h2>Set up Google</h2>
+  <p>Jarvis runs on your own server, so it uses your own Google Cloud project instead of a shared one. Your data goes only between Google and your Jarvis. The project is free for personal use.</p>
+
+  <ol class="steps">
+    <li>
+      <h3>Create a project</h3>
+      <p>Open <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud Console → New project</a>, name it e.g. <code>Jarvis</code> and create it. Make sure the new project is selected at the top of the console in the next steps.</p>
+    </li>
+    <li>
+      <h3>Enable the APIs</h3>
+      <p>Open each link and click <strong>Enable</strong>:</p>
+      <ul>
+        <li><a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">Gmail API</a></li>
+        <li><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener">Google Calendar API</a></li>
+      </ul>
+    </li>
+    <li>
+      <h3>Configure the consent screen</h3>
+      <p>Open <a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener">Google Auth Platform</a> and click <strong>Get started</strong>. Enter the app name <code>Jarvis</code> and your email. For <strong>Audience</strong>, choose <strong>External</strong> (or <strong>Internal</strong> if you use Google Workspace and only connect accounts from your organization).</p>
+    </li>
+    <li>
+      <h3>Publish the app</h3>
+      <p>For an <strong>External</strong> app, go to <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Audience</a> and click <strong>Publish app</strong>. While an app is in <em>Testing</em>, Google signs it out every 7 days. Publishing does not make anything public and does not require Google's review for your own use.</p>
+    </li>
+    <li>
+      <h3>Create an OAuth client</h3>
+      <p>Go to <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clients</a> → <strong>Create client</strong>. Choose <strong>Web application</strong>, name it <code>Jarvis</code> and add this <strong>Authorized redirect URI</strong>:</p>
+      <div class="copy">
+        <code id="redirect-uri">{{ redirect_uri }}</code>
+        <button type="button" class="secondary" data-copy="#redirect-uri">Copy</button>
+      </div>
+      {% if not (redirect_uri.startswith("https://") or "://localhost" in redirect_uri or "://127.0.0.1" in redirect_uri) %}
+      <p class="error">Google accepts redirect URIs only over HTTPS or on <code>localhost</code>. {% if ".localhost" in redirect_uri %}If Google rejects this address, open Jarvis at <code>http://localhost</code> and start this setup again.{% else %}Run Jarvis behind HTTPS and set <code>JARVIS_PUBLIC_URL</code>.{% endif %}</p>
+      {% endif %}
+      <p>Click <strong>Create</strong> and copy the client ID and client secret right away; Google shows the secret only once.</p>
+    </li>
+    <li>
+      <h3>Paste the client into Jarvis</h3>
+      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+      <form method="post" action="/integrations/google/setup" class="form">
+        <label>Client ID
+          <input type="text" name="client_id" value="{{ client_id or (client.client_id if client else '') }}" placeholder="…apps.googleusercontent.com" autocomplete="off" required>
+        </label>
+        <label>Client secret
+          <input type="password" name="client_secret" autocomplete="off" {% if not client %}required{% endif %} placeholder="{{ 'Saved; leave empty to keep it' if client else '' }}">
+        </label>
+        <button type="submit">Save</button>
+      </form>
+    </li>
+    <li>
+      <h3>Connect your account</h3>
+      <p>After saving, connect your Google account on the Integrations page. Google will warn that it <em>hasn't verified this app</em>: it is your own app, so click <strong>Advanced</strong> → <strong>Go to Jarvis</strong> and allow access.</p>
+    </li>
+  </ol>
+</section>
+{% endblock %}

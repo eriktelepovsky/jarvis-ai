@@ -573,6 +573,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
     { name = "alembic" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "granian", extra = ["reload", "uvloop"] },
     { name = "httpx2" },
@@ -593,6 +594,7 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "alembic", specifier = ">=1.20.0" },
+    { name = "cryptography", specifier = ">=50.0.2" },
     { name = "fastapi", specifier = ">=0.156.8" },
     { name = "granian", extras = ["reload", "uvloop"], specifier = ">=2.8.5" },
     { name = "httpx2", specifier = ">=2.16.0" },
