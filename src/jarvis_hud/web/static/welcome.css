@@ -159,6 +159,7 @@ body:has(#welcome) {
 }
 
 .clock {
+  position: relative;
   text-align: right;
 }
 
@@ -179,8 +180,12 @@ body:has(#welcome) {
   color: var(--neutral);
 }
 
-.clock-extra:not(:empty) {
-  margin-top: 12px;
+/* Out of the flow, so the header (and with it the greeting and the orb) keeps its height. */
+.clock-extra {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  white-space: nowrap;
 }
 
 /* A chip, so the next event does not read as part of the date. The line box is trimmed to
@@ -364,6 +369,12 @@ a.ti:hover .t1 {
   .header-controls {
     flex-wrap: wrap;
     margin-left: 0;
+  }
+
+  /* On a phone the header stacks anyway; keep the chip in the flow so it cannot overlap. */
+  .clock-extra {
+    position: static;
+    margin-top: 8px;
   }
 
   .welcome-main {
