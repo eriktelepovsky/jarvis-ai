@@ -38,6 +38,7 @@ class FakeClaude:
         self.reply: dict[str, Any] = BRIEF
         self.stop_reason = "end_turn"
         self.status = 200
+        self.models = {"claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"}
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         key = request.headers.get("x-api-key") or request.headers.get(
@@ -47,11 +48,16 @@ class FakeClaude:
             return httpx2.Response(
                 401, json={"type": "error", "error": {"type": "authentication_error"}}
             )
-        if request.url.path == "/v1/models/claude-opus-5-5":
+        if request.url.path.startswith("/v1/models/"):
+            model = request.url.path.removeprefix("/v1/models/")
+            if model not in self.models:
+                return httpx2.Response(
+                    404, json={"type": "error", "error": {"type": "not_found_error"}}
+                )
             return httpx2.Response(
                 200,
                 json={
-                    "id": "claude-opus-5-5",
+                    "id": model,
                     "type": "model",
                     "display_name": "Claude Opus 5.5",
                     "created_at": "2026-01-01T00:00:00Z",
@@ -71,7 +77,7 @@ class FakeClaude:
                     "id": "msg_1",
                     "type": "message",
                     "role": "assistant",
-                    "model": "claude-opus-5-5",
+                    "model": self.requests[-1]["model"],
                     "content": [{"type": "text", "text": text}] if text else [],
                     "stop_reason": self.stop_reason,
                     "stop_sequence": None,
@@ -133,7 +139,11 @@ def test_connect_claude_validates_and_encrypts_the_key(client: TestClient):
 
 @pytest.mark.parametrize(
     ("fields", "error"),
-    [({"brief_time": "25:00"}, "HH:MM"), ({"language": "xx"}, "Choose a language")],
+    [
+        ({"brief_time": "25:00"}, "HH:MM"),
+        ({"language": "xx"}, "Choose a language"),
+        ({"model": "gpt-5"}, "Choose a model"),
+    ],
 )
 def test_invalid_settings(client: TestClient, fields: dict[str, str], error: str):
     response = connect(client, **fields)
@@ -168,7 +178,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert response.headers["HX-Trigger"] == "jarvis:brief"
 
     [request] = claude.requests
-    assert request["model"] == "claude-opus-5-5"
+    assert request["model"] == "claude-sonnet-5-5"
     assert request["fallbacks"] == "default"
     assert "server-side-fallback-2026-07-01" in claude.headers[0]["anthropic-beta"]
     assert request["output_config"]["format"]["type"] == "json_schema"
@@ -190,6 +200,35 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert "A quiet day." in report and "Water the plants." in report
     assert "Water plants" in report
     assert 'data-lang="en-GB"' in report
+    assert "Claude Sonnet 5.5" in report
+
+
+@pytest.mark.parametrize(
+    ("model", "effort", "fallback"),
+    [("claude-opus-5-5", "medium", True), ("claude-haiku-5-5", "low", False)],
+)
+def test_chosen_model_is_used(
+    client: TestClient, claude: FakeClaude, model: str, effort: str, fallback: bool
+):
+    connect(client, model=model)
+    client.post("/brief/generate")
+    [request] = claude.requests
+    assert request["model"] == model
+    assert request["output_config"]["effort"] == effort
+    # Haiku has no server-side refusal fallback, so the request must not ask for one.
+    assert ("fallbacks" in request) is fallback
+    assert ("server-side-fallback" in claude.headers[0].get("anthropic-beta", "")) is fallback
+    name = "Claude Opus 5.5" if fallback else "Claude Haiku 5.5"
+    assert f"with {name}." in client.get("/integrations").text
+
+
+def test_model_change_is_checked(client: TestClient, claude: FakeClaude):
+    connect(client)
+    claude.models.discard("claude-opus-5-5")
+    response = connect(client, api_key="", model="claude-opus-5-5")
+    assert response.status_code == 400
+    assert "HTTP 404" in response.text
+    assert connect(client, model="gpt").status_code == 400
 
 
 @pytest.mark.parametrize(

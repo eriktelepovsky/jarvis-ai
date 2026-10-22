@@ -9,7 +9,29 @@ import anthropic
 
 from jarvis_hud.plugins import BriefSection
 
-MODEL = "claude-opus-5-5"
+
+@dataclass(frozen=True)
+class Model:
+    name: str
+    note: str
+    effort: str
+    # Whether the API retries a safety decline on another model (not available for Haiku).
+    fallback: bool
+
+
+MODELS = {
+    "claude-sonnet-5-5": Model("Claude Sonnet 5.5", "balanced (recommended)", "medium", True),
+    "claude-opus-5-5": Model("Claude Opus 5.5", "most capable", "medium", True),
+    "claude-haiku-5-5": Model("Claude Haiku 5.5", "cheapest", "low", False),
+}
+DEFAULT_MODEL = "claude-sonnet-5-5"
+
+
+def model_name(model: str) -> str:
+    """A readable name; a fallback model that wrote the brief may not be in MODELS."""
+    return MODELS[model].name if model in MODELS else model
+
+
 TONES = ["fail", "warn", "info", "ok", "neutral"]
 MAX_PRIORITIES = 5
 LANGUAGES = {"en": "English", "sk": "Slovak"}
@@ -91,16 +113,28 @@ def _clean(data: dict[str, Any]) -> dict[str, Any]:
 
 
 async def write_brief(
-    client: anthropic.AsyncAnthropic, sections: list[BriefSection], now: datetime, language: str
+    client: anthropic.AsyncAnthropic,
+    sections: list[BriefSection],
+    now: datetime,
+    language: str,
+    model: str = DEFAULT_MODEL,
 ) -> Written:
+    settings = MODELS.get(model, MODELS[DEFAULT_MODEL])
+    # On a safety decline the API retries on the model Anthropic recommends.
+    fallback: dict[str, Any] = (
+        {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+        if settings.fallback
+        else {}
+    )
     try:
         response = await client.beta.messages.create(
-            model=MODEL,
+            model=model if model in MODELS else DEFAULT_MODEL,
             max_tokens=16000,
-            # On a safety decline the API retries on the model Anthropic recommends.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": SCHEMA}},
+            **fallback,
+            output_config={
+                "effort": settings.effort,
+                "format": {"type": "json_schema", "schema": SCHEMA},
+            },
             system=SYSTEM,
             messages=[{"role": "user", "content": facts_prompt(sections, now, language)}],
         )

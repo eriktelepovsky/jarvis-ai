@@ -13,7 +13,7 @@
   <div class="panel-header"><h2 class="label" id="claude-title">Daily brief</h2></div>
   <div class="panel-section">
     <p style="margin: 0">Jarvis asks Claude, Anthropic's AI, to write your daily brief from today's calendar, the subjects and senders of your latest unread emails, and your to-do list. That information is sent to Anthropic's API with your own API key each time a brief is written: once a day at the time below, and when you ask for a new one.</p>
-    <p class="muted" style="margin: 0">Create an API key in the <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic Console</a>. Jarvis uses Claude Opus 5.5; a brief costs a few cents.</p>
+    <p class="muted" style="margin: 0">Create an API key in the <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic Console</a>. A brief costs about 1–3 cents with Sonnet, a few cents with Opus and well under a cent with Haiku.</p>
   </div>
   <form method="post" action="/integrations/claude" class="panel-section form">
     <div class="field">
@@ -25,6 +25,13 @@
       <select class="input" id="language" name="language">
         {% set current = language or (settings.language if settings else "en") %}
         {% for code, name in languages.items() %}<option value="{{ code }}" {% if code == current %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="model">Model</label>
+      <select class="input" id="model" name="model">
+        {% set current_model = model or (settings.model if settings else default_model) %}
+        {% for id, option in models.items() %}<option value="{{ id }}" {% if id == current_model %}selected{% endif %}>{{ option.name }} · {{ option.note }}</option>{% endfor %}
       </select>
     </div>
     <div class="field">

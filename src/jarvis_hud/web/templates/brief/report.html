@@ -4,7 +4,7 @@
   <div style="min-width: 0; flex: 1">
     <span class="label" style="color: var(--info)">{{ kicker or "Daily brief" }}</span>
     <h2 id="report-title" class="report-title">{% if brief %}{{ brief.created_at | localtime("%A, %-d %B") }}{% else %}Daily brief{% endif %}</h2>
-    {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · Claude</span>{% endif %}
+    {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · {{ model_name(brief.model) }}</span>{% endif %}
   </div>
   {% if brief %}
   <button type="button" class="btn" data-read-aloud data-lang="{{ 'sk-SK' if brief.language == 'sk' else 'en-GB' }}" aria-pressed="false">▶ Read aloud</button>

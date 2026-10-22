@@ -5,7 +5,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from jarvis_hud.brief.service import DEFAULT_TIME, KICKERS, BriefService, ClaudeSettings
-from jarvis_hud.brief.writer import LANGUAGES, BriefError
+from jarvis_hud.brief.writer import DEFAULT_MODEL, LANGUAGES, MODELS, BriefError
 
 router = APIRouter()
 
@@ -26,11 +26,18 @@ def _render(request: Request, template: str, context: dict, status_code: int = 2
 @router.get("/integrations/claude", response_class=HTMLResponse)
 async def claude_page(request: Request) -> Response:
     settings = await _service(request).settings()
-    return _render(
-        request,
-        "brief/settings.html",
-        {"settings": settings, "languages": LANGUAGES, "default_time": DEFAULT_TIME},
-    )
+    return _render(request, "brief/settings.html", _form_context(settings))
+
+
+def _form_context(settings: ClaudeSettings | None, **values: str) -> dict:
+    return {
+        "settings": settings,
+        "languages": LANGUAGES,
+        "models": MODELS,
+        "default_time": DEFAULT_TIME,
+        "default_model": DEFAULT_MODEL,
+        **values,
+    }
 
 
 @router.post("/integrations/claude")
@@ -39,6 +46,7 @@ async def save_claude(
     api_key: Annotated[str, Form()] = "",
     language: Annotated[str, Form()] = "en",
     brief_time: Annotated[str, Form()] = DEFAULT_TIME,
+    model: Annotated[str, Form()] = DEFAULT_MODEL,
 ) -> Response:
     service = _service(request)
     existing = await service.settings()
@@ -50,19 +58,16 @@ async def save_claude(
         error = "Choose a language."
     elif not TIME.match(brief_time):
         error = "Enter the time as HH:MM."
-    elif not existing or api_key != existing.api_key:
-        error = await service.check_key(api_key)
+    elif model not in MODELS:
+        error = "Choose a model."
+    elif not existing or api_key != existing.api_key or model != existing.model:
+        error = await service.check_key(api_key, model)
     if error:
-        context = {
-            "settings": existing,
-            "languages": LANGUAGES,
-            "default_time": DEFAULT_TIME,
-            "error": error,
-            "language": language,
-            "brief_time": brief_time,
-        }
+        context = _form_context(
+            existing, error=error, language=language, brief_time=brief_time, model=model
+        )
         return _render(request, "brief/settings.html", context, status_code=400)
-    await service.save_settings(ClaudeSettings(api_key, language, brief_time))
+    await service.save_settings(ClaudeSettings(api_key, language, brief_time, model))
     return RedirectResponse("/integrations?status=claude-saved", status_code=303)
 
 

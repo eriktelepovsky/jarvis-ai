@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from jarvis_hud.brief.models import Brief
-from jarvis_hud.brief.writer import BriefError, write_brief
+from jarvis_hud.brief.writer import DEFAULT_MODEL, BriefError, write_brief
 from jarvis_hud.connections import store
 from jarvis_hud.crypto import SecretBox
 from jarvis_hud.plugins import BriefSection, Plugin, WidgetContext
@@ -39,6 +39,7 @@ class ClaudeSettings:
     api_key: str
     language: str = "en"
     brief_time: str = DEFAULT_TIME
+    model: str = DEFAULT_MODEL
 
     @property
     def brief_clock(self) -> clock:
@@ -94,14 +95,14 @@ class BriefService:
             await store.delete_provider_settings(db, PROVIDER)
         self.error = None
 
-    async def check_key(self, api_key: str) -> str | None:
+    async def check_key(self, api_key: str, model: str = DEFAULT_MODEL) -> str | None:
         """Return why the API key does not work, or None if it does. Costs no tokens."""
         try:
-            await self.client(api_key).models.retrieve("claude-opus-5-5")
+            await self.client(api_key).models.retrieve(model)
         except anthropic.AuthenticationError:
             return "Claude rejected this API key."
         except anthropic.PermissionDeniedError:
-            return "This API key has no access to Claude Opus 5.5."
+            return "This API key has no access to the chosen model."
         except anthropic.APIStatusError as error:
             return f"Claude returned an error (HTTP {error.status_code})."
         except anthropic.APIConnectionError:
@@ -135,7 +136,11 @@ class BriefService:
             sections = await self._sections(context)
             try:
                 written = await write_brief(
-                    self.client(settings.api_key), sections, context.now, settings.language
+                    self.client(settings.api_key),
+                    sections,
+                    context.now,
+                    settings.language,
+                    settings.model,
                 )
             except BriefError as error:
                 self.error = str(error)
