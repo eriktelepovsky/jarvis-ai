@@ -10,7 +10,7 @@ The smallest useful version for a daily morning routine.
 
 - [ ] Web dashboard
 - [ ] Responsive layout and PWA, so the dashboard works on a phone
-- [ ] Self-hosted deployment as a Docker image (VPS, NAS)
+- [x] Self-hosted deployment as a Docker image (VPS, NAS)
 - [x] Built-in login with password and passkeys
 - [ ] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
 - [ ] Integrations page and setup checklist that guides the user through connecting services

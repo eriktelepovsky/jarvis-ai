@@ -11,6 +11,13 @@ from jarvis_hud.plugins import Plugin, Widget, discover_plugins
 from jarvis_hud.plugins.core import CorePlugin, greeting
 
 
+def test_health_check_needs_no_login(client: TestClient):
+    client.cookies.clear()
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.text == "ok"
+
+
 def test_core_plugin_is_discovered_via_entry_point():
     assert isinstance(discover_plugins()["core"], CorePlugin)
 

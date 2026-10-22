@@ -84,6 +84,7 @@ def access(**overrides: Any) -> AccessRequest:
     ("request_", "decision"),
     [
         (access(path="/static/style.css", password_set=False), Decision.ALLOW),
+        (access(path="/healthz", password_set=False), Decision.ALLOW),
         (access(password_set=False), Decision.SETUP),
         (access(path="/setup", password_set=False), Decision.ALLOW),
         (access(path="/setup", method="POST", password_set=False), Decision.REJECT_ORIGIN),

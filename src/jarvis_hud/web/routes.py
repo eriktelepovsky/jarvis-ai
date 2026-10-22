@@ -1,7 +1,12 @@
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
 router = APIRouter()
+
+
+@router.get("/healthz", response_class=PlainTextResponse)
+async def health() -> str:
+    return "ok"
 
 
 @router.get("/", response_class=HTMLResponse)

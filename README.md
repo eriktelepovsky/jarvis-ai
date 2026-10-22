@@ -4,6 +4,18 @@ Jarvis is your personal AI-powered daily briefing dashboard. It connects to emai
 
 > 🚧 Work in progress.
 
+## Run with Docker
+
+```sh
+curl -O https://raw.githubusercontent.com/eriktelepovsky/jarvis-hud/main/compose.yaml
+docker compose up -d
+docker logs jarvis
+```
+
+The log contains a setup link (`/setup?token=…`). Open it at http://your-server:8000 and choose a password. Data is stored in the `jarvis-data` volume.
+
+When Jarvis runs behind a reverse proxy with HTTPS, set `JARVIS_PUBLIC_URL` (e.g. `https://jarvis.example.com`) and `FORWARDED_ALLOW_IPS` (the IP address of the proxy) in `compose.yaml` or a `.env` file next to it. Passkeys require HTTPS, except on `localhost`.
+
 ## Development
 
 ```sh

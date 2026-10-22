@@ -171,8 +171,18 @@ Jarvis has a single user who signs in with a password or a passkey (WebAuthn). T
 
 Migrations run automatically at startup. During development, new migrations are created with `uv run alembic revision --autogenerate -m "…"`.
 
+## Deployment
+
+Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, built for `linux/amd64` and `linux/arm64` and published on every GitHub release (`latest`, `X.Y.Z` and `X.Y` tags). `compose.yaml` in the repository is a ready-to-use example.
+
+- **Image:** a multi-stage build with `uv`. The final stage contains only Python and the virtual environment, runs as the non-root user `jarvis` (UID 1000) and stores the database in the `/data` volume.
+- **Health check:** `GET /healthz` returns `ok` without signing in. The image's `HEALTHCHECK` uses it, and so can uptime monitors.
+- **First run:** requests reach the container from the Docker network, not from the loopback address, so setup always needs the token from `docker logs jarvis`.
+- **Reverse proxy:** set `JARVIS_PUBLIC_URL` to the public HTTPS address. It is used for the CSRF origin check, passkeys and `Secure` cookies, so Jarvis does not have to trust the `Host` and `X-Forwarded-Proto` headers. Set `FORWARDED_ALLOW_IPS` to the proxy's address so that Jarvis sees real client IPs; otherwise all clients share the proxy's IP and the sign-in throttle applies to all of them together.
+- **CI:** every pull request builds the image and checks that the container becomes healthy and redirects to setup.
+- **Plugins:** installing custom plugins with `JARVIS_PLUGINS` comes with the plugin system (phase 1).
+
 ## Planned for the MVP
 
 - **Configuration and secrets:** settings come from `JARVIS_*` environment variables (or a `.env` file). OAuth tokens and API keys entered in the UI are stored in the database, encrypted with a key from the environment.
 - **Background refresh:** see [Data refresh and caching](#data-refresh-and-caching).
-- **Docker:** a multi-stage image built with `uv`, running as a non-root user, with `/data` as the volume for the database.
