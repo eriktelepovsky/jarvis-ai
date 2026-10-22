@@ -861,6 +861,8 @@ a.ti:hover .t1 {
   /* One column on a phone: the summary scrolls away rather than covering the list. */
   .modal-summary {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -869,6 +871,9 @@ a.ti:hover .t1 {
   position: sticky;
   top: 0;
   align-self: start;
+  /* No taller than the dialog's body, so a long list of repositories scrolls on its own. */
+  max-height: calc(min(680px, 100vh - 48px) - 190px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -908,6 +913,49 @@ button.modal-stat[aria-pressed="true"] {
 
 .modal-row[hidden] {
   display: none;
+}
+
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-list > .label {
+  margin-bottom: 6px;
+}
+
+.group-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.group-item:hover {
+  background: rgb(255 255 255 / 3%);
+}
+
+.group-item[aria-pressed="true"] {
+  background: rgb(79 209 232 / 8%);
+  border-color: var(--line-accent);
+}
+
+.group-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .list-head {

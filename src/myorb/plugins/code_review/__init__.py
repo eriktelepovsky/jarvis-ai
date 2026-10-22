@@ -133,6 +133,7 @@ class CodeReviewPlugin(Plugin):
                 tone=step.tone,
                 url=pr.url,
                 tags=("mine" if yours else "review", step.tag),
+                group=pr.repo,
             )
             for pr, yours, step in entries
         ]
@@ -155,6 +156,7 @@ class CodeReviewPlugin(Plugin):
                 Stat(len(ready), "Ready to merge", filter="ready"),
             ],
             list_title="Waiting for your review, then yours",
+            group_label="repositories",
             rows=rows,
             **status,
         )

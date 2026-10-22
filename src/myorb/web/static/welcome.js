@@ -206,26 +206,46 @@
   }
 
   // A number in the details filters the list next to it; clicking it again shows everything.
+  // ...and the list can be narrowed to one group (a Jira workspace, a repository); both apply.
+  function applyFilters(dialog) {
+    const pressed = dialog.querySelector('[data-filter][aria-pressed="true"]');
+    const group = dialog.querySelector('[data-group-value][aria-pressed="true"]')?.dataset.groupValue || "";
+    dialog.querySelectorAll(".modal-row").forEach((row) => {
+      const tagged = !pressed || row.dataset.tags.split(" ").includes(pressed.dataset.filter);
+      row.hidden = !tagged || (group && row.dataset.group !== group);
+    });
+    const head = dialog.querySelector("[data-list-title]");
+    if (head) {
+      const label = pressed?.querySelector(".label").textContent;
+      head.textContent = label ? `${label} · click again to show all` : head.dataset.listTitle;
+    }
+  }
+
   function filterRows(button) {
     const dialog = button.closest("dialog");
     const active = button.getAttribute("aria-pressed") !== "true";
     dialog.querySelectorAll("[data-filter]").forEach((other) => other.setAttribute("aria-pressed", "false"));
     button.setAttribute("aria-pressed", String(active));
-    const tag = button.dataset.filter;
-    dialog.querySelectorAll(".modal-row").forEach((row) => {
-      row.hidden = active && !row.dataset.tags.split(" ").includes(tag);
-    });
-    const head = dialog.querySelector("[data-list-title]");
-    if (head) {
-      const label = button.querySelector(".label").textContent;
-      head.textContent = active ? `${label} · click again to show all` : head.dataset.listTitle;
-    }
+    applyFilters(dialog);
+  }
+
+  function filterGroup(button) {
+    const dialog = button.closest("dialog");
+    dialog.querySelectorAll("[data-group-value]").forEach((other) => other.setAttribute("aria-pressed", "false"));
+    button.setAttribute("aria-pressed", "true");
+    applyFilters(dialog);
   }
 
   document.addEventListener("click", (event) => {
     const filter = event.target.closest("dialog [data-filter]");
     if (filter) {
       filterRows(filter);
+      sound("click");
+      return;
+    }
+    const group = event.target.closest("dialog [data-group-value]");
+    if (group) {
+      filterGroup(group);
       sound("click");
       return;
     }

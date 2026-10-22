@@ -202,7 +202,15 @@ class JiraPlugin(Plugin):
                 if applies
             )
             rows.append(
-                Row(f"{issue.key} {issue.summary}", subtitle, badge, tone, issue.url, tags=tags)
+                Row(
+                    f"{issue.key} {issue.summary}",
+                    subtitle,
+                    badge,
+                    tone,
+                    issue.url,
+                    tags=tags,
+                    group=issue.workspace,
+                )
             )
         return WidgetData(
             value=len(issues),
@@ -214,6 +222,7 @@ class JiraPlugin(Plugin):
                 Stat(len(loaded), "Workspaces"),
             ],
             list_title="Assigned to you",
+            group_label="workspaces",
             rows=rows,
             **open_buttons(
                 "Open Jira",

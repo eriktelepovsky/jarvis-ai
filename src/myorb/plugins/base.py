@@ -77,6 +77,8 @@ class Row:
     url_label: str = "Open"
     # What the row is, for the numbers that filter the list (Stat.filter), e.g. ("review",).
     tags: tuple[str, ...] = ()
+    # Where it belongs, e.g. a Jira workspace or a repository; see WidgetData.group_label.
+    group: str = ""
 
 
 @dataclass(frozen=True)
@@ -105,6 +107,9 @@ class WidgetData:
     # Names the number around the orb instead of the widget's label, when what it shows
     # varies, e.g. sleep or, without sleep data, kilometres run this week.
     label: str | None = None
+    # Names the rows' groups (Row.group) in the plural, e.g. "workspaces": with more than one
+    # group, the list can be narrowed to one of them ("All workspaces", "archivis (64)", …).
+    group_label: str | None = None
     # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".
     links: list[Link] = field(default_factory=list)
     connected: bool = True

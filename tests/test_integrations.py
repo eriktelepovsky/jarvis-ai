@@ -293,6 +293,10 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     assert "dev" in connect_jira(client, "dev").text
     assert "support" in connect_jira(client, "support").text
     assert [c.account for c in connections(client)] == ["dev", "support"]
+    text = client.get("/welcome/widgets").text
+    assert '<span class="trunc">All workspaces</span><span class="group-count">3</span>' in text
+    assert 'data-group-value="dev"' in text and '<span class="group-count">2</span>' in text
+    assert 'data-group="support"' in text
 
     text = client.get("/welcome/widgets").text
     assert "assigned to you · 1 overdue" in text

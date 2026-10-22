@@ -43,6 +43,17 @@
         {% endfor %}
       </div>
       {% endif %}
+      {% set groups = data.rows | map(attribute="group") | select | list %}
+      {% if data.group_label and groups | unique | list | length > 1 %}
+      {# One button per workspace or repository: narrows the list next to it. #}
+      <div class="group-list" role="group" aria-label="Filter by {{ data.group_label }}">
+        <span class="label">{{ data.group_label }}</span>
+        <button type="button" class="group-item" data-group-value="" aria-pressed="true"><span class="trunc">All {{ data.group_label }}</span><span class="group-count">{{ data.rows | length }}</span></button>
+        {% for name in groups | unique | sort %}
+        <button type="button" class="group-item" data-group-value="{{ name }}" aria-pressed="false"><span class="trunc">{{ name }}</span><span class="group-count">{{ groups | select("equalto", name) | list | length }}</span></button>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if data.message %}
       {% set tag = {"fail": "✕ ERROR", "warn": "▲ STALE"}.get(data.message_tone, "○ NOTE") %}
       <div class="alert {{ {'fail': 'alert-error', 'warn': 'alert-warn'}.get(data.message_tone, 'alert-info') }}" role="status">
@@ -61,7 +72,7 @@
       {% endif %}
       {% if data.list_title %}<div class="label list-head" data-list-title="{{ data.list_title }}">{{ data.list_title }}</div>{% endif %}
       {% for row in data.rows %}
-      <div class="modal-row" data-tags="{{ row.tags | join(' ') }}">
+      <div class="modal-row" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}">
         <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>
         {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
         <span class="row-actions">

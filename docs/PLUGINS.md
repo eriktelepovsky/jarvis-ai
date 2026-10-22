@@ -63,6 +63,7 @@ class WalletPlugin(Plugin):
 | `attention` | Amber node and tile: something needs the user. Such a node is drawn large, one with `0` or no value small; the widget's `weight` only adjusts the size a little. |
 | `stats` | Up to three `Stat(value, label)` boxes. With `filter="review"`, clicking the box shows only the rows with that tag in `Row(tags=("review",))`. |
 | `list_title`, `rows` | A list of `Row(title, subtitle, badge, tone, url, actions)`. `tone` is `ok`, `warn`, `fail`, `info` or `neutral`. `actions` are buttons that POST to a URL. |
+| `group_label` | With `Row(group=…)`, e.g. `"workspaces"`: when the rows belong to more than one group, a menu above the list shows one of them. |
 | `action` | The main button, a `Link(label, url)`. |
 | `links` | More buttons, e.g. one per connected account. `open_buttons("Open Jira", [(name, url), …])` gives one `action` for one account and a button per account for several. |
 | `input` | A one-line form (e.g. "Add a task") that POSTs a `text` field. |
