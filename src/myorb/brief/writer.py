@@ -137,6 +137,22 @@ def api_error(error: anthropic.APIStatusError) -> str:
     return f"{message}: {detail}" if detail else f"{message}."
 
 
+def model_options(model: str) -> dict[str, Any]:
+    """The request's model and, on a safety decline, the API's retry on the model Anthropic
+    recommends (not available for Haiku). For client.beta.messages.*; effort is separate."""
+    settings = MODELS.get(model, MODELS[DEFAULT_MODEL])
+    fallback: dict[str, Any] = (
+        {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+        if settings.fallback
+        else {}
+    )
+    return {"model": model if model in MODELS else DEFAULT_MODEL, **fallback}
+
+
+def model_effort(model: str) -> str:
+    return MODELS.get(model, MODELS[DEFAULT_MODEL]).effort
+
+
 async def write_brief(
     client: anthropic.AsyncAnthropic,
     sections: list[BriefSection],
@@ -145,20 +161,12 @@ async def write_brief(
     model: str = DEFAULT_MODEL,
     assistant: str = "Orb",
 ) -> Written:
-    settings = MODELS.get(model, MODELS[DEFAULT_MODEL])
-    # On a safety decline the API retries on the model Anthropic recommends.
-    fallback: dict[str, Any] = (
-        {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
-        if settings.fallback
-        else {}
-    )
     try:
         response = await client.beta.messages.create(
-            model=model if model in MODELS else DEFAULT_MODEL,
+            **model_options(model),
             max_tokens=16000,
-            **fallback,
             output_config={
-                "effort": settings.effort,
+                "effort": model_effort(model),
                 "format": {"type": "json_schema", "schema": SCHEMA},
             },
             # The name the user gave the assistant; replace, as the prompt has no other fields.

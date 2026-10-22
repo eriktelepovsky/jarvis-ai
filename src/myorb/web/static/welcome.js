@@ -333,6 +333,151 @@
     input.focus();
   });
 
+  // Ask: a question in the command line (ending or starting with "?") opens the Ask dialog,
+  // where Claude answers from the dashboard as it writes. The conversation is kept for the tab.
+  const ASK_KEY = "myorb.ask";
+  let ask = { conversation: null, messages: [] };
+  try {
+    ask = JSON.parse(sessionStorage.getItem(ASK_KEY)) || ask;
+  } catch {
+    // Storage unavailable: a new conversation.
+  }
+  const saveAsk = () => {
+    try {
+      sessionStorage.setItem(ASK_KEY, JSON.stringify(ask));
+    } catch {
+      // Storage unavailable: kept until the page reloads.
+    }
+  };
+  const isQuestion = (text) => /^\?|\?\s*$/.test(text.trim());
+
+  const escapeHtml = (text) =>
+    text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+  // Plain text with "- " lists and **bold**, as the prompt asks; everything else is escaped.
+  function renderAnswer(text) {
+    return text
+      .split(/\n{2,}/)
+      .map((block) => {
+        const lines = block.split("\n").filter((line) => line.trim());
+        const inline = (line) => escapeHtml(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        if (lines.length && lines.every((line) => /^\s*[-•]\s/.test(line))) {
+          return `<ul>${lines.map((line) => `<li>${inline(line.replace(/^\s*[-•]\s/, ""))}</li>`).join("")}</ul>`;
+        }
+        return `<p>${lines.map(inline).join("<br>")}</p>`;
+      })
+      .join("");
+  }
+
+  function askBubble(role, text, state = "") {
+    const bubble = document.createElement("div");
+    bubble.className = `ask-message ask-${role}${state ? ` is-${state}` : ""}`;
+    if (role === "user") bubble.textContent = text;
+    else bubble.innerHTML = text ? renderAnswer(text) : "";
+    return bubble;
+  }
+
+  function showAsk() {
+    const dialog = document.getElementById("ask");
+    if (!dialog) return null;
+    const log = dialog.querySelector("[data-ask-log]");
+    log.replaceChildren(...ask.messages.map((m) => askBubble(m.role, m.content)));
+    if (!dialog.open) {
+      dialogs().forEach((other) => other.open && other.close());
+      dialog.showModal();
+    }
+    log.scrollTop = log.scrollHeight;
+    return dialog;
+  }
+
+  async function askQuestion(question) {
+    const dialog = showAsk();
+    if (!dialog || dialog.dataset.busy) return;
+    const log = dialog.querySelector("[data-ask-log]");
+    ask.messages.push({ role: "user", content: question });
+    log.append(askBubble("user", question));
+    const bubble = askBubble("assistant", "", "thinking");
+    bubble.innerHTML = '<span class="ask-thinking">Looking at your dashboard…</span>';
+    log.append(bubble);
+    log.scrollTop = log.scrollHeight;
+    dialog.dataset.busy = "true";
+    let text = "";
+    let error = null;
+    try {
+      const response = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation: ask.conversation, messages: ask.messages }),
+      });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines.filter(Boolean)) {
+          const data = JSON.parse(line);
+          if (data.conversation) ask.conversation = data.conversation;
+          if (data.error) error = data.error;
+          if (data.text) {
+            text += data.text;
+            bubble.classList.remove("is-thinking");
+            bubble.innerHTML = renderAnswer(text);
+            log.scrollTop = log.scrollHeight;
+          }
+        }
+      }
+    } catch {
+      error = "The answer could not be loaded. Try again.";
+    }
+    delete dialog.dataset.busy;
+    if (error && !text) {
+      // Nothing answered: the question is taken back, so asking again does not repeat it.
+      ask.messages.pop();
+      bubble.className = "ask-message ask-error";
+      bubble.textContent = error;
+    } else {
+      if (error) bubble.insertAdjacentHTML("beforeend", `<p class="ask-note">${escapeHtml(error)}</p>`);
+      ask.messages.push({ role: "assistant", content: text });
+    }
+    saveAsk();
+    dialog.querySelector("#ask-input")?.focus();
+  }
+
+  // The command line: a question goes to Ask instead of becoming a task.
+  document.addEventListener("htmx:beforeRequest", (event) => {
+    const form = event.detail.elt;
+    if (!form.matches?.(".command-bar[data-ask]")) return;
+    const input = form.querySelector("#command-input");
+    if (!isQuestion(input.value)) return;
+    event.preventDefault();
+    const question = input.value.trim().replace(/^\?\s*/, "");
+    form.reset();
+    askQuestion(question);
+  });
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-ask-form]");
+    if (!form) return;
+    event.preventDefault();
+    const input = form.querySelector("input");
+    if (!input.value.trim()) return;
+    const question = input.value.trim();
+    form.reset();
+    askQuestion(question);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-ask-new]")) return;
+    ask = { conversation: null, messages: [] };
+    saveAsk();
+    showAsk();
+    document.getElementById("ask-input")?.focus();
+  });
+
   // The confirmation under the command line fades after a while.
   let commandTimer = null;
   document.addEventListener("htmx:afterSwap", (event) => {

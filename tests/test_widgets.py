@@ -53,6 +53,7 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
             return {
                 "threadId": "t1",
                 "labelIds": labels,
+                "snippet": "Can we move it to 10:00 &amp; meet in the lab?",
                 "internalDate": "1792656000000",
                 "payload": {"headers": headers},
             }
