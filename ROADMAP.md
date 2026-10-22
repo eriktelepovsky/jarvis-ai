@@ -58,6 +58,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [ ] **Slack:** unread direct messages
 - [x] **Pull requests (GitHub, GitLab, Bitbucket):** waiting for your review and your own, with CI status
 - [x] **Jira:** tasks assigned to you across multiple workspaces (e.g. development, support)
+- [x] **Asana:** tasks assigned to you across your workspaces, overdue and due soon first
 - [x] **Uptime:** myOrb checks your websites every minute, records outages and warns before TLS certificates expire
 - [ ] **Uptime:** import monitors from Uptime Kuma, UptimeRobot or Better Stack
 - [ ] **Focus time:** free blocks between meetings available for deep work

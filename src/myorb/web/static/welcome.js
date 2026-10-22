@@ -443,65 +443,74 @@
     lastHover = target;
   });
 
-  // Periodic refreshes must not replace the numbers while their details are open...
-  let reopen = null;
-  document.addEventListener("htmx:beforeSwap", (event) => {
-    if (event.detail.target.id !== "orb-widgets") return;
-    const open = document.querySelector("dialog[data-detail][open]");
-    if (open && reopen === null) event.detail.shouldSwap = false;
-  });
-
-  // ...but after a change made in a dialog (a task added or done), the widgets reload and
-  // the same dialog opens again with the new data.
-  document.body.addEventListener("myorb:refresh", () => {
-    if (!document.getElementById("orb-widgets")) return;
-    const open = document.querySelector("dialog[data-detail][open]");
-    reopen = open ? open.id : "";
-    const focused = document.activeElement?.id;
-    htmx.ajax("GET", "/welcome/widgets", { target: "#orb-widgets", swap: "innerHTML" }).then(() => {
-      const dialog = reopen && document.getElementById(reopen);
-      reopen = null;
-      if (!dialog) return;
-      openDialog(dialog);
-      if (focused) document.getElementById(focused)?.focus();
-    });
-  });
-
-  // While the numbers load (the first time after a start, the services are asked), the orb
-  // shows as many dimmed, spinning circles as it had last time, where the numbers will appear.
-  const NODES_KEY = "myorb.nodes";
-
-  function showLoadingNodes() {
+  // The numbers around the orb load one by one (each slot on its own). After each arrives,
+  // the places around the orb, the dialogs' "n / m" and the status line are set again.
+  function layoutOrb() {
     const widgets = document.getElementById("orb-widgets");
-    if (!widgets || widgets.querySelector(".node")) return;
-    let count = 6;
-    try {
-      count = Number(localStorage.getItem(NODES_KEY)) || count;
-    } catch {
-      // Storage unavailable: the default count.
+    if (!widgets) return;
+    const places = [...widgets.querySelectorAll(".place")];
+    places.forEach((place, index) => place.style.setProperty("--angle", `${(360 / places.length) * index}deg`));
+    const all = dialogs();
+    all.forEach((dialog, index) => {
+      const counter = dialog.querySelector("[data-counter]");
+      if (counter) counter.textContent = `${index + 1} / ${all.length}`;
+    });
+    const loading = widgets.querySelectorAll(".node-loading").length;
+    const nodes = [...widgets.querySelectorAll(".node[data-key]")];
+    const loaded = nodes.filter((node) => node.dataset.hasValue === "true").length;
+    const needs = nodes.filter((node) => node.dataset.needs === "true").length;
+    const sources = needs === 1 ? "source needs" : "sources need";
+    widgets.toggleAttribute("aria-busy", loading > 0);
+    const status = document.getElementById("core-status");
+    if (status) status.textContent = loading ? "Loading sources…" : `Online · ${loaded}/${nodes.length} sources`;
+    const line = document.getElementById("core-line");
+    if (line && !loading) {
+      line.textContent = !loaded
+        ? "Connect a service to get started"
+        : needs
+          ? `${needs} ${sources} attention`
+          : "All systems nominal";
     }
-    widgets.replaceChildren(
-      ...Array.from({ length: count }, (_, index) => {
-        const place = document.createElement("div");
-        place.className = "place";
-        place.style.setProperty("--angle", `${(360 / count) * index}deg`);
-        const node = document.createElement("span");
-        node.className = "node node-loading";
-        node.innerHTML = '<span class="spinner"></span>';
-        place.append(node);
-        return place;
-      }),
-    );
-    widgets.setAttribute("aria-busy", "true");
+    const attention = document.getElementById("attention");
+    if (attention && !loading) {
+      attention.hidden = !needs;
+      attention.textContent = `▲ ${needs} ${sources} attention`;
+    }
   }
 
+  // Refresh in a dialog: it shows loading until the new data replaces the dialog (the class
+  // goes with the old one); if the request fails, the dialog is usable again.
+  document.addEventListener("htmx:beforeRequest", (event) => {
+    event.detail.elt.closest?.(".refresh-btn")?.closest("dialog")?.classList.add("is-refreshing");
+  });
+  document.addEventListener("htmx:afterRequest", (event) => {
+    if (event.detail.successful) return;
+    event.detail.elt.closest?.(".refresh-btn")?.closest("dialog")?.classList.remove("is-refreshing");
+  });
+
+  // Periodic refreshes must not replace a number while its details are open...
+  let reopen = null;
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    if (!event.detail.target.matches?.("[data-slot]")) return;
+    const open = event.detail.target.querySelector("dialog[data-detail][open]");
+    if (open && open.id !== reopen) event.detail.shouldSwap = false;
+  });
+
+  // ...but after a change made in a dialog (a task added, Refresh), the numbers reload and the
+  // same dialog opens again with the new data.
+  document.body.addEventListener("myorb:refresh", () => {
+    reopen = document.querySelector("dialog[data-detail][open]")?.id || null;
+  });
+
   document.addEventListener("htmx:afterSwap", (event) => {
-    if (event.detail.target.id !== "orb-widgets") return;
-    event.detail.target.removeAttribute("aria-busy");
-    try {
-      localStorage.setItem(NODES_KEY, String(event.detail.target.querySelectorAll(".node").length));
-    } catch {
-      // Storage unavailable: the default count next time.
+    if (!event.detail.target.matches?.("[data-slot]")) return;
+    layoutOrb();
+    if (reopen) {
+      const dialog = event.detail.target.querySelector(`#${CSS.escape(reopen)}`);
+      if (dialog) {
+        reopen = null;
+        openDialog(dialog);
+      }
     }
   });
 
@@ -513,7 +522,6 @@
     // A page restored from history is a new element, even with the same id.
     if (!page || page === welcomePage) return;
     welcomePage = page;
-    showLoadingNodes();
     tick();
     clockTimer ??= setInterval(tick, 1000);
     startOrb();

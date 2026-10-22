@@ -107,6 +107,7 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "side_panels": [(p, panel) for p, panel in panels if panel.placement == "side"],
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
             "name": await user_name(request, db),
+            "slots": widget_slots(request),
         },
     )
 
@@ -132,19 +133,10 @@ def node_size(weight: float, data: WidgetData) -> float:
     return round(min(1.4, state * (1 + (weight - 1) * 0.5)), 3)
 
 
-async def load_widgets(request: Request) -> list[dict[str, Any]]:
-    """All widgets of set-up services, with today's numbers kept for "change since yesterday"."""
-    context = widget_context(request)
-    entries = [
-        (plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()
-    ]
-    results = await asyncio.gather(*(_load_widget(context, p, w) for p, w in entries))
-    # Widgets of services that are not set up are left out; Integrations lists them instead.
-    items = [
-        {"plugin": plugin, "widget": widget, "data": data, "key": f"{plugin.id}-{widget.id}"}
-        for (plugin, widget), data in zip(entries, results, strict=True)
-        if data.connected
-    ]
+async def _finish(
+    request: Request, context: WidgetContext, items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Today's numbers kept for "change since yesterday", changes noted in the activity list."""
     values = {
         item["key"]: number
         for item in items
@@ -159,6 +151,48 @@ async def load_widgets(request: Request) -> list[dict[str, Any]]:
         item["change"] = snapshots.change_label(previous.get(item["key"]))
         item["size"] = node_size(item["widget"].weight, item["data"])
     return items
+
+
+async def load_widgets(request: Request) -> list[dict[str, Any]]:
+    """All widgets of set-up services, with today's numbers kept for "change since yesterday"."""
+    context = widget_context(request)
+    entries = [
+        (plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()
+    ]
+    results = await asyncio.gather(*(_load_widget(context, p, w) for p, w in entries))
+    # Widgets of services that are not set up are left out; Integrations lists them instead.
+    items = [
+        {"plugin": plugin, "widget": widget, "data": data, "key": f"{plugin.id}-{widget.id}"}
+        for (plugin, widget), data in zip(entries, results, strict=True)
+        if data.connected
+    ]
+    return await _finish(request, context, items)
+
+
+def widget_slots(request: Request) -> list[tuple[Plugin, Widget]]:
+    """Every widget, in order: the welcome screen gives each a place and loads it on its own."""
+    return [(plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()]
+
+
+@router.get("/welcome/widget/{plugin_id}/{widget_id}", response_class=HTMLResponse)
+async def one_widget(request: Request, plugin_id: str, widget_id: str) -> Response:
+    """One number and its details, as soon as its service answers; empty when not set up."""
+    plugin = request.app.state.plugins.get(plugin_id)
+    widget = plugin and next((w for w in plugin.widgets() if w.id == widget_id), None)
+    if not widget:
+        raise HTTPException(status_code=404, detail="Widget not found")
+    context = widget_context(request)
+    data = await _load_widget(context, plugin, widget)
+    if not data.connected:
+        return HTMLResponse("")
+    [item] = await _finish(
+        request,
+        context,
+        [{"plugin": plugin, "widget": widget, "data": data, "key": f"{plugin_id}-{widget_id}"}],
+    )
+    return request.app.state.templates.TemplateResponse(
+        request, "welcome/widget.html", {"item": item}
+    )
 
 
 @router.post("/welcome/widgets/{plugin_id}/{widget_id}/refresh")

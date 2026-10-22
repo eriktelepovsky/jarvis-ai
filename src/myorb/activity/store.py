@@ -42,11 +42,9 @@ def event(text: str, tone: str = "info", url: str | None = None) -> ActivityEven
     )
 
 
-async def recent(db: AsyncSession, since: datetime, limit: int = 40) -> list[ActivityEvent]:
-    query = (
-        select(ActivityEvent)
-        .where(ActivityEvent.at >= since)
-        .order_by(ActivityEvent.at.desc(), ActivityEvent.id.desc())
-        .limit(limit)
-    )
-    return list(await db.scalars(query))
+async def recent(db: AsyncSession, since: datetime | None, limit: int = 40) -> list[ActivityEvent]:
+    """The newest events first: those since a time, or the latest `limit` of the log."""
+    query = select(ActivityEvent).order_by(ActivityEvent.at.desc(), ActivityEvent.id.desc())
+    if since is not None:
+        query = query.where(ActivityEvent.at >= since)
+    return list(await db.scalars(query.limit(limit)))

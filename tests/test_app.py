@@ -73,7 +73,10 @@ def test_welcome_screen_loads_widgets_and_panels(make_client: MakeClient, echo: 
     client = make_client(plugins={"echo": EchoPlugin(echo), "calendar": CalendarPlugin()})
     complete_setup(client)
     text = client.get("/").text
-    assert 'hx-get="http://testserver/welcome/widgets"' in text
+    # Each widget loads on its own, so a slow service does not hold up the others.
+    assert 'hx-get="/welcome/widget/calendar/today"' in text
+    assert client.get("/welcome/widget/calendar/today").text == ""  # Google not set up: empty
+    assert client.get("/welcome/widget/calendar/nothing").status_code == 404
     assert 'hx-get="http://testserver/panels/echo/echo"' in text
     # The calendar's "next event" goes to the header, its schedule to the side column.
     assert text.index("panels/calendar/next") < text.index('class="side side-left"')
