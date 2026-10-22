@@ -1003,3 +1003,38 @@ button.row-btn {
   min-width: 72px;
 }
 
+/* Weather panel */
+
+.weather-now {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.warn-text {
+  color: var(--warn);
+}
+
+.weather-hours {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: center;
+}
+
+.weather-hours > div {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  background: var(--surface-2);
+  border-radius: var(--r-badge);
+}
+
+.weather-hours .rain {
+  font-size: 11px;
+  color: var(--info);
+}
+

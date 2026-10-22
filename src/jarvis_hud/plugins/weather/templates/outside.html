@@ -1,0 +1,18 @@
+{% if not connected %}
+<p class="t2">Add your place to see the weather. <a href="/integrations/weather/connect">Set up</a></p>
+{% elif not weather %}
+<p class="t2">The forecast could not be loaded.{% if error %} {{ error }}{% endif %}</p>
+{% else %}
+<div class="weather-now">
+  <span class="num" style="font-size: 40px">{{ weather.temperature }}°</span>
+  <span style="min-width: 0">
+    <span class="t1">{{ weather.condition }} · H {{ weather.high }}° L {{ weather.low }}°</span>
+    <span class="t2">{% if weather.rain_from %}<span class="warn-text">▲ Rain from {{ weather.rain_from.strftime("%H:%M") }}</span> · {% endif %}Feels {{ weather.feels_like }}° · {{ place }}</span>
+  </span>
+</div>
+<div class="weather-hours" role="list" aria-label="Next hours">
+  {% for hour in weather.hours %}
+  <div role="listitem"><span class="t2">{{ hour.time.strftime("%H") }}</span><span>{{ hour.temperature }}°</span><span class="rain">{{ hour.rain }}%</span></div>
+  {% endfor %}
+</div>
+{% endif %}

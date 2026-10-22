@@ -45,6 +45,7 @@ gmail = "jarvis_hud.plugins.gmail:GmailPlugin"
 tasks = "jarvis_hud.tasks.plugin:TasksPlugin"
 code_review = "jarvis_hud.plugins.code_review:CodeReviewPlugin"
 jira = "jarvis_hud.plugins.jira:JiraPlugin"
+weather = "jarvis_hud.plugins.weather:WeatherPlugin"
 
 [build-system]
 requires = ["hatchling>=1.27"]

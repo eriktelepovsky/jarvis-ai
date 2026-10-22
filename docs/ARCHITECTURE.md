@@ -49,6 +49,7 @@ src/jarvis_hud/
 │   ├── gmail/        # Unread and today's emails
 │   ├── code_review/  # Pull requests from GitHub, GitLab and Bitbucket
 │   ├── jira/         # Jira issues assigned to you
+│   ├── weather/      # Forecast from Open-Meteo (no API key)
 │   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Welcome screen, widget and panel endpoints
