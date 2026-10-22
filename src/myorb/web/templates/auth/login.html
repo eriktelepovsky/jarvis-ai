@@ -12,7 +12,7 @@
 <div class="alert alert-error" role="alert" data-passkey-error hidden></div>
 <div class="divider"><span class="label">or password</span></div>
 {% endif %}
-<form method="post" action="/login" class="form">
+<form method="post" action="/login" hx-boost="false" class="form">
   <input type="hidden" name="next" value="{{ next }}">
   <div class="field">
     <label class="label" for="password">Password</label>

@@ -63,7 +63,7 @@
     <div class="actions"><button type="submit" class="btn">Save application</button></div>
   </form>
   {% if client and not connections %}
-  <form method="post" action="/integrations/health/strava/connect" class="panel-section actions">
+  <form method="post" action="/integrations/health/strava/connect" hx-boost="false" class="panel-section actions">
     <button type="submit" class="btn btn-primary">Connect Strava</button>
   </form>
   {% endif %}

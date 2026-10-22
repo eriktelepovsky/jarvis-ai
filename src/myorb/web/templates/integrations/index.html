@@ -58,7 +58,7 @@
         {% else %}
         {% if not connections %}<span class="badge badge-neutral">○ No account</span>{% endif %}
         <a class="btn btn-ghost" href="/integrations/google/setup">OAuth client</a>
-        <form method="post" action="/integrations/google/connect"><button type="submit" class="btn {{ '' if connections else 'btn-primary' }}">{{ "Connect another" if connections else "Connect a Google account" }}</button></form>
+        <form method="post" action="/integrations/google/connect" hx-boost="false"><button type="submit" class="btn {{ '' if connections else 'btn-primary' }}">{{ "Connect another" if connections else "Connect a Google account" }}</button></form>
         {% endif %}
       </div>
     </div>

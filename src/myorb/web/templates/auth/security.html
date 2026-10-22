@@ -12,7 +12,7 @@
 <div class="settings-layout">
 <section class="panel" aria-labelledby="profile-title">
   <div class="panel-header"><h2 class="label" id="profile-title">Profile</h2></div>
-  <form method="post" action="/settings/profile" class="panel-section form" hx-boost="true">
+  <form method="post" action="/settings/profile" class="panel-section form">
     {% if saved %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The profile was saved.</span></div>{% endif %}
     <div class="field">
       <label class="label" for="profile-name">Your name</label>
@@ -53,7 +53,7 @@
           <span style="display: block; font-weight: 500">{{ passkey.name }}</span>
           <span class="label">Added {{ passkey.created_at | localtime("%-d %b %Y") }}{% if passkey.last_used_at %} · last used {{ passkey.last_used_at | localtime("%-d %b %Y") }}{% endif %}</span>
         </span>
-        <form method="post" action="/settings/security/passkeys/{{ passkey.id }}/delete" hx-boost="true">
+        <form method="post" action="/settings/security/passkeys/{{ passkey.id }}/delete">
           <button type="submit" class="btn btn-danger">Remove</button>
         </form>
       </li>
@@ -63,7 +63,7 @@
     <p class="label" style="margin: 0">○ No passkeys yet</p>
     {% endif %}
   </div>
-  <form class="panel-section form" data-passkey-register>
+  <form class="panel-section form" data-passkey-register hx-boost="false">
     <div class="field">
       <label class="label" for="passkey-name">Name</label>
       <input class="input" id="passkey-name" type="text" name="name" maxlength="100" placeholder="e.g. MacBook, iPhone" required>
@@ -75,7 +75,7 @@
 
 <section class="panel" aria-labelledby="password-title">
   <div class="panel-header"><h2 class="label" id="password-title">Password</h2></div>
-  <form method="post" action="/settings/security/password" class="panel-section form" hx-boost="true">
+  <form method="post" action="/settings/security/password" class="panel-section form">
     <p class="muted" style="margin: 0">Changing the password signs you out on all other devices.</p>
     {% if changed %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The password was changed.</span></div>{% endif %}
     {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
