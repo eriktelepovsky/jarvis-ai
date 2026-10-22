@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from myorb.connections import store
 from myorb.connections.models import Connection
-from myorb.connections.providers import Provider, ProviderError
+from myorb.connections.providers import HIDDEN, Provider, ProviderError
 from myorb.db import get_db
 from myorb.plugins import Plugin
 
@@ -75,17 +75,17 @@ async def connect(request: Request, db: Db, provider_id: str) -> Response:
         verified = await provider.verify(request.app.state.http, values)
     except ProviderError as error:
         return _form(request, plugin, provider, values, str(error), 400)
-    if not provider.multiple:
-        for existing in await store.list_connections(db, provider.id):
-            if existing.account != verified.account:
-                await store.delete_connection(db, existing)
+    box = request.app.state.secret_box
+    credentials = verified.credentials
+    for existing in await store.list_connections(db, provider.id):
+        if existing.account == verified.account:
+            # Connecting the same account again (e.g. a new token) keeps what was left out.
+            if left_out := box.decrypt(existing.credentials).get(HIDDEN):
+                credentials = {**credentials, HIDDEN: left_out}
+        elif not provider.multiple:
+            await store.delete_connection(db, existing)
     connection = await store.save_connection(
-        db,
-        request.app.state.secret_box,
-        provider.id,
-        verified.account,
-        verified.credentials,
-        "",
+        db, box, provider.id, verified.account, credentials, ""
     )
     await store.save_check(db, connection, _capabilities(verified.capabilities))
     forget_cached(request, provider.id, connection.id)
@@ -128,3 +128,54 @@ async def disconnect(request: Request, db: Db, provider_id: str, connection_id: 
     await store.delete_connection(db, connection)
     forget_cached(request, provider_id, connection_id)
     return RedirectResponse(f"/integrations?status=removed&provider={provider_id}", 303)
+
+
+@router.get("/integrations/{provider_id}/{connection_id}/choices", response_class=HTMLResponse)
+async def choices_page(request: Request, db: Db, provider_id: str, connection_id: int) -> Response:
+    """Which parts of the account to show, e.g. the workspaces still in use."""
+    _, provider = _provider(request, provider_id)
+    if not provider.choices_label:
+        raise HTTPException(status_code=404, detail="Nothing to choose")
+    connection = await _connection_or_404(db, provider_id, connection_id)
+    credentials = request.app.state.secret_box.decrypt(connection.credentials)
+    error = None
+    try:
+        choices = await provider.choices(request.app.state.http, credentials)
+    except ProviderError as exc:
+        choices, error = [], str(exc)
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "integrations/choices.html",
+        {
+            "provider": provider,
+            "connection": connection,
+            "choices": choices,
+            "hidden": set(credentials.get(HIDDEN) or []),
+            "error": error,
+        },
+    )
+
+
+@router.post("/integrations/{provider_id}/{connection_id}/choices")
+async def save_choices(request: Request, db: Db, provider_id: str, connection_id: int) -> Response:
+    _, provider = _provider(request, provider_id)
+    if not provider.choices_label:
+        raise HTTPException(status_code=404, detail="Nothing to choose")
+    connection = await _connection_or_404(db, provider_id, connection_id)
+    box = request.app.state.secret_box
+    credentials = box.decrypt(connection.credentials)
+    form = await request.form()
+    shown = set(form.getlist("shown"))
+    # Only the parts offered on the page: what was left out stays left out, new ones show.
+    offered = set(form.getlist("offered"))
+    left_out = (set(credentials.get(HIDDEN) or []) - offered) | (offered - shown)
+    await store.save_connection(
+        db,
+        box,
+        provider_id,
+        connection.account,
+        {**credentials, HIDDEN: sorted(left_out)},
+        connection.scopes,
+    )
+    forget_cached(request, provider_id, connection_id)
+    return RedirectResponse(f"/integrations?status=choices&provider={provider_id}", 303)

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ provider.choices_label }} · {{ provider.name }} · {{ assistant }}{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations · {{ provider.name }}</div><h1>{{ provider.choices_label }}</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="choices-title">
+  <div class="panel-header"><h2 class="label" id="choices-title">{{ connection.account }}</h2></div>
+  <form method="post" action="/integrations/{{ provider.id }}/{{ connection.id }}/choices" class="panel-section form">
+    <p class="muted" style="margin: 0">Only what is checked counts in the orb, the details and the brief. New {{ provider.choices_label | lower }} show until you uncheck them.</p>
+    {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="choice-list">
+      {% for choice in choices %}
+      <label class="choice">
+        <input type="hidden" name="offered" value="{{ choice.id }}">
+        <input type="checkbox" name="shown" value="{{ choice.id }}" {% if choice.id not in hidden %}checked{% endif %}>
+        <span>{{ choice.name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="actions">{% if choices %}<button type="submit" class="btn btn-primary">Save</button>{% endif %}<a class="btn btn-ghost" href="/integrations">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

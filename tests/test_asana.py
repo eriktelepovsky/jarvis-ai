@@ -110,3 +110,26 @@ def test_due_badges():
     assert due_badge(make("2026-10-24"), now) == "Sat"
     assert due_badge(make("2026-11-30"), now) == "30 Nov"
     assert due_badge(make(None), now) == ""
+
+
+def test_workspaces_can_be_left_out(client: TestClient, apis: FakeApis):
+    fake_asana(apis, {"home": [task("Pay rent")], "old": [task(f"Stale {n}") for n in range(40)]})
+    client.post("/integrations/asana/connect", data={"token": TOKEN})
+    assert '<span class="node-value">41</span>' in client.get("/welcome/widgets").text
+    page = client.get("/integrations").text
+    assert 'href="/integrations/asana/1/choices">Workspaces</a>' in page
+
+    choices = client.get("/integrations/asana/1/choices").text
+    assert "Home" in choices and "Old" in choices
+    assert choices.count(" checked>") == 2  # everything shows until left out
+    form = {"offered": ["home", "old"], "shown": ["home"]}
+    response = client.post("/integrations/asana/1/choices", data=form)
+    assert "Saved. The numbers show only what you chose." in response.text
+    assert '<span class="node-value">1</span>' in client.get("/welcome/widgets").text
+    assert client.get("/integrations/asana/1/choices").text.count(" checked>") == 1
+
+    # A new token for the same account keeps the choice; a new workspace shows.
+    fake_asana(apis, {"home": [task("Pay rent")], "old": [task("Stale")], "new": [task("Hi")]})
+    client.post("/integrations/asana/connect", data={"token": TOKEN})
+    assert '<span class="node-value">2</span>' in client.get("/welcome/widgets").text
+    assert client.get("/integrations/asana/99/choices").status_code == 404

@@ -5,7 +5,7 @@
 {% block main_class %}form{% endblock %}
 
 {# A connected account under its service: works, or what does not and how to fix it. #}
-{% macro account_row(connection, provider_id) %}
+{% macro account_row(connection, provider_id, choices_label=None) %}
   {% set problems = connection.capabilities | rejectattr("ok") | list if connection.capabilities else [] %}
   <div class="account">
     <div style="min-width: 0">
@@ -16,6 +16,7 @@
       {% if not connection.capabilities %}<span class="badge badge-neutral">○ Not tested</span>
       {% elif problems %}<span class="badge badge-fail">✕ {{ problems | length }} {{ "problem" if problems | length == 1 else "problems" }}</span>
       {% else %}<span class="badge badge-ok" title="{{ connection.capabilities | map(attribute='label') | join(', ') }}">✓ Connected</span>{% endif %}
+      {% if choices_label %}<a class="btn" href="/integrations/{{ provider_id }}/{{ connection.id }}/choices">{{ choices_label }}</a>{% endif %}
       <form method="post" action="/integrations/{{ provider_id }}/{{ connection.id }}/test"><button type="submit" class="btn">Test connection</button></form>
       <form method="post" action="/integrations/{{ provider_id }}/{{ connection.id }}/disconnect"><button type="submit" class="btn btn-danger">Disconnect</button></form>
     </div>
@@ -77,7 +78,7 @@
         {% if not accounts or provider.multiple %}<a class="btn {{ 'btn-primary' if not accounts else '' }}" href="/integrations/{{ provider.id }}/connect">{{ "Connect another" if accounts else "Connect" }}</a>{% endif %}
       </div>
     </div>
-    {% for connection in accounts %}{{ account_row(connection, provider.id) }}{% endfor %}
+    {% for connection in accounts %}{{ account_row(connection, provider.id, provider.choices_label) }}{% endfor %}
   </section>
   {% endfor %}
 </div>

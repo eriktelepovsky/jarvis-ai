@@ -286,6 +286,13 @@ def jira_site(
 
     apis.routes[(host, "/rest/agile/1.0/board")] = boards
 
+    def projects(request: httpx2.Request) -> httpx2.Response:
+        keys = sorted({i["key"].split("-")[0] for i in issues})
+        values = [{"key": key, "name": f"Project {key}"} for key in keys]
+        return httpx2.Response(200, json={"values": values, "isLast": True})
+
+    apis.routes[(host, "/rest/api/3/project/search")] = projects
+
 
 def issue(key: str, category: str, due: date | None = None, priority: str = "Medium") -> dict:
     return {
@@ -326,6 +333,20 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     assert active and active.group(1) == "3"
     assert text.index("SUP-88") < text.index("TRP-412") < text.index("TRP-409")
     assert "https://support.atlassian.net/browse/SUP-88" in text
+
+
+def test_jira_projects_can_be_left_out(client: TestClient, apis: FakeApis):
+    jira_site(apis, "dev", [issue("TRP-1", "new"), issue("OLD-1", "new"), issue("OLD-2", "new")])
+    connect_jira(client, "dev")
+    assert '<span class="node-value">3</span>' in client.get("/welcome/widgets").text
+    assert 'href="/integrations/jira/1/choices">Projects</a>' in client.get("/integrations").text
+    choices = client.get("/integrations/jira/1/choices").text
+    assert "Project OLD (OLD)" in choices and choices.count(" checked>") == 2
+
+    form = {"offered": ["OLD", "TRP"], "shown": ["TRP"]}
+    client.post("/integrations/jira/1/choices", data=form)
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">1</span>' in text and "OLD-1" not in text
 
 
 def test_jira_lists_every_issue(client: TestClient, apis: FakeApis):
