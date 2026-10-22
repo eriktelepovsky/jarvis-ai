@@ -1020,9 +1020,21 @@ button.row-btn {
 
 .modal-report {
   width: min(1180px, calc(100% - 48px));
-  /* As tall as the report needs, up to the window; it scrolls only when it does not fit. */
+  /* As tall as the report needs, up to the window; it scrolls only when it does not fit.
+     The parts inside keep their natural height (flex: 0 1 auto): with flex-basis 0 WebKit
+     (Safari, cmux) sizes a fit-content dialog to nothing. */
+  height: -webkit-fit-content;
   height: fit-content;
   max-height: calc(100vh - 48px);
+}
+
+.modal-report .report {
+  flex: 0 1 auto;
+  max-height: calc(100vh - 50px);
+}
+
+.modal-report .report-body {
+  flex: 0 1 auto;
 }
 
 .report {
