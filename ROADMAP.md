@@ -54,7 +54,8 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 
 ## Phase 4: Work and communication
 
-- [ ] **Slack:** unread messages and mentions
+- [x] **Slack:** mentions from the last 24 hours, across workspaces
+- [ ] **Slack:** unread direct messages
 - [x] **Pull requests (GitHub, GitLab, Bitbucket):** waiting for your review and your own, with CI status
 - [x] **Jira:** tasks assigned to you across multiple workspaces (e.g. development, support)
 - [ ] **Uptime:** incidents from monitored websites and services (own checks or Uptime Kuma, UptimeRobot, Better Stack)

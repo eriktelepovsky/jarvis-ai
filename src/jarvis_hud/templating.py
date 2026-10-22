@@ -3,6 +3,7 @@ from datetime import UTC, datetime, tzinfo
 from jinja2 import Environment
 
 from jarvis_hud.brief.writer import model_name
+from jarvis_hud.plugins.slack import SlackPlugin
 
 
 def register_filters(env: Environment, timezone: tzinfo) -> None:
@@ -30,5 +31,6 @@ def register_filters(env: Environment, timezone: tzinfo) -> None:
 
     env.filters["localtime"] = localtime
     env.globals["model_name"] = model_name
+    env.globals["slack_manifest"] = SlackPlugin.manifest
     env.filters["age"] = age
     env.filters["ago"] = ago

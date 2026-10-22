@@ -1237,3 +1237,15 @@ code,
   gap: 2px;
 }
 
+.manifest {
+  max-height: 220px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  font: 12px var(--font-mono);
+  color: var(--text-body);
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+}
+
