@@ -66,6 +66,20 @@ async def add(request: Request, db: Db, text: Annotated[str, Form()]) -> Respons
     return _done(request)
 
 
+@router.post("/command", response_class=HTMLResponse)
+async def command(request: Request, db: Db, text: Annotated[str, Form()]) -> Response:
+    """The command line under the orb. For now it adds tasks; later it will also ask Claude."""
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Enter a task")
+    task = await store.add_task(db, text, _now(request).date())
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "welcome/command_result.html",
+        {"task": task, "due": due_label(task, _now(request))},
+        headers=REFRESH,
+    )
+
+
 @router.post("/tasks/{task_id}/done")
 async def mark_done(request: Request, db: Db, task_id: int) -> Response:
     await store.set_done(db, await _task_or_404(db, task_id), True)

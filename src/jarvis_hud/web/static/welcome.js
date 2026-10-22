@@ -230,6 +230,25 @@
     }
   });
 
+  // "/" jumps to the command line, as in many apps.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "/" || event.target.closest?.("input, textarea, select, [contenteditable]")) return;
+    const input = document.getElementById("command-input");
+    if (!input || document.querySelector("dialog[open]")) return;
+    event.preventDefault();
+    input.focus();
+  });
+
+  // The confirmation under the command line fades after a while.
+  let commandTimer = null;
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target.id !== "command-result") return;
+    clearTimeout(commandTimer);
+    commandTimer = setTimeout(() => {
+      event.detail.target.textContent = "";
+    }, 6000);
+  });
+
   document.addEventListener("keydown", (event) => {
     const dialog = document.querySelector("dialog[data-detail][open]");
     if (!dialog || event.target.closest("input, textarea")) return;

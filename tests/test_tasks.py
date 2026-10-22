@@ -210,3 +210,13 @@ def test_panel_lists_overdue_and_today(client: TestClient):
     assert "Old chore" in text and "Water plants" in text
     assert "Someday maybe" not in text
     assert 'class="t2 overdue"' in text
+
+
+def test_command_line_adds_a_task(client: TestClient):
+    assert 'id="command-input"' in client.get("/").text
+    response = client.post("/command", data={"text": "Call <the> accountant tomorrow 10:00"})
+    assert response.headers["HX-Trigger"] == "jarvis:refresh"
+    assert "✓ Added to To-do" in response.text
+    assert "Call &lt;the&gt; accountant</span> · Tomorrow 10:00" in response.text
+    assert "Call &lt;the&gt; accountant" in client.get("/tasks").text
+    assert client.post("/command", data={"text": "  "}).status_code == 400

@@ -89,6 +89,16 @@
 
         <div id="orb-widgets" class="orb-widgets" hx-get="{{ url_for('widgets') }}" hx-trigger="load, every 5m"></div>
       </div>
+
+      <div class="command">
+        <form class="command-bar" hx-post="/command" hx-target="#command-result" hx-on::after-request="if (event.detail.successful) this.reset()">
+          <span class="command-prompt" aria-hidden="true">›</span>
+          <label class="visually-hidden" for="command-input">Add a task</label>
+          <input id="command-input" name="text" placeholder="Add a task… e.g. “call the accountant tomorrow 10:00”" autocomplete="off" required>
+          <kbd class="command-key" title="Press / to type here">/</kbd>
+        </form>
+        <div class="label command-result" id="command-result" role="status" aria-live="polite"></div>
+      </div>
     </div>
 
     <div class="side side-right" aria-hidden="true"></div>
