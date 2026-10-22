@@ -8,8 +8,8 @@ if ("serviceWorker" in navigator) {
 }
 
 // Moving between pages (hx-boost on <body>) replaces only #app, so the media dock and its
-// music keep playing. Only links are boosted: forms submit normally, so their error pages
-// (HTTP 400) and redirects to other sites (OAuth) work as usual.
+// music keep playing. Links are boosted, and forms that ask for it (hx-boost="true", e.g. the
+// settings); other forms submit normally, so redirects to other sites (OAuth) work as usual.
 document.addEventListener("htmx:beforeProcessNode", (event) => {
   const form = event.target;
   if (form.tagName === "FORM" && !form.hasAttribute("hx-boost")) form.setAttribute("hx-boost", "false");
@@ -17,6 +17,11 @@ document.addEventListener("htmx:beforeProcessNode", (event) => {
 
 document.addEventListener("htmx:beforeSwap", (event) => {
   if (!event.detail.boosted) return;
+  // A boosted form's error page (HTTP 400, e.g. a wrong password) is shown as it would be.
+  if (event.detail.xhr.status === 400) {
+    event.detail.shouldSwap = true;
+    event.detail.isError = false;
+  }
   event.detail.target = document.getElementById("app");
   event.detail.selectOverride = "#app";
   event.detail.swapOverride = "outerHTML";
@@ -28,6 +33,8 @@ document.addEventListener("submit", (event) => {
   const form = event.target;
   const button = event.submitter || form.querySelector("[type=submit]");
   if (!button || form.hasAttribute("hx-post")) return;
+  // A boosted form: htmx sends it, and its button waits while htmx-request is on the form.
+  if (form.getAttribute("hx-boost") === "true") return;
   // Afterwards: other scripts may handle the form themselves (passkeys, search), and the
   // browser has read the button's name and value for the request by then.
   setTimeout(() => {
