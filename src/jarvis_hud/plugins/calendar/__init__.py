@@ -258,9 +258,21 @@ class CalendarPlugin(Plugin):
             lines.append(f"Today {when}: {event['title']}{details}{done}")
         if not day["today"]:
             lines.append("Nothing on the calendar today.")
-        for event in day["upcoming"][:5]:
+        # All of tomorrow, with times and places: a flight or an early start needs preparing
+        # today. Then a few events of the rest of the week.
+        tomorrow = (now + timedelta(days=1)).date()
+        events = [e for a in loaded for e in a.data["events"]]
+        tomorrows = events_on(events, tomorrow)
+        for event in tomorrows:
+            when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
+            details = f" ({event['sub']})" if event["sub"] else ""
+            lines.append(f"Tomorrow {when}: {event['title']}{details}")
+        if not tomorrows:
+            lines.append("Nothing on the calendar tomorrow.")
+        later = [e for e in day["upcoming"] if e["start"].date() > tomorrow]
+        for event in later[:5]:
             when = event["start"].strftime("%A" if event["all_day"] else "%A %H:%M")
-            lines.append(f"Upcoming {when}: {event['title']}")
+            lines.append(f"Later this week, {when}: {event['title']}")
         return BriefSection("Calendar", lines)
 
     async def _widget(self, context: WidgetContext) -> WidgetData:

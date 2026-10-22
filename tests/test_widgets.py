@@ -421,3 +421,53 @@ def test_events_on_another_day():
         e.setdefault("calendar", None)
     titles = [e["title"] for e in events_on(events, day.date())]
     assert titles == ["Trip", "Standup"]  # all-day first, the duplicate (two accounts) once
+
+
+def test_brief_includes_all_of_tomorrow(monkeypatch):
+    import asyncio
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+    from zoneinfo import ZoneInfo
+
+    from jarvis_hud.plugins.calendar import CalendarPlugin
+    from jarvis_hud.plugins.google_data import AccountData
+
+    now = datetime(2026, 10, 22, 17, 0, tzinfo=ZoneInfo("Europe/Bratislava"))
+    tomorrow = now.replace(hour=0) + timedelta(days=1)
+    base = {"location": None, "video_url": None, "url": None, "calendar": None}
+    events = [
+        {
+            **base,
+            "title": f"Name day {i}",
+            "all_day": True,
+            "start": tomorrow,
+            "end": tomorrow + timedelta(days=1),
+        }
+        for i in range(6)
+    ] + [
+        {
+            **base,
+            "title": "Flight to Bratislava",
+            "all_day": False,
+            "location": "VIE",
+            "start": tomorrow + timedelta(hours=19),
+            "end": tomorrow + timedelta(hours=21),
+        },
+        {
+            **base,
+            "title": "Dentist",
+            "all_day": False,
+            "start": tomorrow + timedelta(days=3, hours=9),
+            "end": tomorrow + timedelta(days=3, hours=10),
+        },
+    ]
+    plugin = CalendarPlugin()
+
+    async def accounts(context):
+        return [AccountData("me@example.com", {"events": events})]
+
+    monkeypatch.setattr(plugin, "_accounts", accounts)
+    section = asyncio.run(plugin.brief(SimpleNamespace(now=now)))
+    assert "Tomorrow 19:00–21:00: Flight to Bratislava (2 h · VIE)" in section.lines
+    assert sum(line.startswith("Tomorrow all day") for line in section.lines) == 6
+    assert any(line.startswith("Later this week, Monday 09:00: Dentist") for line in section.lines)

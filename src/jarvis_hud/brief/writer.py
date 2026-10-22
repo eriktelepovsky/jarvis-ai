@@ -57,7 +57,9 @@ they read on their dashboard to know what their day holds and what needs them fi
 Work only with the facts you are given. Never invent meetings, people, numbers or deadlines; if \
 something is unknown, leave it out. Decide what matters: people waiting for a reply, meetings \
 coming up soon, overdue tasks and today's deadlines come before newsletters, receipts and \
-notifications. Say it plainly and briefly, like a capable assistant talking to their boss. \
+notifications. Look ahead too: tomorrow's travel (flights, trains), early starts and events \
+that need preparing belong in the brief, all the more in the afternoon and evening. Say it \
+plainly and briefly, like a capable assistant talking to their boss. \
 Address the user directly as "you". Do not use the user's name. Write times in 24-hour format.
 
 Fields:
