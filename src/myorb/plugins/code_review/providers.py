@@ -283,15 +283,23 @@ class Bitbucket(CodeHost):
             *(
                 get(
                     f"{BITBUCKET_API}/repositories/{workspace}/{quote(repo['slug'])}/pullrequests",
-                    state="OPEN",
-                    q=f'reviewers.uuid="{uuid}"',
+                    # With `q`, Bitbucket ignores the `state` parameter: the state goes in `q`.
+                    q=f'state="OPEN" AND reviewers.uuid="{uuid}"',
                     pagelen=10,
                 )
                 for repo in repos.get("values", [])
             )
         )
-        review = [pr for page in review_pages for pr in page.get("values", [])][:ITEMS]
-        mine = mine_page.get("values", [])[:ITEMS]
+        # Only open pull requests, even if Bitbucket returns merged or declined ones.
+        review = [
+            pr
+            for page in review_pages
+            for pr in page.get("values", [])
+            if pr.get("state", "OPEN") == "OPEN"
+        ][:ITEMS]
+        mine = [pr for pr in mine_page.get("values", []) if pr.get("state", "OPEN") == "OPEN"][
+            :ITEMS
+        ]
 
         async def ci(pr: dict[str, Any]) -> str | None:
             url = pr.get("links", {}).get("statuses", {}).get("href")
