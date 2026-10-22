@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}To-do · {{ assistant }}{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">myOrb</div><h1>To-do</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-label="Tasks">
+  <form method="post" action="/tasks" class="panel-header task-add">
+    <label class="visually-hidden" for="new-task">New task</label>
+    <input class="input" id="new-task" name="text" placeholder="Add a task… e.g. “call the accountant tomorrow 10:00”" autocomplete="off" required autofocus>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+  <div class="panel-section" style="padding-top: 0; border-top: 0">
+    <p class="label" style="margin: 0">Due dates are recognized in the text: today, tomorrow, Friday, 24.10., 10:00 — or dnes, zajtra, v piatok, o 10.</p>
+  </div>
+
+  {% for title, tasks, tone in sections %}
+  <div class="panel-section">
+    <div class="section-label"><span class="label{% if tone == 'fail' %} overdue{% endif %}">{% if tone == "fail" %}▲ {% endif %}{{ title }}</span></div>
+    <ul class="list task-list">
+      {% for task in tasks %}
+      <li>
+        {% if edit == task.id %}
+        <form method="post" action="/tasks/{{ task.id }}" class="task-edit">
+          <label class="visually-hidden" for="title-{{ task.id }}">Title</label>
+          <input class="input" id="title-{{ task.id }}" name="title" value="{{ task.title }}" required>
+          <label class="visually-hidden" for="date-{{ task.id }}">Due date</label>
+          <input class="input" id="date-{{ task.id }}" type="date" name="due_date" value="{{ task.due_date.isoformat() if task.due_date else '' }}">
+          <label class="visually-hidden" for="time-{{ task.id }}">Due time</label>
+          <input class="input" id="time-{{ task.id }}" type="time" name="due_time" value="{{ task.due_time.strftime('%H:%M') if task.due_time else '' }}">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <a class="btn btn-ghost" href="/tasks">Cancel</a>
+        </form>
+        {% else %}
+        <div class="task-row">
+          <form method="post" action="/tasks/{{ task.id }}/done"><button type="submit" class="task-check" aria-label="Mark “{{ task.title }}” as done"></button></form>
+          <span style="min-width: 0">{{ task.title }}</span>
+          {% if task.due_date %}<span class="badge badge-{{ tone }}">{{ label(task) }}</span>{% else %}<span></span>{% endif %}
+          <a class="btn btn-ghost btn-small" href="/tasks?edit={{ task.id }}">Edit</a>
+          <form method="post" action="/tasks/{{ task.id }}/delete"><button type="submit" class="btn btn-ghost btn-small" aria-label="Delete “{{ task.title }}”">Delete</button></form>
+        </div>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="panel-section"><p class="muted" style="margin: 0">No open tasks.</p></div>
+  {% endfor %}
+
+  {% if done %}
+  <div class="panel-section">
+    <div class="section-label"><span class="label">Done · last 7 days</span></div>
+    <ul class="list task-list">
+      {% for task in done %}
+      <li class="task-row is-done">
+        <form method="post" action="/tasks/{{ task.id }}/undo"><button type="submit" class="task-check checked" aria-label="Mark “{{ task.title }}” as not done"></button></form>
+        <span style="min-width: 0">{{ task.title }}</span>
+        <span class="label">{{ task.done_at | localtime("%-d %b") }}</span>
+        <span></span>
+        <form method="post" action="/tasks/{{ task.id }}/delete"><button type="submit" class="btn btn-ghost btn-small" aria-label="Delete “{{ task.title }}”">Delete</button></form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

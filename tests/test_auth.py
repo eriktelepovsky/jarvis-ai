@@ -9,13 +9,13 @@ from fastapi.testclient import TestClient
 from softauthn import SoftAuthenticator
 from sqlalchemy import Connection, select
 
-from jarvis_hud.auth.gate import AccessRequest, Decision, decide, safe_next
-from jarvis_hud.auth.models import Passkey
-from jarvis_hud.auth.passwords import hash_password, password_problem, verify_password
-from jarvis_hud.auth.sessions import SESSION_COOKIE
-from jarvis_hud.auth.throttle import LoginThrottle
-from jarvis_hud.auth.tokens import sign, unsign
-from jarvis_hud.db import Base
+from myorb.auth.gate import AccessRequest, Decision, decide, safe_next
+from myorb.auth.models import Passkey
+from myorb.auth.passwords import hash_password, password_problem, verify_password
+from myorb.auth.sessions import SESSION_COOKIE
+from myorb.auth.throttle import LoginThrottle
+from myorb.auth.tokens import sign, unsign
+from myorb.db import Base
 
 NEW_PASSWORD = "an even better password"
 

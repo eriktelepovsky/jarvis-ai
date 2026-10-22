@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Set up Google · {{ assistant }}{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Set up Google</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="google-steps">
+  <div class="panel-header"><h2 class="label" id="google-steps">About 10 minutes · free</h2></div>
+  <div class="panel-section"><p class="muted" style="margin: 0">myOrb runs on your own server, so it uses your own Google Cloud project instead of a shared one. Your data goes only between Google and your myOrb. The project is free for personal use.</p></div>
+  <ol class="steps">
+    <li>
+      <div>
+        <h2>Create a project</h2>
+        <p>Open <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud Console → New project</a>, name it e.g. <code>myOrb</code> and create it. Make sure the new project is selected at the top of the console in the next steps.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h2>Enable the APIs</h2>
+        <p>Open each link and click <strong>Enable</strong>:</p>
+        <ul>
+          <li><a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">Gmail API</a></li>
+          <li><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener">Google Calendar API</a></li>
+          <li><a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API v3</a> (for new videos from your subscriptions)</li>
+        </ul>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h2>Configure the consent screen</h2>
+        <p>Open <a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener">Google Auth Platform</a> and click <strong>Get started</strong>. Enter the app name <code>myOrb</code> and your email. For <strong>Audience</strong>, choose <strong>External</strong> (or <strong>Internal</strong> if you use Google Workspace and only connect accounts from your organization).</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h2>Publish the app</h2>
+        <p>For an <strong>External</strong> app, go to <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Audience</a> and click <strong>Publish app</strong>. While an app is in <em>Testing</em>, Google signs it out every 7 days. Publishing does not make anything public and does not require Google's review for your own use.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h2>Create an OAuth client</h2>
+        <p>Go to <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clients</a> → <strong>Create client</strong>. Choose <strong>Web application</strong> and name it <code>myOrb</code>. Leave <strong>Authorized JavaScript origins</strong> empty. Under <strong>Authorized redirect URIs</strong>, click <strong>Add URI</strong> and paste:</p>
+        <div class="copy">
+          <code id="redirect-uri">{{ redirect_uri }}</code>
+          <button type="button" class="btn" data-copy="#redirect-uri">Copy</button>
+        </div>
+        {% if not (redirect_uri.startswith("https://") or "://localhost" in redirect_uri or "://127.0.0.1" in redirect_uri) %}
+        <div class="alert alert-warn" role="note" style="margin-top: 12px"><span class="alert-tag">▲ NOTE</span><span>Google accepts redirect URIs only over HTTPS or on <code>localhost</code>. {% if ".localhost" in redirect_uri %}It rejects addresses like <code>myorb.localhost</code>, so open myOrb at <code>http://localhost</code> and start this setup again.{% else %}Run myOrb behind HTTPS and set <code>MYORB_PUBLIC_URL</code>.{% endif %}</span></div>
+        {% endif %}
+        <p style="margin-top: 12px">Click <strong>Create</strong> and copy the client ID and client secret right away; Google shows the secret only once.</p>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h2>Paste the client into myOrb</h2>
+        <form method="post" action="/integrations/google/setup" class="form">
+          <div class="field">
+            <label class="label" for="client-id">Client ID</label>
+            <input class="input" id="client-id" type="text" name="client_id" value="{{ client_id or (client.client_id if client else '') }}" placeholder="…apps.googleusercontent.com" autocomplete="off" required {% if error %}aria-invalid="true" aria-describedby="client-error"{% endif %}>
+          </div>
+          <div class="field">
+            <label class="label" for="client-secret">Client secret</label>
+            <input class="input" id="client-secret" type="password" name="client_secret" autocomplete="off" {% if not client %}required{% endif %} placeholder="{{ 'Saved; leave empty to keep it' if client else '' }}">
+          </div>
+          {% if error %}<div class="alert alert-error" role="alert" id="client-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+          <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
+        </form>
+      </div>
+    </li>
+    <li>
+      <div>
+        <h2>Connect your account</h2>
+        <p>After saving, connect your Google account on the Integrations page. Google will warn that it <em>hasn't verified this app</em>: it is your own app, so click <strong>Advanced</strong> → <strong>Go to myOrb</strong> and allow access.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+{% endblock %}

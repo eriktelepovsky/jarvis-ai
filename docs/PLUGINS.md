@@ -1,34 +1,34 @@
 # Writing plugins
 
-Everything Jarvis shows comes from plugins, including the built-in Gmail, Calendar, Jira and Slack integrations. A plugin is a Python package that registers a `Plugin` subclass; it can add:
+Everything myOrb shows comes from plugins, including the built-in Gmail, Calendar, Jira and Slack integrations. A plugin is a Python package that registers a `Plugin` subclass; it can add:
 
 - **widgets:** numbers around the orb on the welcome screen, with a details dialog behind each,
 - **panels:** sections in the side column or under the clock, rendered from your own template,
-- **connections:** a form on the Integrations page where the user enters an API token, an address or other values, which Jarvis verifies and stores encrypted,
+- **connections:** a form on the Integrations page where the user enters an API token, an address or other values, which myOrb verifies and stores encrypted,
 - **facts for the AI brief:** plain-text lines Claude writes the daily brief from.
 
-The [example plugin](../examples/jarvis-plugin-example) uses all four. Copy it to start your own.
+The [example plugin](../examples/myorb-plugin-example) uses all four. Copy it to start your own.
 
 ## The package
 
 ```toml
 # pyproject.toml
 [project]
-name = "jarvis-wallet"
-dependencies = []   # Jarvis provides httpx2 and its own API; list only your extras
+name = "myorb-wallet"
+dependencies = []   # myOrb provides httpx2 and its own API; list only your extras
 
-[project.entry-points."jarvis_hud.plugins"]
-wallet = "jarvis_wallet:WalletPlugin"
+[project.entry-points."myorb.plugins"]
+wallet = "myorb_wallet:WalletPlugin"
 ```
 
-The entry point is how Jarvis finds the plugin. A plugin that fails to load is logged and skipped.
+The entry point is how myOrb finds the plugin. A plugin that fails to load is logged and skipped.
 
 ## The plugin
 
 ```python
 from pathlib import Path
 
-from jarvis_hud.plugins import Plugin, Widget, WidgetContext, WidgetData
+from myorb.plugins import Plugin, Widget, WidgetContext, WidgetData
 
 
 class WalletPlugin(Plugin):
@@ -54,7 +54,7 @@ class WalletPlugin(Plugin):
 
 ### Widgets
 
-`load(context)` returns `WidgetData`. Jarvis renders the number around the orb and the details dialog from it, so all widgets look alike and plugins write no HTML for them:
+`load(context)` returns `WidgetData`. myOrb renders the number around the orb and the details dialog from it, so all widgets look alike and plugins write no HTML for them:
 
 | Field | Shown as |
 |---|---|
@@ -69,7 +69,7 @@ class WalletPlugin(Plugin):
 | `message`, `message_tone`, `message_action` | A problem or an empty state, with a link to fix it. |
 | `connected` | `False` while the service behind the widget is not set up: the widget is then left out of the orb (the Integrations page offers the setup). Problems with a set-up service keep it visible. |
 
-After a row action or the input, answer with the `HX-Trigger: jarvis:refresh` header; the welcome screen reloads its widgets and keeps the dialog open.
+After a row action or the input, answer with the `HX-Trigger: myorb:refresh` header; the welcome screen reloads its widgets and keeps the dialog open.
 
 ### Panels
 
@@ -104,15 +104,15 @@ class WalletApi(Provider):
         return Verified(account=data["name"], credentials=values)
 ```
 
-`verify` raises `ProviderError` with a message for the user when the values do not work; `request_json` already turns HTTP errors into readable ones. Jarvis stores `credentials` encrypted, shows the connection on the Integrations page and calls `verify` again for "Test connection".
+`verify` raises `ProviderError` with a message for the user when the values do not work; `request_json` already turns HTTP errors into readable ones. myOrb stores `credentials` encrypted, shows the connection on the Integrations page and calls `verify` again for "Test connection".
 
-Read the connected accounts with `context.connections.list("wallet")`, or use `load_connected()` from `jarvis_hud.plugins.connection_data`, which loads data per account through the cache and reports problems for the widget.
+Read the connected accounts with `context.connections.list("wallet")`, or use `load_connected()` from `myorb.plugins.connection_data`, which loads data per account through the cache and reports problems for the widget.
 
 ### Own pages and webhooks
 
 `router()` returns a FastAPI `APIRouter` with the plugin's own pages, e.g. an OAuth callback or a settings page; `settings = SettingsLink(logo, summary, url)` lists that page on the Integrations page. Every route requires a signed-in user, except paths under `/hooks/`, which other services and devices call without a session: authenticate them yourself, e.g. with a secret token in the path compared with `hmac.compare_digest`. The Health plugin uses both, for Strava's OAuth and the Apple Health webhook.
 
-Tables of built-in plugins are created by Jarvis's migrations; a custom plugin that needs storage can keep its own SQLite file in the data directory or store small JSON values with `context.connections.settings()`.
+Tables of built-in plugins are created by myOrb's migrations; a custom plugin that needs storage can keep its own SQLite file in the data directory or store small JSON values with `context.connections.settings()`.
 
 ### The day's timeline
 
@@ -120,7 +120,7 @@ Tables of built-in plugins are created by Jarvis's migrations; a custom plugin t
 
 ### Background work
 
-`background(context)` returns a coroutine Jarvis runs while it is up, e.g. a loop that checks something every minute; `context()` gives a fresh `WidgetContext`. Handle errors inside the loop and sleep between rounds; the task is cancelled at shutdown. The Uptime plugin uses it to check websites.
+`background(context)` returns a coroutine myOrb runs while it is up, e.g. a loop that checks something every minute; `context()` gives a fresh `WidgetContext`. Handle errors inside the loop and sleep between rounds; the task is cancelled at shutdown. The Uptime plugin uses it to check websites.
 
 ### Cache and HTTP
 
@@ -139,20 +139,20 @@ Write facts, most important first; Claude decides what to mention. Return `None`
 
 ## Developing and testing
 
-Install Jarvis from its repository next to your plugin (the example's `pyproject.toml` shows how) and test with `httpx2.MockTransport` instead of the real service. To see the plugin in a running Jarvis, install it into Jarvis's environment: `uv pip install -e path/to/plugin`.
+Install myOrb from its repository next to your plugin (the example's `pyproject.toml` shows how) and test with `httpx2.MockTransport` instead of the real service. To see the plugin in a running myOrb, install it into myOrb's environment: `uv pip install -e path/to/plugin`.
 
 ## Installing
 
-Set `JARVIS_PLUGINS` to what pip would install, separated by spaces: package names with versions, wheel URLs or local paths. Jarvis installs them at startup into `plugins/` in the data directory, so they survive updates of the Docker image:
+Set `MYORB_PLUGINS` to what pip would install, separated by spaces: package names with versions, wheel URLs or local paths. myOrb installs them at startup into `plugins/` in the data directory, so they survive updates of the Docker image:
 
 ```yaml
 services:
-  jarvis:
+  myorb:
     environment:
-      JARVIS_PLUGINS: "jarvis-wallet==1.2 /plugins/jarvis-invoices"
+      MYORB_PLUGINS: "myorb-wallet==1.2 /plugins/myorb-invoices"
     volumes:
-      - jarvis-data:/data
-      - ./jarvis-invoices:/plugins/jarvis-invoices:ro
+      - myorb-data:/data
+      - ./myorb-invoices:/plugins/myorb-invoices:ro
 ```
 
 The Docker image has no `git`, so install private plugins from a mounted directory or a wheel rather than a `git+https://` URL.

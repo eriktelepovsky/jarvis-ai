@@ -7,7 +7,7 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from test_integrations import FakeApis
 
-from jarvis_hud.plugins.slack import SlackPlugin, plain_text
+from myorb.plugins.slack import SlackPlugin, plain_text
 
 TOKEN = "xoxp-good"
 

@@ -10,9 +10,9 @@ from fakegoogle import CLIENT_ID, CLIENT_SECRET, EMAIL, REDIRECT_URI, FakeGoogle
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from jarvis_hud.connections import google
-from jarvis_hud.connections.models import Connection, ProviderSettings
-from jarvis_hud.crypto import InvalidToken, SecretBox, load_secret_key
+from myorb.connections import google
+from myorb.connections.models import Connection, ProviderSettings
+from myorb.crypto import InvalidToken, SecretBox, load_secret_key
 
 
 @pytest.fixture
@@ -132,7 +132,7 @@ def test_callback_rejects_unknown_state(client: TestClient, fake_google: FakeGoo
         state = "forged"
     else:
         # The right state alone is not enough: it must match the cookie of this browser.
-        client.cookies.delete("jarvis_google_oauth")
+        client.cookies.delete("myorb_google_oauth")
     response = client.get("/integrations/google/callback", params={"state": state, "code": code})
     assert response.status_code == 400
     assert "expired or did not start here" in response.text

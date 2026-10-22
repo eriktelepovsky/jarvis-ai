@@ -9,8 +9,8 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from test_integrations import FakeApis
 
-from jarvis_hud.plugins.health import HealthPlugin, sleep_text
-from jarvis_hud.plugins.health.routes import parse_days
+from myorb.plugins.health import HealthPlugin, sleep_text
+from myorb.plugins.health.routes import parse_days
 
 
 class FakeStrava:

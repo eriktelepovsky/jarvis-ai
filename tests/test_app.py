@@ -5,7 +5,7 @@ import pytest
 from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 
-from jarvis_hud.plugins import (
+from myorb.plugins import (
     Panel,
     Plugin,
     Row,
@@ -14,8 +14,8 @@ from jarvis_hud.plugins import (
     WidgetData,
     discover_plugins,
 )
-from jarvis_hud.plugins.calendar import CalendarPlugin
-from jarvis_hud.plugins.gmail import GmailPlugin
+from myorb.plugins.calendar import CalendarPlugin
+from myorb.plugins.gmail import GmailPlugin
 
 
 class EchoPlugin(Plugin):
@@ -118,10 +118,10 @@ def test_welcome_screen_without_plugins(make_client: MakeClient):
 def test_server_app_trusts_forwarded_headers_only_from_proxies(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("JARVIS_TRUSTED_PROXIES", "127.0.0.1")
+    monkeypatch.setenv("MYORB_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("MYORB_TRUSTED_PROXIES", "127.0.0.1")
 
-    from jarvis_hud.app import create_server_app
+    from myorb.app import create_server_app
 
     # A request through a local proxy is treated as coming from the forwarded client,
     # so it must not get the loopback-only setup form.
@@ -196,7 +196,7 @@ def test_assistant_is_named_by_the_user(make_client: MakeClient):
     client = make_client()
     token = client.app.state.auth.setup_token
     data = {"password": "correct horse battery", "password_confirmation": "correct horse battery"}
-    assert 'value="J.A.R.V.I.S."' in client.get("/setup", params={"token": token}).text
+    assert 'value="Orb"' in client.get("/setup", params={"token": token}).text
     client.post("/setup", data={**data, "token": token, "assistant": "Iris"})
     page = client.get("/").text
     assert '<span class="core-name" style="--chars: 4">Iris</span>' in page
@@ -210,7 +210,7 @@ def test_assistant_is_named_by_the_user(make_client: MakeClient):
     client.post("/settings/profile", data={"name": "Pepper"})
     assert 'value="HAL 9000"' in client.get("/settings/security").text
     client.post("/settings/profile", data={"name": "Pepper", "assistant": ""})
-    assert '<span class="core-name" style="--chars: 12">J.A.R.V.I.S.</span>' in client.get("/").text
+    assert '<span class="core-name" style="--chars: 3">Orb</span>' in client.get("/").text
 
 
 def test_static_files_are_revalidated(make_client: MakeClient):

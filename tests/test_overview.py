@@ -4,11 +4,11 @@ from zoneinfo import ZoneInfo
 from conftest import MakeClient, complete_setup
 from sqlalchemy import select
 
-from jarvis_hud.overview.glance import duration, free_minutes, glance
-from jarvis_hud.overview.models import WidgetSnapshot
-from jarvis_hud.overview.snapshots import change_label, numeric
-from jarvis_hud.plugins import TimelineItem
-from jarvis_hud.tasks.plugin import TasksPlugin
+from myorb.overview.glance import duration, free_minutes, glance
+from myorb.overview.models import WidgetSnapshot
+from myorb.overview.snapshots import change_label, numeric
+from myorb.plugins import TimelineItem
+from myorb.tasks.plugin import TasksPlugin
 
 TZ = ZoneInfo("Europe/Bratislava")
 NOW = datetime(2026, 10, 22, 15, 30, tzinfo=TZ)

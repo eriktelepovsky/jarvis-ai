@@ -90,7 +90,7 @@ def test_azure_voices_and_samples(client: TestClient, apis: FakeApis):
     assert (
         '<option value="sk-SK-ViktoriaNeural" selected>Viktória · Female · sk-SK</option>' in page
     )
-    assert "Nanami" not in page  # only languages Jarvis reads
+    assert "Nanami" not in page  # only languages myOrb reads
     assert "✓ Azure Speech" in client.get("/integrations").text
 
     # Choosing another voice keeps the key.

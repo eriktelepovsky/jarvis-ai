@@ -10,9 +10,9 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from jarvis_hud.connections.models import Connection
-from jarvis_hud.plugins.code_review import CodeReviewPlugin
-from jarvis_hud.plugins.jira import JiraPlugin
+from myorb.connections.models import Connection
+from myorb.plugins.code_review import CodeReviewPlugin
+from myorb.plugins.jira import JiraPlugin
 
 Handler = Callable[[httpx2.Request], httpx2.Response]
 

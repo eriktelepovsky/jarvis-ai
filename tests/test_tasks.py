@@ -6,10 +6,10 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from jarvis_hud.tasks.models import Task
-from jarvis_hud.tasks.parse import parse_task
-from jarvis_hud.tasks.plugin import TasksPlugin
-from jarvis_hud.tasks.schedule import due_label, group
+from myorb.tasks.models import Task
+from myorb.tasks.parse import parse_task
+from myorb.tasks.plugin import TasksPlugin
+from myorb.tasks.schedule import due_label, group
 
 TZ = ZoneInfo("Europe/Bratislava")
 THURSDAY = date(2026, 10, 22)
@@ -128,7 +128,7 @@ def test_add_task_with_due_date(client: TestClient):
 def test_add_from_welcome_screen_refreshes_widgets(client: TestClient):
     response = client.post("/tasks", data={"text": "Water plants"}, headers={"HX-Request": "true"})
     assert response.status_code == 204
-    assert response.headers["HX-Trigger"] == "jarvis:refresh"
+    assert response.headers["HX-Trigger"] == "myorb:refresh"
 
 
 def test_empty_task_is_rejected(client: TestClient):
@@ -215,7 +215,7 @@ def test_panel_lists_overdue_and_today(client: TestClient):
 def test_command_line_adds_a_task(client: TestClient):
     assert 'id="command-input"' in client.get("/").text
     response = client.post("/command", data={"text": "Call <the> accountant tomorrow 10:00"})
-    assert response.headers["HX-Trigger"] == "jarvis:refresh"
+    assert response.headers["HX-Trigger"] == "myorb:refresh"
     assert "✓ Added to To-do" in response.text
     assert "Call &lt;the&gt; accountant</span> · Tomorrow 10:00" in response.text
     assert "Call &lt;the&gt; accountant" in client.get("/tasks").text

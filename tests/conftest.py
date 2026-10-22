@@ -5,9 +5,9 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis_hud.app import create_app
-from jarvis_hud.config import Settings
-from jarvis_hud.plugins import Plugin
+from myorb.app import create_app
+from myorb.config import Settings
+from myorb.plugins import Plugin
 
 PASSWORD = "correct horse battery"
 ORIGIN = "http://testserver"
@@ -17,7 +17,7 @@ MakeClient = Callable[..., TestClient]
 
 @pytest.fixture
 def make_client(tmp_path: Path) -> Iterator[MakeClient]:
-    """Start a Jarvis app on a shared data directory and return a client for it.
+    """Start a myOrb app on a shared data directory and return a client for it.
 
     Each call starts a new app, so calling it twice simulates a restart or a second device.
     """
@@ -53,7 +53,7 @@ def complete_setup(client: TestClient, password: str = PASSWORD) -> None:
 
 @pytest.fixture
 def client(make_client: MakeClient) -> TestClient:
-    """A client signed in to a Jarvis that has finished setup."""
+    """A client signed in to a myOrb that has finished setup."""
     client = make_client()
     complete_setup(client)
     return client
