@@ -205,6 +205,32 @@
     if (next && next !== current) openDialog(next);
   }
 
+  // A number in the details filters the list next to it; clicking it again shows everything.
+  function filterRows(button) {
+    const dialog = button.closest("dialog");
+    const active = button.getAttribute("aria-pressed") !== "true";
+    dialog.querySelectorAll("[data-filter]").forEach((other) => other.setAttribute("aria-pressed", "false"));
+    button.setAttribute("aria-pressed", String(active));
+    const tag = button.dataset.filter;
+    dialog.querySelectorAll(".modal-row").forEach((row) => {
+      row.hidden = active && !row.dataset.tags.split(" ").includes(tag);
+    });
+    const head = dialog.querySelector("[data-list-title]");
+    if (head) {
+      const label = button.querySelector(".label").textContent;
+      head.textContent = active ? `${label} · click again to show all` : head.dataset.listTitle;
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    const filter = event.target.closest("dialog [data-filter]");
+    if (filter) {
+      filterRows(filter);
+      sound("click");
+      return;
+    }
+  });
+
   document.addEventListener("click", (event) => {
     const opener = event.target.closest("[data-open]");
     const dialog = event.target.closest("dialog[data-detail]");

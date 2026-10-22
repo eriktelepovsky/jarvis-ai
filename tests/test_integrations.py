@@ -166,6 +166,10 @@ def test_pull_requests_widget_from_github(client: TestClient, apis: FakeApis):
     assert "✕ Failed" in text and "✓ Passed" in text
     assert "Yours · acme/api" in text
     assert "node warn" in text
+    # The numbers filter the list: rows are tagged by what they are.
+    assert 'data-filter="review"' in text and 'data-filter="failing"' in text
+    assert 'data-filter="mine"' in text
+    assert 'data-tags="review failing"' in text and 'data-tags="mine"' in text
 
 
 # GitLab
@@ -222,9 +226,12 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     apis.routes[(host, "/2.0/workspaces/acme/pullrequests/{abc}")] = basic(*auth, {"values": []})
     apis.routes[(host, "/2.0/repositories/acme")] = basic(*auth, {"values": [{"slug": "infra"}]})
 
+    merged = {**pr, "id": 50, "title": "chore: merged long ago", "state": "MERGED"}
+
     def review(request: httpx2.Request) -> httpx2.Response:
-        assert 'reviewers.uuid="{abc}"' in request.url.params["q"]
-        return httpx2.Response(200, json={"values": [pr]})
+        # As Bitbucket does: with `q`, the `state` parameter is ignored and must be in `q`.
+        assert request.url.params["q"] == 'state="OPEN" AND reviewers.uuid="{abc}"'
+        return httpx2.Response(200, json={"values": [{**pr, "state": "OPEN"}, merged]})
 
     apis.routes[(host, "/2.0/repositories/acme/infra/pullrequests")] = review
     apis.routes[(host, "/2.0/repositories/acme/infra/pullrequests/54/statuses")] = basic(
@@ -236,6 +243,7 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     text = client.get("/welcome/widgets").text
     assert "#54 fix: redis healthcheck" in text
     assert "✕ Failed" in text
+    assert "merged long ago" not in text
 
 
 # Jira

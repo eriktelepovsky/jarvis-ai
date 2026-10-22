@@ -42,6 +42,8 @@ class Link:
 class Stat:
     value: str | int
     label: str
+    # Clicking the number shows only the rows tagged with this (Row.tags); again shows all.
+    filter: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,8 @@ class Row:
     actions: list[Action] = field(default_factory=list)
     # The label of the `url` link. Links within myOrb ("/…") open in the same tab.
     url_label: str = "Open"
+    # What the row is, for the numbers that filter the list (Stat.filter), e.g. ("review",).
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

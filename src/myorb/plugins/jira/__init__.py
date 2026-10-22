@@ -181,14 +181,24 @@ class JiraPlugin(Plugin):
             subtitle = " · ".join(
                 p for p in (issue.workspace if len(loaded) > 1 else "", issue.priority) if p
             )
-            rows.append(Row(f"{issue.key} {issue.summary}", subtitle, badge, tone, issue.url))
+            tags = tuple(
+                tag
+                for tag, applies in (
+                    ("overdue", is_overdue(issue, today)),
+                    ("progress", issue.category == "indeterminate"),
+                )
+                if applies
+            )
+            rows.append(
+                Row(f"{issue.key} {issue.summary}", subtitle, badge, tone, issue.url, tags=tags)
+            )
         return WidgetData(
             value=len(issues),
             summary="assigned to you" + (f" · {len(overdue)} overdue" if overdue else ""),
             attention=bool(overdue or urgent),
             stats=[
                 Stat(len(issues), "Assigned"),
-                Stat(len(in_progress), "In progress"),
+                Stat(len(in_progress), "In progress", filter="progress"),
                 Stat(len(loaded), "Workspaces"),
             ],
             list_title="Assigned to you",

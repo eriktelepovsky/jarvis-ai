@@ -35,7 +35,11 @@
       {% if data.stats %}
       <div class="modal-stats">
         {% for stat in data.stats %}
+        {% if stat.filter %}
+        <button type="button" class="modal-stat is-filter" data-filter="{{ stat.filter }}" aria-pressed="false" title="Show only these"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></button>
+        {% else %}
         <div class="modal-stat"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></div>
+        {% endif %}
         {% endfor %}
       </div>
       {% endif %}
@@ -55,9 +59,9 @@
         <button type="submit" class="btn btn-primary" aria-label="{{ data.input.label }}">Add</button>
       </form>
       {% endif %}
-      {% if data.list_title %}<div class="label list-head">{{ data.list_title }}</div>{% endif %}
+      {% if data.list_title %}<div class="label list-head" data-list-title="{{ data.list_title }}">{{ data.list_title }}</div>{% endif %}
       {% for row in data.rows %}
-      <div class="modal-row">
+      <div class="modal-row" data-tags="{{ row.tags | join(' ') }}">
         <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>
         {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
         <span class="row-actions">

@@ -857,9 +857,18 @@ a.ti:hover .t1 {
   .modal-body {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  /* One column on a phone: the summary scrolls away rather than covering the list. */
+  .modal-summary {
+    position: static;
+  }
 }
 
 .modal-summary {
+  /* Stays in view while the list next to it scrolls, so its numbers can filter the list. */
+  position: sticky;
+  top: 0;
+  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -877,6 +886,26 @@ a.ti:hover .t1 {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+button.modal-stat {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.modal-stat:hover {
+  border-color: var(--line-accent);
+}
+
+button.modal-stat[aria-pressed="true"] {
+  background: rgb(79 209 232 / 8%);
+  border-color: var(--accent);
+}
+
+.modal-row[hidden] {
+  display: none;
 }
 
 .list-head {

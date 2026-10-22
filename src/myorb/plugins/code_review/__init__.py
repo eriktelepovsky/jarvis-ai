@@ -29,7 +29,6 @@ CI_BADGES = {
     "failure": ("✕ Failed", "fail"),
     "pending": ("◌ Running", "info"),
 }
-ROWS_SHOWN = 12
 
 
 def ci_badge(pr: PullRequest) -> tuple[str, str]:
@@ -97,6 +96,7 @@ class CodeReviewPlugin(Plugin):
         rows = []
         for pr, yours in [*((pr, False) for pr in review), *((pr, True) for pr in mine)]:
             badge, tone = ci_badge(pr)
+            tags = ("mine" if yours else "review",) + (("failing",) if pr.ci == "failure" else ())
             rows.append(
                 Row(
                     title=f"{pr.ref} {pr.title}",
@@ -104,6 +104,7 @@ class CodeReviewPlugin(Plugin):
                     badge=badge,
                     tone=tone,
                     url=pr.url,
+                    tags=tags,
                 )
             )
         return WidgetData(
@@ -111,12 +112,12 @@ class CodeReviewPlugin(Plugin):
             summary="waiting for your review" + (f" · {len(failing)} failing" if failing else ""),
             attention=bool(failing),
             stats=[
-                Stat(len(review), "To review"),
-                Stat(len(failing), "CI failing"),
-                Stat(len(mine), "Yours open"),
+                Stat(len(review), "To review", filter="review"),
+                Stat(len(failing), "CI failing", filter="failing"),
+                Stat(len(mine), "Yours open", filter="mine"),
             ],
             list_title="Waiting for your review, then yours",
-            rows=rows[:ROWS_SHOWN],
+            rows=rows,
             **status,
         )
 
