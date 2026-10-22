@@ -10,11 +10,23 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx2
+from fastapi import APIRouter
+from sqlalchemy import select
 
 from myorb.connections.google import GoogleError
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
-from myorb.plugins.base import Link, Plugin, Row, Stat, Widget, WidgetContext, WidgetData
+from myorb.plugins.base import (
+    Action,
+    Link,
+    Plugin,
+    Row,
+    Stat,
+    Widget,
+    WidgetContext,
+    WidgetData,
+)
 from myorb.plugins.google_data import account_status, load_accounts
+from myorb.plugins.youtube.models import SeenVideo
 
 API = "https://www.googleapis.com/youtube/v3"
 API_NAME = "YouTube Data API v3"
@@ -22,7 +34,6 @@ SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
 FEED = "https://www.youtube.com/feeds/videos.xml"
 MAX_CHANNELS = 200
 PARALLEL_FEEDS = 10
-ROWS_SHOWN = 12
 ICON = "M3 5h18v14H3zM10 9l5 3-5 3Z"
 NS = {
     "atom": "http://www.w3.org/2005/Atom",
@@ -151,21 +162,56 @@ class YouTubePlugin(Plugin):
             if video["id"] not in seen:
                 seen.add(video["id"])
                 videos.append(video)
-        today = [v for v in videos if now - v["published"] < timedelta(days=1)]
         week = [v for v in videos if now - v["published"] < timedelta(days=7)]
+        async with context.sessionmaker() as db:
+            watched = set(await db.scalars(select(SeenVideo.video_id)))
+        # The orb counts what is new and not seen yet; YouTube does not tell what was watched,
+        # so a video counts as seen once opened from myOrb or marked as seen.
+        new = [
+            v for v in week if v["id"] not in watched and now - v["published"] < timedelta(days=1)
+        ]
+        unseen = [v for v in week if v["id"] not in watched]
+        rows = []
+        # Not seen first, newest first; then the seen ones.
+        for v in sorted(week, key=lambda v: v["id"] in watched):
+            is_seen = v["id"] in watched
+            fresh = not is_seen and now - v["published"] < timedelta(days=1)
+            rows.append(
+                Row(
+                    v["title"],
+                    f"{v['channel']} · {age(v['published'], now)}",
+                    badge="✓ Seen" if is_seen else ("New" if fresh else ""),
+                    tone="neutral" if is_seen else "info",
+                    url=f"/youtube/watch/{v['id']}",
+                    new_tab=True,
+                    actions=[] if is_seen else [Action("Seen", f"/youtube/seen/{v['id']}")],
+                    tags=("seen",) if is_seen else ("unseen", "new") if fresh else ("unseen",),
+                    group=v["channel"],
+                )
+            )
         return WidgetData(
-            value=len(today),
-            summary="new in the last 24 hours",
+            value=len(new),
+            summary="new in the last 24 hours, not seen yet",
             stats=[
-                Stat(len(today), "Last 24 h"),
-                Stat(len(week), "This week"),
-                Stat(sum(a.data["channels"] for a in loaded), "Channels"),
+                Stat(len(new), "New · 24 h", filter="new"),
+                Stat(len(unseen), "Not seen · week", filter="unseen"),
+                Stat(len(week) - len(unseen), "Seen", filter="seen"),
             ],
-            list_title="Latest from your subscriptions",
-            rows=[
-                Row(v["title"], f"{v['channel']} · {age(v['published'], now)}", url=v["url"])
-                for v in week[:ROWS_SHOWN]
-            ],
+            list_title="This week from your subscriptions",
+            group_label="channels",
+            rows=rows,
+            actions=[
+                Action(
+                    "Mark all as seen", "/youtube/seen", {"ids": " ".join(v["id"] for v in unseen)}
+                )
+            ]
+            if unseen
+            else [],
             action=Link("Open subscriptions", "https://www.youtube.com/feed/subscriptions"),
             **status,
         )
+
+    def router(self) -> APIRouter:
+        from myorb.plugins.youtube.routes import router
+
+        return router

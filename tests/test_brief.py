@@ -198,6 +198,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
 
     [brief] = briefs(client)
     assert brief.sources == ["Tasks"]
+    assert "written: One thing needs you &lt;today&gt;." in client.get("/activity").text
     assert brief.content["priorities"][1]["tone"] == "neutral"
 
     headline = client.get("/brief/headline").text

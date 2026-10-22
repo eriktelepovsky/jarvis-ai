@@ -199,6 +199,9 @@ def test_today_panel_labels_all_day_events_once(client: TestClient, fake_google:
     text = client.get("/panels/calendar/today").text
     assert "Name day" in text and "Garden" in text
     assert text.count("All day") == 1
+    widgets = client.get("/welcome/widgets").text
+    assert 'data-filter="today"' in widgets and 'data-filter="week"' in widgets
+    assert 'data-tags="today"' in widgets
 
 
 # Calendar parsing

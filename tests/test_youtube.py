@@ -110,3 +110,29 @@ def test_youtube_needs_its_permission(client: TestClient, fake_google: FakeGoogl
     fake_google.granted_scopes = " ".join([*google.BASE_SCOPES, google.CAPABILITIES[0].scope])
     connect_google(client, fake_google)
     assert "no permission" in client.get("/welcome/widgets").text
+
+
+def test_seen_videos_leave_the_count(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">1</span>' in text
+    # Opened from myOrb: on to YouTube in a new tab, and counted as seen.
+    assert 'href="/youtube/watch/new" target="_blank" rel="noopener" data-refresh-after' in text
+    assert 'data-group-value="Server Side"' not in text  # one channel: no list
+    assert 'hx-vals=\'{"ids": "new old"}\'' in text  # "Mark all as seen" sends what is listed
+
+    response = client.post("/youtube/seen/new", headers={"HX-Request": "true"})
+    assert response.headers["HX-Trigger"] == "myorb:refresh"
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">0</span>' in text
+    assert "✓ Seen" in text
+
+    client.post("/youtube/seen", data={"ids": "old <script>"})
+    assert "Mark all as seen" not in client.get("/welcome/widgets").text
+
+
+def test_watch_marks_seen_and_opens_youtube(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    response = client.get("/youtube/watch/aBcDeFgHiJk", follow_redirects=False)
+    assert response.headers["location"] == "https://www.youtube.com/watch?v=aBcDeFgHiJk"
+    assert client.get("/youtube/watch/bad%20id!", follow_redirects=False).status_code == 404

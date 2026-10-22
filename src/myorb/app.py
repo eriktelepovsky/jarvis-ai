@@ -14,6 +14,8 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, se
 from starlette.responses import Response
 
 from myorb import __version__, music, profile, voice
+from myorb.activity import routes as activity_routes
+from myorb.activity.changes import WidgetWatch
 from myorb.auth import passkeys
 from myorb.auth import routes as auth_routes
 from myorb.auth.middleware import auth_middleware
@@ -135,6 +137,7 @@ def create_app(
     app.state.plugins = plugins
     app.state.timezone = resolve_timezone(settings.timezone)
     app.state.cache = Cache()
+    app.state.widget_watch = WidgetWatch()
     app.state.templates = create_templates(plugins, app.state.timezone)
     app.middleware("http")(auth_middleware)
     app.mount("/static", RevalidatedStaticFiles(directory=WEB_DIR / "static"), name="static")
@@ -146,6 +149,7 @@ def create_app(
     app.include_router(music.router)
     app.include_router(profile.router)
     app.include_router(voice.router)
+    app.include_router(activity_routes.router)
     for plugin in plugins.values():
         if (plugin_router := plugin.router()) is not None:
             app.include_router(plugin_router)

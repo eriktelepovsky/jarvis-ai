@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from myorb.activity.store import record
 from myorb.db import get_db
 from myorb.tasks import store
 from myorb.tasks.models import Task
@@ -62,7 +63,8 @@ async def tasks_page(request: Request, db: Db, edit: int | None = None) -> Respo
 async def add(request: Request, db: Db, text: Annotated[str, Form()]) -> Response:
     if not text.strip():
         raise HTTPException(status_code=400, detail="Enter a task")
-    await store.add_task(db, text, _now(request).date())
+    task = await store.add_task(db, text, _now(request).date())
+    await record(request.app.state.sessionmaker, f"Task added: {task.title}", "info", "/tasks")
     return _done(request)
 
 
@@ -72,6 +74,7 @@ async def command(request: Request, db: Db, text: Annotated[str, Form()]) -> Res
     if not text.strip():
         raise HTTPException(status_code=400, detail="Enter a task")
     task = await store.add_task(db, text, _now(request).date())
+    await record(request.app.state.sessionmaker, f"Task added: {task.title}", "info", "/tasks")
     return request.app.state.templates.TemplateResponse(
         request,
         "welcome/command_result.html",
@@ -82,7 +85,9 @@ async def command(request: Request, db: Db, text: Annotated[str, Form()]) -> Res
 
 @router.post("/tasks/{task_id}/done")
 async def mark_done(request: Request, db: Db, task_id: int) -> Response:
-    await store.set_done(db, await _task_or_404(db, task_id), True)
+    task = await _task_or_404(db, task_id)
+    await store.set_done(db, task, True)
+    await record(request.app.state.sessionmaker, f"Done: {task.title}", "ok", "/tasks")
     return _done(request)
 
 

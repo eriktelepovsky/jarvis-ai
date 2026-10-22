@@ -45,13 +45,21 @@
       </div>
       {% endif %}
       {% set groups = data.rows | map(attribute="group") | select | list %}
-      {% if data.group_label and groups | unique | list | length > 1 %}
+      {% set subgroup_count = data.rows | map(attribute="subgroup") | select | unique | list | length %}
+      {% if data.group_label and (groups | unique | list | length > 1 or subgroup_count > 1) %}
       {# One button per workspace or repository: narrows the list next to it. #}
       <div class="group-list" role="group" aria-label="Filter by {{ data.group_label }}">
         <span class="label">{{ data.group_label }}</span>
         <button type="button" class="group-item" data-group-value="" aria-pressed="true"><span class="trunc">All {{ data.group_label }}</span><span class="group-count">{{ data.rows | length }}</span></button>
         {% for name in groups | unique | sort %}
         <button type="button" class="group-item" data-group-value="{{ name }}" aria-pressed="false"><span class="trunc">{{ name }}</span><span class="group-count">{{ groups | select("equalto", name) | list | length }}</span></button>
+        {# Its subgroups (e.g. Jira projects), indented, when there are more than one. #}
+        {% set subgroups = data.rows | selectattr("group", "equalto", name) | map(attribute="subgroup") | select | list %}
+        {% if subgroups | unique | list | length > 1 %}
+        {% for sub in subgroups | unique | sort %}
+        <button type="button" class="group-item group-sub" data-group-value="{{ name }}" data-subgroup-value="{{ sub }}" aria-pressed="false"><span class="trunc">{{ sub }}</span><span class="group-count">{{ subgroups | select("equalto", sub) | list | length }}</span></button>
+        {% endfor %}
+        {% endif %}
         {% endfor %}
       </div>
       {% endif %}
@@ -77,12 +85,12 @@
       <p class="muted list-empty" data-list-empty hidden>Nothing matches.</p>
       {% endif %}
       {% for row in data.rows %}
-      <div class="modal-row" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}">
+      <div class="modal-row" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}" data-subgroup="{{ row.subgroup }}">
         <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>
         {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
         <span class="row-actions">
           {% for action in row.actions %}<button type="button" class="row-btn" hx-post="{{ action.url }}" hx-swap="none">{{ action.label }}</button>{% endfor %}
-          {% if row.url %}<a class="row-btn" href="{{ row.url }}"{% if not row.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ row.url_label }}</a>{% endif %}
+          {% if row.url %}<a class="row-btn" href="{{ row.url }}"{% if row.new_tab or not row.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}{% if row.new_tab and row.url.startswith("/") %} data-refresh-after{% endif %}>{{ row.url_label }}</a>{% endif %}
         </span>
       </div>
       {% else %}
@@ -92,7 +100,8 @@
   </div>
   <div class="modal-foot">
     {% if data.action %}<a class="btn btn-primary" href="{{ data.action.url }}"{% if not data.action.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ data.action.label }}</a>{% endif %}
-    {% for link in data.links %}<a class="btn{% if not data.action and loop.first %} btn-primary{% endif %}" href="{{ link.url }}"{% if not link.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endfor %}
+    {% for action in data.actions %}<button type="button" class="btn" hx-post="{{ action.url }}" hx-swap="none" hx-disabled-elt="this"{% if action.values %} hx-vals='{{ action.values | tojson }}'{% endif %}>{{ action.label }}</button>{% endfor %}
+    {% for link in data.links %}<a class="btn" href="{{ link.url }}"{% if not link.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endfor %}
     {% if data.message_action and data.value is none %}<a class="btn btn-primary" href="{{ data.message_action.url }}">{{ data.message_action.label }}</a>{% endif %}
     <span class="label" style="margin-left: auto">Esc closes · ← → switch</span>
   </div>

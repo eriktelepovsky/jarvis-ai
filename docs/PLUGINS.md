@@ -63,8 +63,9 @@ class WalletPlugin(Plugin):
 | `attention` | Amber node and tile: something needs the user. Such a node is drawn large, one with `0` or no value small; the widget's `weight` only adjusts the size a little. |
 | `stats` | Up to three `Stat(value, label)` boxes. With `filter="review"`, clicking the box shows only the rows with that tag in `Row(tags=("review",))`. |
 | `list_title`, `rows` | A list of `Row(title, subtitle, badge, tone, url, actions)`. `tone` is `ok`, `warn`, `fail`, `info` or `neutral`. `actions` are buttons that POST to a URL. |
-| `group_label` | With `Row(group=…)`, e.g. `"workspaces"`: when the rows belong to more than one group, a menu above the list shows one of them. |
+| `group_label` | With `Row(group=…)`, e.g. `"workspaces"`: when the rows belong to more than one group, the groups are listed under the numbers to show one of them. `Row(subgroup=…)`, e.g. a Jira project, lists finer groups under each group. |
 | `action` | The main button, a `Link(label, url)`. |
+| `actions` | Buttons in the footer that POST, e.g. `Action("Mark all as seen", url, {"ids": …})`; the widgets reload afterwards. |
 | `links` | More buttons, e.g. one per connected account. `open_buttons("Open Jira", [(name, url), …])` gives one `action` for one account and a button per account for several. |
 | `input` | A one-line form (e.g. "Add a task") that POSTs a `text` field. |
 | `source`, `updated_at` | "Gmail · 2m ago" under the title. |
@@ -124,6 +125,10 @@ Tables of built-in plugins are created by myOrb's migrations; a custom plugin th
 ### Background work
 
 `background(context)` returns a coroutine myOrb runs while it is up, e.g. a loop that checks something every minute; `context()` gives a fresh `WidgetContext`. Handle errors inside the loop and sleep between rounds; the task is cancelled at shutdown. The Uptime plugin uses it to check websites.
+
+### Activity
+
+`await record(context.sessionmaker, "Invoice FV-085 was paid", "ok", url)` from `myorb.activity.store` adds a line to the activity list on the welcome screen (tones `ok`, `fail`, `warn`, `info`). myOrb also notes on its own when a widget starts or stops failing and when its number goes up.
 
 ### Cache and HTTP
 

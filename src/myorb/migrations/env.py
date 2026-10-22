@@ -3,12 +3,14 @@ import asyncio
 from alembic import context
 from sqlalchemy import Connection
 
-import myorb.auth.models  # noqa: F401  (registers models on Base.metadata)
+import myorb.activity.models  # noqa: F401  (registers models on Base.metadata)
+import myorb.auth.models  # noqa: F401
 import myorb.brief.models  # noqa: F401
 import myorb.connections.models  # noqa: F401
 import myorb.overview.models  # noqa: F401
 import myorb.plugins.health.models  # noqa: F401
 import myorb.plugins.uptime.models  # noqa: F401
+import myorb.plugins.youtube.models  # noqa: F401
 import myorb.tasks.models  # noqa: F401
 from myorb.db import Base
 

@@ -212,14 +212,17 @@
 
   function applyFilters(dialog) {
     const pressed = dialog.querySelector('[data-filter][aria-pressed="true"]');
-    const group = dialog.querySelector('[data-group-value][aria-pressed="true"]')?.dataset.groupValue || "";
+    const chosen = dialog.querySelector('[data-group-value][aria-pressed="true"]');
+    const group = chosen?.dataset.groupValue || "";
+    const subgroup = chosen?.dataset.subgroupValue || "";
     const words = fold(dialog.querySelector("[data-list-search]")?.value || "").split(/\s+/).filter(Boolean);
     let shown = 0;
     dialog.querySelectorAll(".modal-row").forEach((row) => {
       const tagged = !pressed || row.dataset.tags.split(" ").includes(pressed.dataset.filter);
       row.dataset.text ??= fold(row.textContent);
       const found = words.every((word) => row.dataset.text.includes(word));
-      row.hidden = !tagged || (group && row.dataset.group !== group) || !found;
+      const inGroup = (!group || row.dataset.group === group) && (!subgroup || row.dataset.subgroup === subgroup);
+      row.hidden = !tagged || !inGroup || !found;
       if (!row.hidden) shown += 1;
     });
     const empty = dialog.querySelector("[data-list-empty]");
@@ -251,6 +254,11 @@
   }
 
   document.addEventListener("click", (event) => {
+    // A link that also changes something here (opening a video marks it seen): refresh after.
+    if (event.target.closest("a[data-refresh-after]")) {
+      setTimeout(() => htmx.trigger(document.body, "myorb:refresh"), 1500);
+      return;
+    }
     const filter = event.target.closest("dialog [data-filter]");
     if (filter) {
       filterRows(filter);

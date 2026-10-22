@@ -282,31 +282,39 @@ class CalendarPlugin(Plugin):
             return WidgetData(value=None, **status)
         now = context.now
         day = self._merged(loaded, now)
-        remaining = [e for e in day["today"] if e["kind"] == "event"]
+        today = [e for e in day["today"] if e["kind"] != "now"]
         week = [e for e in day["upcoming"] if e["start"] < now + timedelta(days=DAYS_AHEAD)]
-        timed = [e for e in remaining if not e["all_day"] and e["start"] > now]
+        # The next timed event: later today, or else the first of the week ahead.
+        timed = [e for e in [*today, *week] if not e["all_day"] and e["start"] > now]
         nxt = timed[0] if timed else None
-        return WidgetData(
-            value=day["today_count"],
-            summary="events today" + (f" · next {nxt['start']:%H:%M}" if nxt else ""),
-            stats=[
-                Stat(day["today_count"], "Today"),
-                Stat(f"{nxt['start']:%H:%M}" if nxt else "—", "Next"),
-                Stat(len(week), "Next 7 days"),
-            ],
-            list_title="Schedule",
-            # The rest of today and the week ahead, by calendar ("Povinnosti", "Slovenské mená").
-            rows=[
+        rows = []
+        # All of today (what is over is dimmed) and the week ahead, by calendar; the numbers
+        # above filter them: today, the next event, the next seven days.
+        for event in [*today, *week]:
+            tags = ["today" if event in today else "week"]
+            if event is nxt:
+                tags.append("next")
+            rows.append(
                 Row(
                     title=event["title"],
                     subtitle=describe(event),
-                    badge=event_badge(event, now),
-                    tone="info",
+                    badge="Over" if event.get("kind") == "past" else event_badge(event, now),
+                    tone="neutral" if event.get("kind") == "past" else "info",
                     url=event["url"],
+                    tags=tuple(tags),
                     group=event["calendar"] or event.get("account") or "Primary",
                 )
-                for event in [*remaining, *week]
+            )
+        return WidgetData(
+            value=day["today_count"],
+            summary="events today" + (f" · next {event_badge(nxt, now)}" if nxt else ""),
+            stats=[
+                Stat(day["today_count"], "Today", filter="today"),
+                Stat(event_badge(nxt, now) if nxt else "—", "Next", filter="next" if nxt else None),
+                Stat(len(week), "Next 7 days", filter="week"),
             ],
+            list_title="Schedule",
+            rows=rows,
             group_label="calendars",
             **open_buttons("Open calendar", [(a.email, calendar_url(a.email)) for a in loaded]),
             **status,
