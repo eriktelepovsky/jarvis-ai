@@ -59,6 +59,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [x] **Pull requests (GitHub, GitLab, Bitbucket):** waiting for your review and your own, with CI status
 - [x] **Jira:** tasks assigned to you across multiple workspaces (e.g. development, support)
 - [x] **Asana:** tasks assigned to you across your workspaces, overdue and due soon first
+- [x] **Custom sources:** your own apps (e.g. invoicing, a wallet) answering with JSON in myOrb's format, alone or together as one circle (see [docs/CUSTOM_SOURCES.md](docs/CUSTOM_SOURCES.md))
 - [x] **Uptime:** myOrb checks your websites every minute, records outages and warns before TLS certificates expire
 - [ ] **Uptime:** import monitors from Uptime Kuma, UptimeRobot or Better Stack
 - [ ] **Focus time:** free blocks between meetings available for deep work

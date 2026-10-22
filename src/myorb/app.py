@@ -105,6 +105,8 @@ def create_app(
             app.state.sessionmaker, app.state.secret_box, app.state.http
         )
         app.state.connections = Connections(app.state.sessionmaker, app.state.secret_box)
+        for plugin in plugins.values():
+            await plugin.connections_changed(app.state.connections)
         app.state.brief = BriefService(
             app.state.sessionmaker,
             app.state.secret_box,

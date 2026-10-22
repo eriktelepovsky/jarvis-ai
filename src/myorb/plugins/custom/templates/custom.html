@@ -1,0 +1,6 @@
+<ol class="steps-inline">
+  <li>In your app, add an address that answers with JSON in myOrb's format, for example the number of overdue invoices and the list of unpaid ones. See <a href="https://github.com/eriktelepovsky/myorb/blob/main/docs/CUSTOM_SOURCES.md" target="_blank" rel="noopener">the format and a Django example</a>.</li>
+  <li>Have it check a long random token in the <code>Authorization: Bearer</code> header, and paste the same token below.</li>
+  <li>To show several sources as one circle (e.g. invoices and a wallet as “Finance”), give them the same circle.</li>
+</ol>
+<p class="muted">myOrb only reads the address. What the app lists under <code>brief</code> goes to the AI brief; nothing else does.</p>

@@ -33,6 +33,11 @@ def forget_cached(request: Request, provider_id: str, connection_id: int) -> Non
     request.app.state.cache.invalidate(f"{provider_id}:{connection_id}:")
 
 
+async def connections_changed(request: Request, plugin: Plugin) -> None:
+    """Let the plugin know, e.g. to show a new source's circle around the orb."""
+    await plugin.connections_changed(request.app.state.connections)
+
+
 def _form(
     request: Request,
     plugin: Plugin,
@@ -69,7 +74,7 @@ async def connect(request: Request, db: Db, provider_id: str) -> Response:
     plugin, provider = _provider(request, provider_id)
     form = await request.form()
     values = {f.name: str(form.get(f.name, "")).strip() for f in provider.fields}
-    if missing := [f.label for f in provider.fields if not values[f.name]]:
+    if missing := [f.label for f in provider.fields if f.required and not values[f.name]]:
         return _form(request, plugin, provider, values, f"Fill in: {', '.join(missing)}.", 400)
     try:
         verified = await provider.verify(request.app.state.http, values)
@@ -89,6 +94,7 @@ async def connect(request: Request, db: Db, provider_id: str) -> Response:
     )
     await store.save_check(db, connection, _capabilities(verified.capabilities))
     forget_cached(request, provider.id, connection.id)
+    await connections_changed(request, plugin)
     return RedirectResponse(f"/integrations?status=connected&provider={provider.id}", 303)
 
 
@@ -123,10 +129,11 @@ async def test(request: Request, db: Db, provider_id: str, connection_id: int) -
 
 @router.post("/integrations/{provider_id}/{connection_id}/disconnect")
 async def disconnect(request: Request, db: Db, provider_id: str, connection_id: int) -> Response:
-    _provider(request, provider_id)
+    plugin, _ = _provider(request, provider_id)
     connection = await _connection_or_404(db, provider_id, connection_id)
     await store.delete_connection(db, connection)
     forget_cached(request, provider_id, connection_id)
+    await connections_changed(request, plugin)
     return RedirectResponse(f"/integrations?status=removed&provider={provider_id}", 303)
 
 

@@ -50,6 +50,7 @@ src/myorb/
 │   ├── code_review/  # Pull requests from GitHub, GitLab and Bitbucket
 │   ├── jira/         # Jira issues assigned to you
 │   ├── asana/        # Asana tasks assigned to you
+│   ├── custom/       # The user's own apps, answering with JSON in myOrb's format
 │   ├── weather/      # Forecast from Open-Meteo (no API key)
 │   ├── youtube/      # New videos from YouTube subscriptions
 │   ├── slack/        # Slack mentions (own Slack app with search:read)
@@ -128,6 +129,7 @@ Every setup wizard follows the same structure:
 | Service | Method | What the user does |
 |---|---|---|
 | Gmail, Calendar, YouTube | Google OAuth | Creates their own Google Cloud project and OAuth client (see below), then clicks "Sign in with Google". |
+| Custom source | Address and token per source | Adds an address to their own app that answers with JSON in myOrb's format ([docs/CUSTOM_SOURCES.md](CUSTOM_SOURCES.md)). |
 | Asana | Personal access token | Creates a token under My apps in Asana. One token covers all their workspaces. |
 | Jira | Email and API token per workspace | Creates an API token in their Atlassian account. Each workspace (e.g. development, support) is a separate connection. |
 | GitHub | Fine-grained personal access token | Creates a token via a link with the permissions prefilled. |

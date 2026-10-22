@@ -208,6 +208,11 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
         """Return the connections this plugin is set up with on the Integrations page."""
         return []
 
+    async def connections_changed(self, connections: "Connections") -> None:
+        """Called at startup and when one of the plugin's connections is added or removed,
+        e.g. to change its widgets() (which must answer without waiting)."""
+        return None
+
     def background(self, context: Callable[[], WidgetContext]) -> Awaitable[None] | None:
         """Return a coroutine myOrb runs in the background while it is up, or None.
 
