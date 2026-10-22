@@ -4,11 +4,12 @@ This document describes how Jarvis is built and why. It covers the decisions mad
 
 ## Overview
 
-Jarvis is a single Python application that serves a web dashboard. Each data source is a plugin that contributes widgets. The browser loads the dashboard page, then fetches every widget separately, so a slow or failing integration never blocks the rest of the page.
+Jarvis is a single Python application that serves a web app. After signing in, the user sees the **welcome screen**: an animated orb with numbers around it (unread emails, today's events…), today's schedule in a side column and the next event in the header. Each data source is a plugin that contributes these numbers (widgets) and side or header sections (panels). The browser loads the page, then fetches the widgets and each panel separately, so a slow or failing integration never blocks the rest of the page.
 
 ```
-Browser ── GET / ───────────────────────────▶ dashboard page with empty widget slots
-        ── GET /widgets/<plugin>/<widget> ──▶ plugin loads data, renders its template
+Browser ── GET / ─────────────────────────▶ welcome screen with empty slots
+        ── GET /welcome/widgets ──────────▶ every widget's number and details dialog
+        ── GET /panels/<plugin>/<panel> ──▶ plugin loads data, renders its template
                                               (HTMX swaps the HTML into the slot)
 ```
 
@@ -17,8 +18,10 @@ Browser ── GET / ───────────────────�
 | Area | Choice | Why |
 |---|---|---|
 | Language | Python 3.11+ | Rich ecosystem of API clients; the package is already on PyPI. |
+| Web server | Granian | Fast ASGI server written in Rust, with HTTP/2 and WebSockets (voice). It also handles `X-Forwarded-*` headers from trusted reverse proxies. |
 | Web framework | FastAPI | Async I/O for many parallel third-party API calls; built-in support for streaming responses (chat) and WebSockets (voice). |
 | Frontend | Server-rendered Jinja2 templates with HTMX | One codebase without a Node.js build. Plugins ship their widgets as plain templates. Small JavaScript islands are added only where needed (e.g. voice). |
+| Visual design | Dark HUD theme from the "Jarvis Dashboard Design" canvas in Claude Design | Tokens (colors, type, spacing, radii) are CSS custom properties in `web/static/style.css`; components never use raw colors. Fonts (IBM Plex Sans, JetBrains Mono, Barlow Condensed, Chakra Petch, OFL) are bundled, so Jarvis makes no requests to Google Fonts. The welcome screen's orb, clock, sounds and ambient music are one JavaScript file (`welcome.js`) without libraries; sounds and music are synthesized with Web Audio. |
 | Database | SQLite through SQLAlchemy 2 (async) and Alembic | A single file in the data volume: no extra container and trivial backups. SQLAlchemy keeps PostgreSQL possible later. |
 | Users | Single user per installation | Simpler data model, login and security. Each person runs their own Jarvis. |
 | Plugins | Python entry points (`jarvis_hud.plugins`) | Standard packaging mechanism: built-in and third-party plugins are installed with `pip` and registered the same way. |
@@ -32,32 +35,42 @@ src/jarvis_hud/
 ├── app.py            # FastAPI application factory (create_app)
 ├── cli.py            # `jarvis` command: `jarvis serve`
 ├── config.py         # Settings from JARVIS_* environment variables
-├── db.py             # SQLAlchemy base and engine
+├── db.py             # SQLAlchemy base, engine and migrations
+├── crypto.py         # Encryption of stored credentials
+├── connections/      # Connected accounts: Google OAuth, integrations page
+├── cache.py          # Stale-while-revalidate cache for integration data
+├── auth/             # Login: passwords, passkeys, sessions, access gate
+├── migrations/       # Alembic database migrations
 ├── plugins/
-│   ├── base.py       # Plugin and Widget interfaces
+│   ├── base.py       # Plugin, Widget and Panel interfaces
 │   ├── registry.py   # Entry point discovery
-│   └── core/         # Built-in plugin (greeting and date)
+│   ├── gmail/        # Unread and today's emails
+│   └── calendar/     # Today's and upcoming events
 └── web/
-    ├── routes.py     # Dashboard and widget endpoints
-    ├── templates/    # Base layout and dashboard
+    ├── routes.py     # Welcome screen, widget and panel endpoints
+    ├── templates/    # Layouts, welcome screen, settings pages
     └── static/       # CSS and vendored htmx
 ```
 
 ## Plugins
 
-A plugin subclasses `Plugin` and returns a list of `Widget`s. Each widget has a template (relative to the plugin's `templates_dir`) and an async `load()` function that returns the template context.
+A plugin subclasses `Plugin` and adds two kinds of content to the welcome screen:
+
+- **Widgets** are the numbers around the orb. `load(context)` returns structured `WidgetData`: the number, a summary, three stats, a list of rows (title, subtitle, badge, link) and the main action. Jarvis renders the node and its details dialog from it, so every widget looks the same and plugins ship no HTML. When there is no data, `value` is `None` and `message` explains why (not connected, failed, stale) with an action to fix it.
+- **Panels** are sections in the side column or the header line, rendered from the plugin's own template (relative to its `templates_dir`). The Calendar plugin uses them for today's schedule and the next event.
+
+The `WidgetContext` carries the current time in the user's time zone and the services a plugin may use: the cache and the connected Google accounts. `position` orders plugins on the screen and `weight` makes a widget's node bigger.
 
 ```python
 class WeatherPlugin(Plugin):
     id = "weather"
     name = "Weather"
-    templates_dir = Path(__file__).parent / "templates"
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="today", title="Weather", template="today.html", load=self.load_today)]
+        return [Widget(id="now", label="°C", title="Weather", icon="M3 12h18", load=self.load_now)]
 
-    async def load_today(self) -> dict[str, Any]:
-        return {"temperature": 21}
+    async def load_now(self, context: WidgetContext) -> WidgetData:
+        return WidgetData(value=21, summary="°C · overcast", source="Open-Meteo")
 ```
 
 The plugin is registered in its package's `pyproject.toml`:
@@ -67,7 +80,7 @@ The plugin is registered in its package's `pyproject.toml`:
 weather = "jarvis_weather:WeatherPlugin"
 ```
 
-Plugin templates are available under the plugin id prefix (`weather/today.html`), so plugins cannot override each other's or the app's templates. A plugin that fails to load is logged and skipped.
+Panel templates are available under the plugin id prefix (`calendar/today.html`), so plugins cannot override each other's or the app's templates. A plugin that fails to load is logged and skipped.
 
 The interface will grow during the MVP with what the first real integrations need: connections (see below), background refresh and data for the AI brief.
 
@@ -84,9 +97,9 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 
 Users find out what to do in three places:
 
-1. **Onboarding** after the first login asks what the user wants on the dashboard (email, calendar, tasks…) and walks them through connecting it.
-2. **Integrations page** lists available integrations with a description, status (connected, error, last sync) and a **Connect** button.
-3. **Empty widgets** show a call to action (e.g. "Connect Gmail") that opens the setup wizard directly.
+1. **Onboarding** after the first login asks what the user wants to see (email, calendar, tasks…) and walks them through connecting it. It then becomes a **setup checklist**: each step's state (done, to do, blocked, skipped) is detected from the actual state of Jarvis, never ticked by hand, and links to the place where the step is completed.
+2. **Integrations page** lists available integrations with a description, status per capability (see below), last sync and a **Connect** button.
+3. **Widgets without data** show "—" around the orb, and their details explain why with a call to action (e.g. "Connect Google").
 
 Every setup wizard follows the same structure:
 
@@ -112,6 +125,12 @@ This is the hardest step of the whole setup, so its wizard is the most detailed 
 
 Google accepts redirect URIs only over **HTTPS with a domain name** or on `localhost`. A Jarvis server therefore needs a domain; a bare IP address is not enough. The installation guide must state this clearly.
 
+The OAuth flow is shared by all OAuth plugins:
+
+- `state` and a PKCE verifier are kept in a short-lived (10 minutes), httpOnly, `SameSite=Lax` cookie scoped to the callback path, and compared in constant time in the callback.
+- Only the refresh token is stored (encrypted); access tokens are obtained when needed.
+- Query parameters from the provider are never echoed back into the page.
+
 ### Connection API
 
 The `Plugin` interface gains a declaration of the connection it needs, and Jarvis generates the setup wizard from it:
@@ -120,15 +139,79 @@ The `Plugin` interface gains a declaration of the connection it needs, and Jarvi
 - **Form fields:** a Pydantic model, rendered as a form with validation.
 - **Instructions:** setup steps in Markdown, shown in the wizard.
 - **`test()`:** a check used by the Test connection button.
+- **Status per capability:** instead of a single "connected" flag, each capability has its own state, e.g. Gmail "read: OK, create drafts: missing permission". The UI shows exactly what works and what to fix.
 - **Multiple connections per plugin:** e.g. several Jira workspaces or two Gmail accounts.
 - **Shared connections:** one Google connection is used by the Gmail, Calendar and YouTube plugins. Each requests additional OAuth scopes only when it needs them (incremental authorization).
 
-Credentials are stored encrypted in the database (see below).
+### Stored credentials
+
+OAuth client secrets and tokens are stored in the database encrypted with Fernet (AES with an HMAC, from the `cryptography` package) and are never sent to the browser. The key comes from `JARVIS_SECRET_KEY`; when it is unset, Jarvis generates a random key in `secret.key` in the data directory (readable only by its owner) on first start.
+
+The generated key protects copies of the database on their own, e.g. in a backup. Anyone with the whole data directory also has the key; setting `JARVIS_SECRET_KEY` from a secret store keeps the two apart. Losing the key means connecting all accounts again.
+
+### Google implementation
+
+The first connection, Google, lives in `src/jarvis_hud/connections/`; the generic Connection API above will be extracted from it when the second provider arrives.
+
+- The setup wizard (`/integrations/google/setup`) walks through creating the Google Cloud project, enabling the Gmail and Calendar APIs, publishing the app (apps in *Testing* lose access every 7 days) and creating the OAuth client. It shows the exact redirect URI to copy.
+- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `calendar.readonly`) with offline access.
+- After connecting and on **Test connection**, Jarvis refreshes the access token and makes a cheap read request per capability. The result tells apart a revoked connection, a permission that was not granted and an API that is not enabled in the Google project (with a link to enable it).
+- Disconnecting revokes the token at Google and deletes it.
+- Tests run the whole flow against a fake Google that verifies the PKCE challenge, client credentials and redirect URI.
+
+## Data refresh and caching
+
+Data from integrations is cached with **stale-while-revalidate**:
+
+- Each data source has its own freshness window (e.g. email 30 seconds, calendar 5 minutes, finances 30 minutes) and a maximum age after which stale data is no longer shown.
+- While data is being refreshed, the previous data is shown immediately.
+- Concurrent requests for the same data share one call to the provider (single flight).
+- Failed calls are not cached; the widget shows the error together with the last good data and its age.
+- Saving or changing a connection invalidates its cache.
+- Planned: caches are warmed at startup, and an in-process scheduler refreshes them in the background so the welcome screen stays fast and API rate limits are respected.
+
+The cache is `jarvis_hud/cache.py`, kept in memory. The Gmail widget uses a 1-minute freshness window and the Calendar widget 5 minutes. Google access tokens are cached until shortly before they expire, so loading the welcome screen costs no token refresh. The browser refreshes the widgets every 5 minutes, but not while a details dialog is open.
+
+Times are shown in the user's time zone: `JARVIS_TIMEZONE` (e.g. `Europe/Bratislava`), else the system time zone. Docker containers usually run in UTC, so set it there.
+
+## AI and actions
+
+- **Morning brief:** rules first, AI second. Plugins rank their items with deterministic rules (e.g. a client or a real person ranks above a newsletter; items waiting for a reply carry over with the time they were first seen). Claude then writes the brief from this ranked list instead of from raw data, which makes the brief cheaper, faster and more predictable. The brief is generated on schedule and stored, so opening Jarvis does not call any API.
+- **Chat context:** the chat receives a short summary of what is currently on screen, so questions like "what about this one?" work.
+- **Safe actions:** actions that change something outside Jarvis (send, create, pay) are disabled until the user enables them in settings. Every action needs explicit confirmation in the UI, and email replies are never sent directly: Jarvis creates a Gmail draft for the user to review and send.
+- **Testing without the API:** a stub AI provider returns deterministic responses and can trigger tools, so the brief, chat and actions are tested without calling Claude.
+
+## Principles
+
+- **Honest states:** Jarvis never shows "connected" for a connection that has not been verified, and never draws a chart or number without real data. Empty, loading and error states are explicit. Tests enforce this.
+- **Logic separate from the web layer:** decisions (access control, ranking, cache freshness) live in pure functions that are unit-tested without a running server.
+- **Sample data mode:** Jarvis can run with a built-in set of fictional data for development, screenshots and demos.
+
+## Login
+
+Jarvis has a single user who signs in with a password or a passkey (WebAuthn). The code is in `src/jarvis_hud/auth/`.
+
+- **First run:** until a password is set, every page redirects to `/setup`. Setup is allowed from the machine Jarvis runs on (loopback address) or anywhere with a one-time token that Jarvis prints to its log at startup (`No password is set. Open …/setup?token=…`). A fresh installation is therefore never open to whoever finds it first, also in Docker where requests do not come from the loopback address.
+- **Password:** at least 12 characters, hashed with scrypt (memory-hard, from the Python standard library). Failed sign-ins are limited to 10 per client in 15 minutes.
+- **Sessions:** an HMAC-signed, httpOnly, `SameSite=Lax` cookie valid for 30 days, marked `Secure` when Jarvis runs over HTTPS. The signing key is stored in the database and replaced on every password change, which signs out all other devices.
+- **Passkeys:** added on the Security page after signing in. They are discoverable credentials with required user verification (Face ID, Touch ID, Windows Hello, PIN), so signing in needs no user name. The WebAuthn challenge is kept in a signed cookie valid for 5 minutes.
+- **Access gate:** a middleware calls `decide()` in `auth/gate.py`, a pure function that returns allow, redirect to setup, redirect to login, or reject. State-changing requests (`POST` and others) must carry an `Origin` header matching Jarvis (CSRF protection). If the decision cannot be made, the request is refused (fail closed).
+- **Public address:** set `JARVIS_PUBLIC_URL` (e.g. `https://jarvis.example.com`) in production. It is the origin used for the CSRF check and the domain passkeys are bound to; without it, the address of each request is used.
+
+Migrations run automatically at startup. During development, new migrations are created with `uv run alembic revision --autogenerate -m "…"`.
+
+## Deployment
+
+Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, built for `linux/amd64` and `linux/arm64` and published on every GitHub release (`latest`, `X.Y.Z` and `X.Y` tags). `compose.yaml` in the repository is a ready-to-use example.
+
+- **Image:** a multi-stage build with `uv`. The final stage contains only Python and the virtual environment, runs as the non-root user `jarvis` (UID 1000) and stores the database in the `/data` volume.
+- **Health check:** `GET /healthz` returns `ok` without signing in. The image's `HEALTHCHECK` uses it, and so can uptime monitors.
+- **First run:** requests reach the container from the Docker network, not from the loopback address, so setup always needs the token from `docker logs jarvis`.
+- **Reverse proxy:** set `JARVIS_PUBLIC_URL` to the public HTTPS address. It is used for the CSRF origin check, passkeys and `Secure` cookies, so Jarvis does not have to trust the `Host` and `X-Forwarded-Proto` headers. Set `JARVIS_TRUSTED_PROXIES` to the proxy's address or network (e.g. the Docker network `172.16.0.0/12`) so that Jarvis sees real client IPs; otherwise all clients share the proxy's IP and the sign-in throttle applies to all of them together.
+- **CI:** every pull request builds the image and checks that the container becomes healthy and redirects to setup.
+- **Plugins:** installing custom plugins with `JARVIS_PLUGINS` comes with the plugin system (phase 1).
 
 ## Planned for the MVP
 
-- **Configuration and secrets:** settings come from `JARVIS_*` environment variables (or a `.env` file). OAuth tokens and API keys entered in the UI are stored in the database, encrypted with a key from the environment.
-- **Login:** password and passkeys (WebAuthn) with a session cookie. Every route except login and static files requires authentication.
-- **Background refresh:** an in-process scheduler periodically fetches data from integrations and caches it in the database. Widgets render from the cache, so the dashboard stays fast and API rate limits are respected.
-- **Database migrations:** Alembic is set up together with the first database model.
-- **Docker:** a multi-stage image built with `uv`, running as a non-root user, with `/data` as the volume for the database.
+- **Configuration:** settings come from `JARVIS_*` environment variables (or a `.env` file).
+- **Background refresh:** see [Data refresh and caching](#data-refresh-and-caching).

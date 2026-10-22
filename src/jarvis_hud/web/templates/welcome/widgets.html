@@ -1,0 +1,75 @@
+{# The numbers around the orb and a details dialog for each. Swapped into #orb-widgets. #}
+{% set count = items | length %}
+{% for item in items %}
+{% set data = item.data %}
+{% set warn = data.attention or data.message_tone in ("fail", "warn") %}
+<div class="place" style="--angle: {{ (360 / count * loop.index0) | round(2) }}deg">
+  <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.widget.weight }}"
+          data-open="detail-{{ item.key }}" data-sfx
+          aria-label="{{ data.value if data.value is not none else 'No data' }} {{ item.widget.label }}. Show details">
+    <svg class="node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ item.widget.icon }}"/></svg>
+    <span class="node-value">{{ data.value if data.value is not none else "—" }}</span>
+    <span class="node-label">{{ item.widget.label }}</span>
+    {% if warn %}<span class="node-warn" aria-hidden="true">▲</span>{% endif %}
+  </button>
+</div>
+{% endfor %}
+
+{% for item in items %}
+{% set data = item.data %}
+<dialog class="modal" id="detail-{{ item.key }}" aria-labelledby="detail-{{ item.key }}-title" data-detail>
+  <div class="modal-head">
+    <span class="tile{% if data.attention or data.message_tone in ('fail', 'warn') %} warn{% endif %}" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ item.widget.icon }}"/></svg></span>
+    <div style="min-width: 0; flex: 1">
+      <h2 id="detail-{{ item.key }}-title">{{ item.widget.title }}</h2>
+      <span class="label">{% if data.updated_at %}<span style="color: var(--live)">●</span> {% endif %}{{ data.source }}{% if data.updated_at %} · {{ data.updated_at | ago }}{% endif %}</span>
+    </div>
+    <span class="label">{{ loop.index }} / {{ items | length }}</span>
+    <button type="button" class="icon-btn" data-step="-1" aria-label="Previous"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+    <button type="button" class="icon-btn" data-step="1" aria-label="Next"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button type="button" class="icon-btn" data-close aria-label="Close details" style="margin-left: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="modal-body">
+    <div class="modal-summary">
+      <div class="row" style="align-items: baseline; gap: 12px"><span class="num" style="font-size: 72px">{{ data.value if data.value is not none else "—" }}</span><span class="muted" style="font-size: 15px">{{ data.summary }}</span></div>
+      {% if data.stats %}
+      <div class="modal-stats">
+        {% for stat in data.stats %}
+        <div class="modal-stat"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if data.message %}
+      {% set tag = {"fail": "✕ ERROR", "warn": "▲ STALE"}.get(data.message_tone, "○ NOTE") %}
+      <div class="alert {{ {'fail': 'alert-error', 'warn': 'alert-warn'}.get(data.message_tone, 'alert-info') }}" role="status">
+        <span class="alert-tag">{{ tag }}</span>
+        <span>{{ data.message }}{% if data.message_action %} <a href="{{ data.message_action.url }}">{{ data.message_action.label }}</a>{% endif %}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div style="min-width: 0">
+      {% if data.list_title %}<div class="label list-head">{{ data.list_title }}</div>{% endif %}
+      {% for row in data.rows %}
+      <div class="modal-row">
+        <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>
+        {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
+        {% if row.url %}<a class="row-btn" href="{{ row.url }}" target="_blank" rel="noopener">Open</a>{% else %}<span></span>{% endif %}
+      </div>
+      {% else %}
+      {% if data.value is not none %}<p class="muted" style="margin: 0">Nothing here right now.</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  <div class="modal-foot">
+    {% if data.action %}<a class="btn btn-primary" href="{{ data.action.url }}" target="_blank" rel="noopener">{{ data.action.label }}</a>{% endif %}
+    {% if data.message_action and data.value is none %}<a class="btn btn-primary" href="{{ data.message_action.url }}">{{ data.message_action.label }}</a>{% endif %}
+    <span class="label" style="margin-left: auto">Esc closes · ← → switch</span>
+  </div>
+</dialog>
+{% endfor %}
+
+{% set loaded = items | selectattr("data.value", "ne", none) | list %}
+{% set needs = items | selectattr("data.message_tone", "in", ["fail", "warn"]) | list %}
+<span id="core-status" hx-swap-oob="true">Online · {{ loaded | length }}/{{ items | length }} sources</span>
+<span class="muted core-line" id="core-line" hx-swap-oob="true">{% if not loaded %}Connect a service to get started{% elif needs %}{{ needs | length }} {{ "source needs" if needs | length == 1 else "sources need" }} attention{% else %}All systems nominal{% endif %}</span>
+<a class="label header-item warn" id="attention" href="/integrations" hx-swap-oob="true" {% if not needs %}hidden{% endif %}>▲ {{ needs | length }} {{ "source needs" if needs | length == 1 else "sources need" }} attention</a>

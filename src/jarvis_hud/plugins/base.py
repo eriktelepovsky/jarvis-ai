@@ -1,25 +1,103 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
+
+if TYPE_CHECKING:
+    from jarvis_hud.cache import Cache
+    from jarvis_hud.connections.google_accounts import GoogleAccounts
+
+Tone = Literal["ok", "warn", "fail", "info", "neutral"]
+
+
+@dataclass(frozen=True)
+class WidgetContext:
+    """What a widget or panel gets when it loads: the time and the services it may use."""
+
+    now: datetime  # in the user's time zone
+    cache: "Cache"
+    google: "GoogleAccounts"
+
+
+@dataclass(frozen=True)
+class Link:
+    label: str
+    url: str
+
+
+@dataclass(frozen=True)
+class Stat:
+    value: str | int
+    label: str
+
+
+@dataclass(frozen=True)
+class Row:
+    """One item in a widget's details, e.g. an email or an event."""
+
+    title: str
+    subtitle: str = ""
+    badge: str = ""
+    tone: Tone = "neutral"
+    url: str | None = None
+
+
+@dataclass(frozen=True)
+class WidgetData:
+    """What a widget shows: its number around the orb and the details behind it.
+
+    `value` None means there is no data to show (not connected or failed); `message` then
+    explains why, and `message_action` offers the fix.
+    """
+
+    value: str | int | None
+    summary: str = ""
+    attention: bool = False
+    stats: list[Stat] = field(default_factory=list)
+    list_title: str = ""
+    rows: list[Row] = field(default_factory=list)
+    action: Link | None = None
+    source: str = ""
+    updated_at: float | None = None
+    message: str | None = None
+    message_tone: Tone = "info"
+    message_action: Link | None = None
 
 
 @dataclass(frozen=True)
 class Widget:
-    """A dashboard tile provided by a plugin.
+    """A number around the orb on the welcome screen, with details that open on click.
 
-    `template` is relative to the plugin's `templates_dir`. `load` returns the
-    template context and is called each time the widget is rendered.
+    `label` names the number (e.g. "Unread"), `title` heads its details (e.g. "Email") and
+    `icon` is an SVG path in a 24×24 box. `weight` scales the node: more important numbers
+    are bigger.
+    """
+
+    id: str
+    label: str
+    title: str
+    icon: str
+    load: Callable[[WidgetContext], Awaitable[WidgetData]]
+    weight: float = 1.0
+
+
+@dataclass(frozen=True)
+class Panel:
+    """A section rendered from a template: in the side column or in the header line.
+
+    `template` is relative to the plugin's `templates_dir`; `load` returns its context.
     """
 
     id: str
     title: str
     template: str
-    load: Callable[[], Awaitable[dict[str, Any]]]
+    load: Callable[[WidgetContext], Awaitable[dict[str, Any]]]
+    placement: Literal["side", "header"] = "side"
 
 
-class Plugin(ABC):
+class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they need)
     """Base class for Jarvis plugins.
 
     Plugins are discovered through the `jarvis_hud.plugins` entry point group,
@@ -29,7 +107,13 @@ class Plugin(ABC):
     id: ClassVar[str]
     name: ClassVar[str]
     templates_dir: ClassVar[Path | None] = None
+    # Order on the welcome screen: plugins with a lower position come first.
+    position: ClassVar[int] = 100
 
-    @abstractmethod
     def widgets(self) -> list[Widget]:
-        """Return the widgets this plugin adds to the dashboard."""
+        """Return the numbers this plugin adds around the orb."""
+        return []
+
+    def panels(self) -> list[Panel]:
+        """Return the sections this plugin adds to the side column or the header."""
+        return []
