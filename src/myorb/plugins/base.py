@@ -52,6 +52,8 @@ class Action:
 
     label: str
     url: str
+    # Form values sent with it, e.g. the ids of the videos to mark as seen.
+    values: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,8 @@ class Row:
     actions: list[Action] = field(default_factory=list)
     # The label of the `url` link. Links within myOrb ("/…") open in the same tab.
     url_label: str = "Open"
+    # Open `url` in a new tab even though it is within myOrb (e.g. a redirect to YouTube).
+    new_tab: bool = False
     # What the row is, for the numbers that filter the list (Stat.filter), e.g. ("review",).
     tags: tuple[str, ...] = ()
     # Where it belongs, e.g. a Jira workspace or a repository; see WidgetData.group_label.
@@ -110,6 +114,8 @@ class WidgetData:
     # Names the rows' groups (Row.group) in the plural, e.g. "workspaces": with more than one
     # group, the list can be narrowed to one of them ("All workspaces", "archivis (64)", …).
     group_label: str | None = None
+    # Buttons in the details' footer that POST, e.g. "Mark all as seen".
+    actions: list[Action] = field(default_factory=list)
     # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".
     links: list[Link] = field(default_factory=list)
     connected: bool = True

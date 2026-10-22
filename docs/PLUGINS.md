@@ -65,6 +65,7 @@ class WalletPlugin(Plugin):
 | `list_title`, `rows` | A list of `Row(title, subtitle, badge, tone, url, actions)`. `tone` is `ok`, `warn`, `fail`, `info` or `neutral`. `actions` are buttons that POST to a URL. |
 | `group_label` | With `Row(group=…)`, e.g. `"workspaces"`: when the rows belong to more than one group, a menu above the list shows one of them. |
 | `action` | The main button, a `Link(label, url)`. |
+| `actions` | Buttons in the footer that POST, e.g. `Action("Mark all as seen", url, {"ids": …})`; the widgets reload afterwards. |
 | `links` | More buttons, e.g. one per connected account. `open_buttons("Open Jira", [(name, url), …])` gives one `action` for one account and a button per account for several. |
 | `input` | A one-line form (e.g. "Add a task") that POSTs a `text` field. |
 | `source`, `updated_at` | "Gmail · 2m ago" under the title. |

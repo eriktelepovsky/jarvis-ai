@@ -251,6 +251,11 @@
   }
 
   document.addEventListener("click", (event) => {
+    // A link that also changes something here (opening a video marks it seen): refresh after.
+    if (event.target.closest("a[data-refresh-after]")) {
+      setTimeout(() => htmx.trigger(document.body, "myorb:refresh"), 1500);
+      return;
+    }
     const filter = event.target.closest("dialog [data-filter]");
     if (filter) {
       filterRows(filter);

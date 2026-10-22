@@ -9,6 +9,7 @@ import myorb.connections.models  # noqa: F401
 import myorb.overview.models  # noqa: F401
 import myorb.plugins.health.models  # noqa: F401
 import myorb.plugins.uptime.models  # noqa: F401
+import myorb.plugins.youtube.models  # noqa: F401
 import myorb.tasks.models  # noqa: F401
 from myorb.db import Base
 
