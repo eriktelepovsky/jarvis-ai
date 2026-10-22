@@ -9,7 +9,29 @@
   <div><div class="label">Integrations</div><h1>Uptime</h1></div>
 </div>
 
-<section class="panel panel-narrow" aria-labelledby="monitors-title">
+<div class="uptime-layout">
+<section class="panel" aria-labelledby="add-title">
+  <div class="panel-header"><h2 class="label" id="add-title">Add a monitor</h2></div>
+  <form method="post" action="/integrations/uptime" class="panel-section form">
+    <div class="field">
+      <label class="label" for="monitor-name">Name</label>
+      <input class="input" id="monitor-name" name="name" value="{{ values.get('name', '') }}" placeholder="e.g. Production API" required>
+    </div>
+    <div class="field">
+      <label class="label" for="monitor-group">Group <span style="text-transform: none">(optional)</span></label>
+      <input class="input" id="monitor-group" name="group" value="{{ values.get('group', '') }}" list="monitor-groups" placeholder="e.g. a project or a customer" maxlength="60" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="label" for="monitor-url">Address</label>
+      <input class="input" id="monitor-url" name="url" type="url" value="{{ values.get('url', '') }}" placeholder="https://example.com/health" required {% if error %}aria-invalid="true" aria-describedby="monitor-error"{% endif %}>
+      <span class="muted" style="font-size: 12.5px">Up means an answer below HTTP 400 within 10 seconds; a site counts as down after two failed checks in a row. For https addresses, myOrb also warns 14 days before the certificate expires.</span>
+    </div>
+    {% if error %}<div class="alert alert-error" role="alert" id="monitor-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Add monitor</button></div>
+  </form>
+</section>
+
+<section class="panel" aria-labelledby="monitors-title">
   <div class="panel-header"><h2 class="label" id="monitors-title">Monitors · checked every minute</h2></div>
   {% for monitor in monitors %}
   <div class="integration">
@@ -34,23 +56,8 @@
   {% else %}
   <div class="panel-section"><p class="muted" style="margin: 0">No websites are monitored yet.</p></div>
   {% endfor %}
-  <form method="post" action="/integrations/uptime" class="panel-section form">
-    <div class="field">
-      <label class="label" for="monitor-name">Name</label>
-      <input class="input" id="monitor-name" name="name" value="{{ values.get('name', '') }}" placeholder="e.g. Production API" required>
-    </div>
-    <div class="field">
-      <label class="label" for="monitor-group">Group <span style="text-transform: none">(optional)</span></label>
-      <input class="input" id="monitor-group" name="group" value="{{ values.get('group', '') }}" list="monitor-groups" placeholder="e.g. a project or a customer" maxlength="60" autocomplete="off">
-    </div>
-    <div class="field">
-      <label class="label" for="monitor-url">Address</label>
-      <input class="input" id="monitor-url" name="url" type="url" value="{{ values.get('url', '') }}" placeholder="https://example.com/health" required {% if error %}aria-invalid="true" aria-describedby="monitor-error"{% endif %}>
-      <span class="muted" style="font-size: 12.5px">Up means an answer below HTTP 400 within 10 seconds; a site counts as down after two failed checks in a row. For https addresses, myOrb also warns 14 days before the certificate expires.</span>
-    </div>
-    {% if error %}<div class="alert alert-error" role="alert" id="monitor-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
-    <div class="actions"><button type="submit" class="btn btn-primary">Add monitor</button></div>
-  </form>
+
 </section>
+</div>
 <datalist id="monitor-groups">{% for group in groups %}<option value="{{ group }}">{% endfor %}</datalist>
 {% endblock %}
