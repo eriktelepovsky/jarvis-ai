@@ -6,10 +6,10 @@
 <div class="place" style="--angle: {{ (360 / count * loop.index0) | round(2) }}deg">
   <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.size }}"
           data-open="detail-{{ item.key }}" data-sfx
-          aria-label="{{ data.value if data.value is not none else 'No data' }} {{ item.widget.label }}. Show details">
+          aria-label="{{ data.value if data.value is not none else 'No data' }} {{ data.label or item.widget.label }}. Show details">
     <svg class="node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ item.widget.icon }}"/></svg>
     <span class="node-value">{{ data.value if data.value is not none else "—" }}</span>
-    <span class="node-label">{{ item.widget.label }}</span>
+    <span class="node-label">{{ data.label or item.widget.label }}</span>
     {% if warn %}<span class="node-warn" aria-hidden="true">▲</span>{% endif %}
   </button>
 </div>

@@ -98,6 +98,9 @@ class WidgetData:
     message_action: Link | None = None
     # False when the service behind the widget is not set up yet: the widget is not shown
     # around the orb until it is (problems with a set-up service are shown instead).
+    # Names the number around the orb instead of the widget's label, when what it shows
+    # varies, e.g. sleep or, without sleep data, kilometres run this week.
+    label: str | None = None
     connected: bool = True
 
 

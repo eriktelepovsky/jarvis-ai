@@ -116,6 +116,7 @@ def test_webhook_stores_days_without_session_or_origin(client: TestClient):
     assert complete_signin.status_code == 200
     text = client.get("/welcome/widgets").text
     assert '<span class="node-value">7h12</span>' in text
+    assert '<span class="node-label">Sleep</span>' in text
     assert "8,410" in text
     assert "Apple Health" in text
 
@@ -157,6 +158,9 @@ def test_strava_connects_refreshes_and_shows_activities(client: TestClient, apis
     text = client.get("/welcome/widgets").text
     assert "Morning run" in text
     assert "Run · 8.4 km · 44 min" in text
+    # Without sleep from Apple Health the number is the week's kilometres, and says so.
+    assert '<span class="node-value">8.4</span>' in text
+    assert '<span class="node-label">Km · week</span>' in text
     assert strava.refreshes == 1
 
     # The rotated refresh token was stored and is used next time.

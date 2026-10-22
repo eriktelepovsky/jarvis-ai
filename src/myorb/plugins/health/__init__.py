@@ -154,6 +154,7 @@ class HealthPlugin(Plugin):
             summary="sleep last night"
             if sleep is not None
             else ("km this week" if strava_connected else ""),
+            label="Sleep" if sleep is not None or not strava_connected else "Km · week",
             stats=[
                 Stat(sleep_text(sleep), "Sleep"),
                 Stat(f"{steps:,}" if steps is not None else "—", "Steps today"),
