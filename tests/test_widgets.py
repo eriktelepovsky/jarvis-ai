@@ -31,13 +31,25 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(200, json={"threadsUnread": 7})
     if path == "/messages":
         return httpx2.Response(200, json={"messages": [{"id": "a"}, {"id": "b"}, {"id": "c"}]})
+    if path == "/settings/sendAs":
+        addresses = ["tony@stark.example", "tony@starkindustries.example"]
+        return httpx2.Response(200, json={"sendAs": [{"sendAsEmail": a} for a in addresses]})
     if path == "/threads":
         assert "is:unread" in query(request)["q"][0]
         return httpx2.Response(200, json={"threads": [{"id": "t1"}]})
     if path == "/threads/t1":
         # A conversation with a read email and, newest, an unread reply: listed once, by it.
         def message(sender: str, subject: str, labels: list[str]) -> dict:
-            headers = [{"name": "From", "value": sender}, {"name": "Subject", "value": subject}]
+            headers = [
+                {"name": "From", "value": sender},
+                {"name": "Subject", "value": subject},
+                # Sent to another of the user's mailboxes, which Gmail collects.
+                {"name": "Delivered-To", "value": "tony@stark.example"},
+                {
+                    "name": "To",
+                    "value": "Pepper <pepper@x.example>, Tony <Tony@StarkIndustries.example>",
+                },
+            ]
             return {
                 "threadId": "t1",
                 "labelIds": labels,
@@ -136,6 +148,8 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     assert "Board meeting &lt;today&gt;" in text
     assert "Pepper Potts" in text and "Tony" not in text
     assert text.count('class="modal-row"') == 1  # one per unread conversation
+    # Grouped by the user's address it was sent to, here another mailbox Gmail collects.
+    assert 'data-group="tony@starkindustries.example"' in text
     assert "#inbox/t1" in text
     assert "Open inbox" in text
     assert "Online · 2/2 sources" in text
