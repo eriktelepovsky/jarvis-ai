@@ -627,11 +627,14 @@ a.ti:hover .t1 {
 
 /* Details dialog */
 
+/* Every dialog has the same size, so the previous/next buttons stay in place when switching;
+   long lists scroll inside the body. */
 .modal {
   width: min(940px, calc(100% - 48px));
-  max-height: calc(100vh - 48px);
+  height: min(680px, calc(100vh - 48px));
+  max-height: none;
   padding: 0;
-  overflow: auto;
+  overflow: hidden;
   color: var(--text);
   background: #0b0f14;
   border: 1px solid var(--line-accent);
@@ -727,9 +730,13 @@ a.ti:hover .t1 {
 
 .modal-body {
   display: grid;
+  flex: 1;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   gap: 28px;
+  align-content: start;
+  min-height: 0;
   padding: 22px;
+  overflow-y: auto;
 }
 
 @media (max-width: 760px) {
