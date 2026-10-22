@@ -22,8 +22,11 @@ def main() -> None:
         from granian.constants import Interfaces
 
         from jarvis_hud.config import Settings
+        from jarvis_hud.plugins.install import install, plugins_dir
 
         settings = Settings()
+        if settings.plugins:
+            install(settings.plugins, plugins_dir(settings.data_dir))
         Granian(
             "jarvis_hud.app:create_server_app",
             factory=True,

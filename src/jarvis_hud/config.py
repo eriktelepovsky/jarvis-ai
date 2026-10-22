@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     secret_key: str | None = None
     # The user's time zone, e.g. Europe/Bratislava. Defaults to the system time zone.
     timezone: str | None = None
+    # Custom plugins to install at startup, as for pip: names, versions, URLs or local paths.
+    plugins: str | None = None
 
     @property
     def database_url(self) -> str:

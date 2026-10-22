@@ -27,10 +27,10 @@ The smallest useful version for a daily morning routine.
 
 ## Phase 1: Plugin system
 
-- [ ] Plugin API, so every integration is a plugin
-- [ ] Migrate the MVP integrations to plugins
-- [ ] Support for custom (private) plugins
-- [ ] Plugin developer documentation
+- [x] Plugin API, so every integration is a plugin (widgets, panels, connections, brief facts)
+- [x] Migrate the MVP integrations to plugins
+- [x] Support for custom (private) plugins, installed with `JARVIS_PLUGINS`
+- [x] Plugin developer documentation and an example plugin
 
 ## Phase 2: Finances
 

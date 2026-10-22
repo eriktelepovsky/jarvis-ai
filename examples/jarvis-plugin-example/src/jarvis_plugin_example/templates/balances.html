@@ -1,0 +1,7 @@
+{% if not accounts %}
+<p class="t2">No accounts yet. <a href="/integrations/example_wallet/connect">Connect the wallet</a></p>
+{% else %}
+{% for account in accounts %}
+<div class="ti"><span class="tt"></span><span class="tx"><span class="t1">{{ account.name }}</span><span class="t2">{{ money(account.balance, account.currency) }}</span></span></div>
+{% endfor %}
+{% endif %}

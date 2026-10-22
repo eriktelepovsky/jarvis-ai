@@ -134,6 +134,7 @@ Then, in Jarvis:
 | `JARVIS_TRUSTED_PROXIES` | `127.0.0.1` | IP addresses or networks of the reverse proxy whose `X-Forwarded-For` and `X-Forwarded-Proto` headers are trusted, or `*`. |
 | `JARVIS_SECRET_KEY` | generated in the data directory | Key that encrypts connected accounts and API keys. Keep it outside the data volume and do not lose it: changing it means connecting all accounts again. |
 | `JARVIS_DATA_DIR` | `data` (`/data` in Docker) | Where the database and the generated key are stored. |
+| `JARVIS_PLUGINS` | none | Custom plugins to install at startup, as for pip: `jarvis-wallet==1.2`, a wheel URL or a mounted directory. See [writing plugins](docs/PLUGINS.md). |
 | `JARVIS_HOST`, `JARVIS_PORT` | `127.0.0.1`, `8000` (`0.0.0.0` in Docker) | Interface and port to listen on. |
 
 ### Updates and backups
@@ -165,7 +166,7 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
-See the [architecture](docs/ARCHITECTURE.md) for how Jarvis is built.
+See the [architecture](docs/ARCHITECTURE.md) for how Jarvis is built, and [writing plugins](docs/PLUGINS.md) to connect your own services.
 
 ## Roadmap
 

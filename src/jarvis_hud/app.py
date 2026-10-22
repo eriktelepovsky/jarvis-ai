@@ -27,6 +27,7 @@ from jarvis_hud.connections.google_accounts import GoogleAccounts
 from jarvis_hud.crypto import SecretBox, load_secret_key
 from jarvis_hud.db import create_engine, create_sessionmaker, run_migrations
 from jarvis_hud.plugins import Plugin, discover_plugins
+from jarvis_hud.plugins.install import add_to_path, plugins_dir
 from jarvis_hud.tasks import routes as task_routes
 from jarvis_hud.templating import register_filters
 from jarvis_hud.timezone import resolve_timezone
@@ -62,6 +63,7 @@ def create_app(
 ) -> FastAPI:
     """Create the Jarvis app. `http_transport` replaces outgoing HTTP calls in tests."""
     settings = settings or Settings()
+    add_to_path(plugins_dir(settings.data_dir))
     plugins = discover_plugins() if plugins is None else plugins
 
     @asynccontextmanager

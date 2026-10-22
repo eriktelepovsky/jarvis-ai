@@ -24,6 +24,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.14-slim
 
+# uv installs custom plugins listed in JARVIS_PLUGINS at startup.
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /usr/local/bin/uv
+
 RUN useradd --system --uid 1000 --no-create-home jarvis \
     && mkdir /data \
     && chown jarvis /data
@@ -34,7 +37,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     JARVIS_DATA_DIR=/data \
     JARVIS_HOST=0.0.0.0 \
-    JARVIS_PORT=8000
+    JARVIS_PORT=8000 \
+    UV_CACHE_DIR=/data/.cache/uv
 
 USER jarvis
 VOLUME /data

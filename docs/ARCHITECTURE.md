@@ -106,7 +106,7 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 ### Installing plugins
 
 - **Built-in integrations** (Google, Jira, Slack, GitHub, Strava, weather and others) ship with Jarvis. Nothing to install.
-- **Custom plugins** are Python packages. In Docker they are installed at container start from the `JARVIS_PLUGINS` environment variable (e.g. `JARVIS_PLUGINS="jarvis-wallet jarvis-invoices"`), or baked into a custom image built on top of the official one.
+- **Custom plugins** are Python packages. `JARVIS_PLUGINS` lists them as pip would (names with versions, wheel URLs, local paths); `jarvis serve` installs them with `uv` into `plugins/` in the data directory, which goes last on `sys.path`, so they survive image updates and cannot shadow Jarvis's own packages. A custom image built on top of the official one works too. See [writing plugins](PLUGINS.md) and the [example plugin](../examples/jarvis-plugin-example).
 
 ### Connecting accounts
 
