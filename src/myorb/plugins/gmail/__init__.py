@@ -20,7 +20,8 @@ from myorb.plugins.google_data import account_status, load_accounts
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 API_NAME = "Gmail API"
 SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
-# Unread emails listed in the details (with search); the brief gets the newest BRIEF_UNREAD.
+# Unread conversations listed in the details (with search), as Gmail counts them: each by
+# its newest unread email. The brief gets the newest BRIEF_UNREAD.
 UNREAD_SHOWN = 100
 BRIEF_UNREAD = 15
 # Message headers are read this many at a time, to stay within Gmail's rate limits.
@@ -64,23 +65,27 @@ async def fetch_inbox(
         ),
         google.get_json(
             account,
-            f"{API}/messages",
+            f"{API}/threads",
             API_NAME,
             {"q": "in:inbox is:unread", "maxResults": UNREAD_SHOWN},
         ),
     )
     limit = asyncio.Semaphore(PARALLEL)
 
-    async def headers(message_id: str) -> dict[str, Any]:
+    async def newest_unread(thread_id: str) -> dict[str, Any] | None:
         async with limit:
-            return await google.get_json(
+            thread = await google.get_json(
                 account,
-                f"{API}/messages/{message_id}",
+                f"{API}/threads/{thread_id}",
                 API_NAME,
                 {"format": "metadata", "metadataHeaders": ["From", "Subject"]},
             )
+        messages = thread.get("messages") or []
+        unread_ones = [m for m in messages if "UNREAD" in m.get("labelIds", [])]
+        return (unread_ones or messages or [None])[-1]
 
-    messages = await asyncio.gather(*(headers(m["id"]) for m in unread.get("messages", [])))
+    found = await asyncio.gather(*(newest_unread(t["id"]) for t in unread.get("threads", [])))
+    messages = [message for message in found if message]
     return {
         "unread": inbox.get("threadsUnread", 0),
         "total": inbox.get("threadsTotal", 0),
