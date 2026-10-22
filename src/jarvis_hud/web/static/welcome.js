@@ -258,28 +258,141 @@
     }
   });
 
-  // Read aloud: the browser's own speech synthesis reads the brief's summary.
+  // Read aloud: the browser's own speech synthesis reads the brief's summary, with the most
+  // natural voice the device has for the brief's language (or the one the user picked).
 
-  function readAloud(button) {
-    if (!("speechSynthesis" in window)) return;
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
+  const VOICE_KEY = "jarvis.voice";
+
+  function voiceScore(voice) {
+    const name = voice.name || "";
+    let score = 0;
+    if (/premium/i.test(name)) score += 50;
+    if (/enhanced/i.test(name)) score += 40;
+    if (/natural|neural|online/i.test(name)) score += 45;
+    if (/google|compact|eloquence/i.test(name)) score -= 30;
+    // macOS novelty voices
+    if (/^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|kathy)\b/i.test(name)) score -= 100;
+    if (voice.localService) score += 3;
+    return score;
+  }
+
+  function voicesFor(lang) {
+    if (!("speechSynthesis" in window)) return [];
+    const prefix = lang.slice(0, 2).toLowerCase();
+    return speechSynthesis
+      .getVoices()
+      .filter((voice) => voice.lang.toLowerCase().startsWith(prefix))
+      .sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
+  }
+
+  function savedVoices() {
+    try {
+      return JSON.parse(localStorage.getItem(VOICE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function chosenVoice(lang) {
+    const voices = voicesFor(lang);
+    const saved = savedVoices()[lang.slice(0, 2)];
+    return voices.find((voice) => voice.name === saved) || voices[0] || null;
+  }
+
+  // The language chosen to read in, as a speech tag ("sk-SK").
+  function readingLanguage() {
+    const option = document.querySelector("[data-read-language]")?.selectedOptions[0];
+    return { code: option?.value || "en", tag: option?.dataset.tag || "en-GB" };
+  }
+
+  function fillVoicePicker() {
+    const button = document.querySelector("[data-read-aloud]");
+    const select = document.querySelector("[data-voice]");
+    if (!button || !select) return;
+    // Offer only languages this device has a voice for (and always the brief's own).
+    document.querySelectorAll("[data-read-language] option").forEach((option) => {
+      option.hidden = option.value !== button.dataset.briefLanguage && !voicesFor(option.dataset.tag).length;
+    });
+    const lang = readingLanguage().tag;
+    const voices = voicesFor(lang);
+    const current = chosenVoice(lang);
+    select.replaceChildren(
+      ...voices.map((voice) => new Option(`${voice.name} · ${voice.lang}`, voice.name, false, voice === current)),
+    );
+    select.closest(".voice-picker").hidden = voices.length < 2;
+  }
+
+  if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", fillVoicePicker);
+  document.addEventListener("htmx:load", fillVoicePicker);
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-read-language]")) {
+      if (speechSynthesis.speaking) speechSynthesis.cancel();
+      fillVoicePicker();
       return;
     }
-    const text = document.querySelector("[data-report-text]")?.innerText;
-    if (!text) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = button.dataset.lang || "en-GB";
-    const reset = () => {
+    if (!event.target.matches("[data-voice]")) return;
+    const lang = readingLanguage().code;
+    try {
+      localStorage.setItem(VOICE_KEY, JSON.stringify({ ...savedVoices(), [lang]: event.target.value }));
+    } catch {
+      // Without storage the choice lasts until the page is reloaded.
+    }
+    if (speechSynthesis.speaking) speechSynthesis.cancel();
+  });
+
+  // The summary in the chosen language: from the page, or translated by Claude (once per
+  // brief and language; Jarvis keeps the translation).
+  async function textToRead(button, language) {
+    if (language.code === button.dataset.briefLanguage) {
+      return document.querySelector("[data-report-text]")?.innerText;
+    }
+    button.textContent = "… Translating";
+    const body = new URLSearchParams({ language: language.code });
+    const response = await fetch(`/brief/${button.dataset.brief}/translation`, { method: "POST", body });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "The translation did not work.");
+    return data.text;
+  }
+
+  async function readAloud(button) {
+    if (!("speechSynthesis" in window)) return;
+    const reset = (label = "▶ Read aloud") => {
       button.setAttribute("aria-pressed", "false");
-      button.textContent = "▶ Read aloud";
+      button.textContent = label;
     };
-    utterance.onend = reset;
-    utterance.onerror = reset;
-    speechSynthesis.speak(utterance);
+    if (speechSynthesis.speaking || button.getAttribute("aria-pressed") === "true") {
+      speechSynthesis.cancel();
+      reset();
+      return;
+    }
+    const language = readingLanguage();
     button.setAttribute("aria-pressed", "true");
+    let text;
+    try {
+      text = await textToRead(button, language);
+    } catch (error) {
+      reset("▶ Read aloud");
+      button.title = error.message;
+      document.querySelector("[data-read-error]")?.replaceChildren(error.message);
+      return;
+    }
+    document.querySelector("[data-read-error]")?.replaceChildren();
+    if (!text || button.getAttribute("aria-pressed") !== "true") return reset();
+    const voice = chosenVoice(language.tag);
+    // Sentence by sentence: some voices (Google's in Chrome) stop after about 15 seconds.
+    const sentences = text.match(/[^.!?\n]+[.!?]*/g)?.map((part) => part.trim()).filter(Boolean) || [text];
+    sentences.forEach((sentence, index) => {
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.lang = voice?.lang || language.tag;
+      if (voice) utterance.voice = voice;
+      if (index === sentences.length - 1) utterance.onend = () => reset();
+      utterance.onerror = () => reset();
+      speechSynthesis.speak(utterance);
+    });
     button.textContent = "■ Stop reading";
   }
+
 
   document.addEventListener(
     "close",

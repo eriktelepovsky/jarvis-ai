@@ -75,6 +75,8 @@ class FakeClaude:
                     self.status, json={"type": "error", "error": {"type": "api_error"}}
                 )
             text = "" if self.stop_reason == "refusal" else json.dumps(self.reply)
+            if "Translate" in str(self.requests[-1].get("system", "")):
+                text = "Pokojný deň.\n\nZalej rastliny."
             return httpx2.Response(
                 200,
                 json={
@@ -203,7 +205,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     report = client.get("/brief/report").text
     assert "A quiet day." in report and "Water the plants." in report
     assert "Water plants" in report
-    assert 'data-lang="en-GB"' in report
+    assert 'data-brief-language="en"' in report
     assert "Claude Sonnet 5.5" in report
 
 
@@ -319,3 +321,25 @@ def test_workspace_id_is_sent_for_organization_keys(client: TestClient, claude: 
     assert 'value="wrkspc_01AbCdEf234"' in client.get("/integrations/claude").text
     client.post("/brief/generate")
     assert claude.headers[0]["anthropic-workspace-id"] == "wrkspc_01AbCdEf234"
+
+
+def test_brief_is_translated_once_for_reading_aloud(client: TestClient, claude: FakeClaude):
+    connect(client)
+    client.post("/brief/generate")
+    [brief] = briefs(client)
+    report = client.get("/brief/report").text
+    assert f'data-brief="{brief.id}"' in report and '<option value="sk" data-tag="sk-SK"' in report
+
+    same = client.post(f"/brief/{brief.id}/translation", data={"language": "en"}).json()
+    assert same == {"text": "A quiet day.\n\nWater the plants.", "lang": "en-GB"}
+    assert len(claude.requests) == 1
+
+    for _ in range(2):
+        response = client.post(f"/brief/{brief.id}/translation", data={"language": "sk"})
+        assert response.json() == {"text": "Pokojný deň.\n\nZalej rastliny.", "lang": "sk-SK"}
+    assert len(claude.requests) == 2  # translated once, then kept with the brief
+    assert claude.requests[1]["model"] == "claude-haiku-5-5"
+    assert "Slovak" in claude.requests[1]["system"]
+
+    bad = client.post(f"/brief/{brief.id}/translation", data={"language": "xx"})
+    assert bad.status_code == 400 and bad.json()["error"] == "Choose a language."

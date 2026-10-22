@@ -36,6 +36,21 @@ TONES = ["fail", "warn", "info", "ok", "neutral"]
 MAX_PRIORITIES = 5
 LANGUAGES = {"en": "English", "sk": "Slovak"}
 
+# Languages the brief can be read aloud in (translated by Claude when it is written in another),
+# with the language tag speech synthesis uses.
+READ_LANGUAGES = {
+    "en": ("English", "en-GB"),
+    "sk": ("Slovak", "sk-SK"),
+    "cs": ("Czech", "cs-CZ"),
+    "de": ("German", "de-DE"),
+    "fr": ("French", "fr-FR"),
+    "es": ("Spanish", "es-ES"),
+    "it": ("Italian", "it-IT"),
+    "pl": ("Polish", "pl-PL"),
+    "hu": ("Hungarian", "hu-HU"),
+}
+TRANSLATION_MODEL = "claude-haiku-5-5"
+
 SYSTEM = """You are Jarvis, a personal assistant. You write the user's daily brief: a short report \
 they read on their dashboard to know what their day holds and what needs them first.
 
@@ -167,3 +182,30 @@ async def write_brief(
     except ValueError as error:
         raise BriefError("Claude's answer could not be read. Try again.") from error
     return Written(content=_clean(data), model=response.model)
+
+
+async def translate(
+    client: anthropic.AsyncAnthropic, paragraphs: list[str], language: str
+) -> list[str]:
+    """The brief's summary in another language, paragraph by paragraph, for reading aloud."""
+    name = READ_LANGUAGES[language][0]
+    try:
+        response = await client.messages.create(
+            model=TRANSLATION_MODEL,
+            max_tokens=4000,
+            system=(
+                f"Translate the user's text into {name}. It is a short daily brief that will be "
+                "read aloud: keep the meaning, names, times and numbers, write naturally, and "
+                "keep the paragraphs, separated by a blank line. Reply with the translation only."
+            ),
+            messages=[{"role": "user", "content": "\n\n".join(paragraphs)}],
+        )
+    except anthropic.APIStatusError as error:
+        raise BriefError(api_error(error)) from error
+    except anthropic.APIConnectionError as error:
+        raise BriefError("Claude could not be reached.") from error
+    text = next((block.text for block in response.content if block.type == "text"), "")
+    translated = [part.strip() for part in text.split("\n\n") if part.strip()]
+    if response.stop_reason != "end_turn" or not translated:
+        raise BriefError("The translation did not work. Try again.")
+    return translated

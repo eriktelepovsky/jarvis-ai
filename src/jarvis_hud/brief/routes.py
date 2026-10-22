@@ -2,10 +2,10 @@ import re
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from jarvis_hud.brief.service import DEFAULT_TIME, KICKERS, BriefService, ClaudeSettings
-from jarvis_hud.brief.writer import DEFAULT_MODEL, LANGUAGES, MODELS, BriefError
+from jarvis_hud.brief.writer import DEFAULT_MODEL, LANGUAGES, MODELS, READ_LANGUAGES, BriefError
 
 router = APIRouter()
 
@@ -101,7 +101,20 @@ async def _brief_context(request: Request) -> dict:
         "kicker": KICKERS.get(brief.kind, "Report") if brief else None,
         "generating": service.generating,
         "error": service.error,
+        "read_languages": READ_LANGUAGES,
     }
+
+
+@router.post("/brief/{brief_id}/translation")
+async def translation(
+    request: Request, brief_id: int, language: Annotated[str, Form()]
+) -> Response:
+    """The summary to read aloud in another language than the brief was written in."""
+    try:
+        paragraphs = await _service(request).translation(brief_id, language)
+    except BriefError as error:
+        return JSONResponse({"error": str(error)}, status_code=400)
+    return JSONResponse({"text": "\n\n".join(paragraphs), "lang": READ_LANGUAGES[language][1]})
 
 
 @router.get("/brief/headline", response_class=HTMLResponse)

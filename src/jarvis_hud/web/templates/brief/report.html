@@ -7,7 +7,12 @@
     {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · {{ model_name(brief.model) }}</span>{% endif %}
   </div>
   {% if brief %}
-  <button type="button" class="btn" data-read-aloud data-lang="{{ 'sk-SK' if brief.language == 'sk' else 'en-GB' }}" aria-pressed="false">▶ Read aloud</button>
+  <button type="button" class="btn" data-read-aloud data-brief="{{ brief.id }}" data-brief-language="{{ brief.language }}" aria-pressed="false">▶ Read aloud</button>
+  <label class="label voice-picker">In <select class="input" data-read-language aria-label="Language to read in">
+    {% for code, (name, tag) in read_languages.items() %}<option value="{{ code }}" data-tag="{{ tag }}" {% if code == brief.language %}selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select></label>
+  <label class="label voice-picker" hidden>Voice <select class="input" data-voice aria-label="Reading voice"></select></label>
+  <span class="label read-error" data-read-error role="alert"></span>
   {% endif %}
   {% if configured %}
   <button type="button" class="icon-btn" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" aria-label="Write a new brief" title="Write a new brief"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>

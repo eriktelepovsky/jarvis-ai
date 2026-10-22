@@ -108,12 +108,25 @@ body:has(#welcome) {
 
 .header-nav {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
+}
+
+/* A faint dot between items, so the uppercase, widely spaced words do not run together. */
+.header-nav > * + *::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-right: 14px;
+  vertical-align: middle;
+  background: var(--line-accent);
+  border-radius: 50%;
 }
 
 .header-nav form {
   display: flex;
+  align-items: center;
 }
 
 /* One line height for links, the Sign out button and the panels, so their text lines up. */
@@ -1130,3 +1143,37 @@ button.row-btn {
 /* YouTube mini player: YouTube requires its player to stay visible, at least 200 px tall. */
 
 
+
+.voice-picker {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.voice-picker[hidden] {
+  display: none;
+}
+
+.voice-picker select {
+  height: 34px;
+  max-width: 260px;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.read-error {
+  flex-basis: 100%;
+  color: var(--warn);
+  text-align: right;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.read-error:empty {
+  display: none;
+}
+
+.modal-report .modal-head {
+  flex-wrap: wrap;
+}

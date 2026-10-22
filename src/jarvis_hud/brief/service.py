@@ -12,7 +12,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from jarvis_hud.brief.models import Brief
-from jarvis_hud.brief.writer import DEFAULT_MODEL, BriefError, api_error, write_brief
+from jarvis_hud.brief.writer import (
+    DEFAULT_MODEL,
+    READ_LANGUAGES,
+    BriefError,
+    api_error,
+    translate,
+    write_brief,
+)
 from jarvis_hud.connections import store
 from jarvis_hud.crypto import SecretBox
 from jarvis_hud.plugins import BriefSection, Plugin, WidgetContext
@@ -116,6 +123,32 @@ class BriefService:
         except anthropic.APIConnectionError:
             return "Claude could not be reached."
         return None
+
+    async def translation(self, brief_id: int, language: str) -> list[str]:
+        """The brief's summary in `language`, translated once and kept with the brief."""
+        if language not in READ_LANGUAGES:
+            raise BriefError("Choose a language.")
+        async with self._sessionmaker() as db:
+            brief = await db.get(Brief, brief_id)
+            if brief is None:
+                raise BriefError("This brief no longer exists.")
+            if language == brief.language:
+                return brief.content["summary"]
+            translations = brief.content.get("translations", {})
+            if language in translations:
+                return translations[language]
+            settings = await self.settings()
+            if settings is None:
+                raise BriefError("Connect Claude to translate the brief.")
+            client = self.client(settings.api_key, settings.workspace_id)
+            paragraphs = await translate(client, brief.content["summary"], language)
+            # A new dict, so SQLAlchemy sees the JSON column change.
+            brief.content = {
+                **brief.content,
+                "translations": {**translations, language: paragraphs},
+            }
+            await db.commit()
+            return paragraphs
 
     async def latest(self) -> Brief | None:
         async with self._sessionmaker() as db:
