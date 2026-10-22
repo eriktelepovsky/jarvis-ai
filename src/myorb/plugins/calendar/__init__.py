@@ -7,7 +7,6 @@ from urllib.parse import quote
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
     BriefSection,
-    Link,
     Panel,
     Plugin,
     Row,
@@ -16,6 +15,7 @@ from myorb.plugins.base import (
     Widget,
     WidgetContext,
     WidgetData,
+    open_buttons,
 )
 from myorb.plugins.google_data import AccountData, account_status, load_accounts
 
@@ -306,7 +306,7 @@ class CalendarPlugin(Plugin):
                 )
                 for event in [*remaining, *week][: UPCOMING_SHOWN + len(remaining)]
             ],
-            action=Link("Open calendar", calendar_url(loaded[0].email)),
+            **open_buttons("Open calendar", [(a.email, calendar_url(a.email)) for a in loaded]),
             **status,
         )
 

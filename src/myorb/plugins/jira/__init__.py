@@ -23,6 +23,7 @@ from myorb.plugins.base import (
     Widget,
     WidgetContext,
     WidgetData,
+    open_buttons,
 )
 from myorb.plugins.connection_data import AccountResult, connected_status, load_connected
 
@@ -193,9 +194,14 @@ class JiraPlugin(Plugin):
             ],
             list_title="Assigned to you",
             rows=rows,
-            action=Link("Open Jira", f"{loaded[0].data[0].url.split('/browse/')[0]}/jira/your-work")
-            if loaded[0].data
-            else None,
+            **open_buttons(
+                "Open Jira",
+                [
+                    (r.data[0].workspace, f"{r.data[0].url.split('/browse/')[0]}/jira/your-work")
+                    for r in loaded
+                    if r.data
+                ],
+            ),
             **status,
         )
 

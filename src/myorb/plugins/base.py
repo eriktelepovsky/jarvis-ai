@@ -98,6 +98,8 @@ class WidgetData:
     message_action: Link | None = None
     # False when the service behind the widget is not set up yet: the widget is not shown
     # around the orb until it is (problems with a set-up service are shown instead).
+    # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".
+    links: list[Link] = field(default_factory=list)
     connected: bool = True
 
 
@@ -206,3 +208,13 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         """Return facts for the AI brief, or None when the plugin has nothing to add."""
         return None
+
+
+def open_buttons(label: str, places: list[tuple[str, str]]) -> dict[str, Any]:
+    """The WidgetData fields that open a service: one button, or one per account when there are
+    several ("Open archivis", "Open me@example.com"), so none of them is left out."""
+    if not places:
+        return {}
+    if len(places) == 1:
+        return {"action": Link(label, places[0][1])}
+    return {"links": [Link(f"Open {name}", url) for name, url in places]}
