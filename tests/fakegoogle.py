@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx2
 
-from jarvis_hud.connections import google
+from myorb.connections import google
 
 CLIENT_ID = "123-abc.apps.googleusercontent.com"
 CLIENT_SECRET = "GOCSPX-secret"

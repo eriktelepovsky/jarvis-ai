@@ -9,12 +9,12 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from jarvis_hud.brief.models import Brief
-from jarvis_hud.brief.service import kind_for
-from jarvis_hud.brief.writer import BriefError, facts_prompt
-from jarvis_hud.connections.models import ProviderSettings
-from jarvis_hud.plugins import BriefSection
-from jarvis_hud.tasks.plugin import TasksPlugin
+from myorb.brief.models import Brief
+from myorb.brief.service import kind_for
+from myorb.brief.writer import BriefError, facts_prompt
+from myorb.connections.models import ProviderSettings
+from myorb.plugins import BriefSection
+from myorb.tasks.plugin import TasksPlugin
 
 API_KEY = "sk-ant-test-key"
 TZ = ZoneInfo("Europe/Bratislava")
@@ -30,7 +30,7 @@ BRIEF = {
 
 
 class FakeClaude:
-    """The Anthropic API endpoints Jarvis uses, as an httpx2 transport."""
+    """The Anthropic API endpoints myOrb uses, as an httpx2 transport."""
 
     def __init__(self) -> None:
         self.requests: list[dict[str, Any]] = []
@@ -181,7 +181,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     client.post("/tasks", data={"text": "Water plants today"})
     response = client.post("/brief/generate", headers={"HX-Request": "true"})
     assert response.status_code == 204
-    assert response.headers["HX-Trigger"] == "jarvis:brief"
+    assert response.headers["HX-Trigger"] == "myorb:brief"
 
     [request] = claude.requests
     assert request["model"] == "claude-sonnet-5-5"
@@ -190,7 +190,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert request["output_config"]["format"]["type"] == "json_schema"
     assert request["output_config"]["effort"] == "medium"
     assert "Never invent" in request["system"]
-    assert request["system"].startswith("You are J.A.R.V.I.S., a personal assistant.")
+    assert request["system"].startswith("You are Orb, a personal assistant.")
     facts = request["messages"][0]["content"]
     assert "## To-do list" in facts
     assert "Water plants" in facts

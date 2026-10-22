@@ -1,0 +1,23 @@
+[project]
+name = "myorb-plugin-example"
+version = "0.1.0"
+description = "Example myOrb plugin: account balances from a JSON API. Copy it to start your own."
+requires-python = ">=3.11"
+# myOrb provides httpx2 and its plugin API at runtime; list only your own extra dependencies.
+dependencies = []
+
+[project.entry-points."myorb.plugins"]
+example_wallet = "myorb_plugin_example:WalletPlugin"
+
+[dependency-groups]
+dev = ["myorb", "pytest"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/myorb_plugin_example"]
+
+[tool.uv.sources]
+myorb = { path = "../..", editable = true }

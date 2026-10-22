@@ -1,6 +1,6 @@
-# Jarvis Individual Contributor License Agreement
+# myOrb Individual Contributor License Agreement
 
-Thank you for your interest in contributing to Jarvis ("the Project"), maintained by Erik Telepovský ("the Maintainer").
+Thank you for your interest in contributing to myOrb ("the Project"), maintained by Erik Telepovský ("the Maintainer").
 
 This Contributor License Agreement ("Agreement") clarifies the intellectual property license granted with Contributions from you. It protects you as a contributor as well as the Maintainer and users of the Project. It does not take away your rights to use your own Contributions for any other purpose.
 

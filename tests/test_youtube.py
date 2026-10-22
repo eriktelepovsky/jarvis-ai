@@ -8,7 +8,7 @@ from fakegoogle import FakeGoogle
 from fastapi.testclient import TestClient
 from test_widgets import connect_google
 
-from jarvis_hud.plugins.youtube import YouTubePlugin, age, parse_feed
+from myorb.plugins.youtube import YouTubePlugin, age, parse_feed
 
 FEED = """<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
@@ -105,7 +105,7 @@ def test_new_videos_from_subscriptions(client: TestClient, fake_google: FakeGoog
 
 
 def test_youtube_needs_its_permission(client: TestClient, fake_google: FakeGoogle):
-    from jarvis_hud.connections import google
+    from myorb.connections import google
 
     fake_google.granted_scopes = " ".join([*google.BASE_SCOPES, google.CAPABILITIES[0].scope])
     connect_google(client, fake_google)

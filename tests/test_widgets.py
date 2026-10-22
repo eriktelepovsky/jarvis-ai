@@ -10,11 +10,11 @@ from conftest import MakeClient, complete_setup
 from fakegoogle import CLIENT_ID, CLIENT_SECRET, FakeGoogle
 from fastapi.testclient import TestClient
 
-from jarvis_hud.cache import Cache
-from jarvis_hud.connections import google
-from jarvis_hud.plugins.calendar import CalendarPlugin, parse_event, today_and_upcoming
-from jarvis_hud.plugins.gmail import GmailPlugin
-from jarvis_hud.timezone import resolve_timezone
+from myorb.cache import Cache
+from myorb.connections import google
+from myorb.plugins.calendar import CalendarPlugin, parse_event, today_and_upcoming
+from myorb.plugins.gmail import GmailPlugin
+from myorb.timezone import resolve_timezone
 
 TZ = ZoneInfo("Europe/Bratislava")
 GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me"
@@ -395,7 +395,7 @@ def test_calendar_panel_moves_between_days(client: TestClient, fake_google: Fake
 def test_events_on_another_day():
     from datetime import UTC, datetime, timedelta
 
-    from jarvis_hud.plugins.calendar import events_on
+    from myorb.plugins.calendar import events_on
 
     day = datetime(2026, 10, 23, tzinfo=UTC)
     event = {"title": "Standup", "all_day": False, "video_url": None, "location": None}
@@ -429,8 +429,8 @@ def test_brief_includes_all_of_tomorrow(monkeypatch):
     from types import SimpleNamespace
     from zoneinfo import ZoneInfo
 
-    from jarvis_hud.plugins.calendar import CalendarPlugin
-    from jarvis_hud.plugins.google_data import AccountData
+    from myorb.plugins.calendar import CalendarPlugin
+    from myorb.plugins.google_data import AccountData
 
     now = datetime(2026, 10, 22, 17, 0, tzinfo=ZoneInfo("Europe/Bratislava"))
     tomorrow = now.replace(hour=0) + timedelta(days=1)
@@ -474,8 +474,8 @@ def test_brief_includes_all_of_tomorrow(monkeypatch):
 
 
 def test_node_size_follows_attention():
-    from jarvis_hud.plugins import WidgetData
-    from jarvis_hud.web.routes import node_size
+    from myorb.plugins import WidgetData
+    from myorb.web.routes import node_size
 
     assert node_size(1.0, WidgetData(value=60, attention=True)) == 1.25
     assert node_size(1.0, WidgetData(value=8)) == 1.0

@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_integrations import FakeApis
 
-from jarvis_hud.plugins.uptime import UptimePlugin, duration, uptime_percent
-from jarvis_hud.plugins.uptime.models import Incident, Monitor
+from myorb.plugins.uptime import UptimePlugin, duration, uptime_percent
+from myorb.plugins.uptime.models import Incident, Monitor
 
 
 class Site:
@@ -36,7 +36,7 @@ def client(
     async def no_tls(url: str):
         return datetime.now(UTC) + timedelta(days=5) if "expiring" in url else None
 
-    monkeypatch.setattr("jarvis_hud.plugins.uptime.checks.tls_expiry", no_tls)
+    monkeypatch.setattr("myorb.plugins.uptime.checks.tls_expiry", no_tls)
     client = make_client(transport=httpx2.MockTransport(apis), plugins={"uptime": plugin})
     complete_setup(client)
     return client

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Integrations · {{ assistant }}{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% macro connection_row(connection, provider_id, logo, name) %}
+  {% set problems = connection.capabilities | rejectattr("ok") | list if connection.capabilities else [] %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">{{ logo }}</span>
+    <div style="min-width: 0">
+      <div class="integration-name"><strong class="trunc">{{ connection.account }}</strong><span class="label">{{ name }}</span></div>
+      <div class="mono muted" style="font-size: 11.5px">{% if connection.checked_at %}Tested {{ connection.checked_at | localtime }}{% else %}Not tested yet{% endif %}</div>
+    </div>
+    <div class="actions">
+      {% if not connection.capabilities %}<span class="badge badge-neutral">○ Not tested</span>
+      {% elif problems %}<span class="badge badge-fail">✕ {{ problems | length }} {{ "problem" if problems | length == 1 else "problems" }}</span>
+      {% else %}<span class="badge badge-ok">✓ Connected</span>{% endif %}
+      <form method="post" action="/integrations/{{ provider_id }}/{{ connection.id }}/test"><button type="submit" class="btn">Test connection</button></form>
+      <form method="post" action="/integrations/{{ provider_id }}/{{ connection.id }}/disconnect"><button type="submit" class="btn btn-danger">Disconnect</button></form>
+    </div>
+  </div>
+  {% if connection.capabilities %}
+  <div class="panel-section" style="border-top: 0; padding-top: 0; padding-left: 72px">
+    <ul class="capabilities">
+      {% for capability in connection.capabilities %}
+      <li>
+        <span class="badge {{ 'badge-ok' if capability.ok else 'badge-fail' }}" style="justify-self: start">{{ "✓ Works" if capability.ok else "✕ Not working" }}</span>
+        <span>
+          {{ capability.label }}
+          {% if capability.detail %}<span class="muted" style="display: block; font-size: 12.5px">{{ capability.detail }}{% if capability.fix_url %} <a href="{{ capability.fix_url }}" target="_blank" rel="noopener">Enable it</a>, then test again.{% endif %}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Settings</div><h1>Integrations</h1></div>
+</div>
+
+{% if message %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
+{% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+
+<section class="panel" aria-labelledby="sources-title">
+  <div class="panel-header">
+    <h2 class="label" id="sources-title">Connected sources</h2>
+  </div>
+
+  {% if not client %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">G</span>
+    <div>
+      <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar · YouTube</span></div>
+      <div class="muted" style="font-size: 12.5px">myOrb connects through your own Google Cloud OAuth client. Setting it up takes about 10 minutes and is free.</div>
+    </div>
+    <div class="actions"><span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/google/setup">Set up Google</a></div>
+  </div>
+  {% else %}
+  {% for connection in connections %}
+  {{ connection_row(connection, "google", "G", "Google") }}
+  {% else %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">G</span>
+    <div>
+      <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar · YouTube</span></div>
+      <div class="muted" style="font-size: 12.5px">The OAuth client is set up. Connect your Google account.</div>
+    </div>
+    <div class="actions"><span class="badge badge-neutral">○ No account</span></div>
+  </div>
+  {% endfor %}
+  <div class="panel-section actions">
+    <form method="post" action="/integrations/google/connect">
+      <button type="submit" class="btn btn-primary">{{ "Connect another account" if connections else "Connect a Google account" }}</button>
+    </form>
+    <a class="btn btn-ghost" href="/integrations/google/setup">OAuth client settings</a>
+  </div>
+  {% endif %}
+
+  {% for provider, connections in providers %}
+  {% for connection in connections %}
+  {{ connection_row(connection, provider.id, provider.logo, provider.name) }}
+  {% endfor %}
+  {% if not connections or provider.multiple %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">{{ provider.logo }}</span>
+    <div>
+      <div class="integration-name"><strong>{{ provider.name }}</strong></div>
+      <div class="muted" style="font-size: 12.5px">{{ provider.summary }}</div>
+    </div>
+    <div class="actions">
+      {% if not connections %}<span class="badge badge-neutral">○ Not connected</span>{% endif %}
+      <a class="btn {{ 'btn-primary' if not connections else '' }}" href="/integrations/{{ provider.id }}/connect">{{ "Connect another" if connections else "Connect" }}</a>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% for name, settings in plugin_settings %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">{{ settings.logo }}</span>
+    <div>
+      <div class="integration-name"><strong>{{ name }}</strong></div>
+      <div class="muted" style="font-size: 12.5px">{{ settings.summary }}</div>
+    </div>
+    <div class="actions"><a class="btn" href="{{ settings.url }}">Settings</a></div>
+  </div>
+  {% endfor %}
+
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">♪</span>
+    <div>
+      <div class="integration-name"><strong>Music</strong><span class="label">Welcome screen</span></div>
+      <div class="muted" style="font-size: 12.5px">Built-in ambient sound, or a YouTube video, playlist or live stream.</div>
+    </div>
+    <div class="actions"><a class="btn" href="/integrations/music">Settings</a></div>
+  </div>
+
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></span>
+    <div>
+      <div class="integration-name"><strong>Voice</strong><span class="label">Read aloud</span></div>
+      <div class="muted" style="font-size: 12.5px">{% if voice.azure %}Microsoft Azure Speech reads the brief.{% else %}The browser's own voices read the brief, or natural voices from Microsoft Azure Speech.{% endif %}</div>
+    </div>
+    <div class="actions">{% if voice.azure %}<span class="badge badge-ok">✓ Azure Speech</span>{% endif %}<a class="btn" href="/integrations/voice">Settings</a></div>
+  </div>
+
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">AI</span>
+    <div>
+      <div class="integration-name"><strong>Claude</strong><span class="label">Daily brief</span></div>
+      <div class="muted" style="font-size: 12.5px">{% if claude %}Writes your brief every day at {{ claude.brief_time }} with {{ model_name(claude.model) }}.{% else %}Writes a short daily brief from your calendar, email and to-do list, with your own Anthropic API key.{% endif %}</div>
+    </div>
+    <div class="actions">
+      {% if claude %}<span class="badge badge-ok">✓ Connected</span><a class="btn" href="/integrations/claude">Settings</a>
+      {% else %}<span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/claude">Connect Claude</a>{% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

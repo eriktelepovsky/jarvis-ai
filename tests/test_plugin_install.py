@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis_hud.plugins import discover_plugins
-from jarvis_hud.plugins.install import add_to_path, install, install_command
+from myorb.plugins import discover_plugins
+from myorb.plugins.install import add_to_path, install, install_command
 
 PLUGIN = """
-from jarvis_hud.plugins import Plugin
+from myorb.plugins import Plugin
 
 
 class HelloPlugin(Plugin):
@@ -25,9 +25,7 @@ def target(tmp_path: Path):
     dist = target / "hello_plugin-1.0.dist-info"
     dist.mkdir()
     (dist / "METADATA").write_text("Metadata-Version: 2.1\nName: hello-plugin\nVersion: 1.0\n")
-    (dist / "entry_points.txt").write_text(
-        "[jarvis_hud.plugins]\nhello = hello_plugin:HelloPlugin\n"
-    )
+    (dist / "entry_points.txt").write_text("[myorb.plugins]\nhello = hello_plugin:HelloPlugin\n")
     yield target
     if str(target) in sys.path:
         sys.path.remove(str(target))
@@ -48,9 +46,9 @@ def test_add_to_path_skips_missing_directory(tmp_path: Path):
 
 def test_install_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("shutil.which", lambda name: "/usr/local/bin/uv")
-    command = install_command('jarvis-wallet==1.2 "/plugins/my plugin"', tmp_path)
+    command = install_command('myorb-wallet==1.2 "/plugins/my plugin"', tmp_path)
     assert command[:3] == ["/usr/local/bin/uv", "pip", "install"]
-    assert command[-2:] == ["jarvis-wallet==1.2", "/plugins/my plugin"]
+    assert command[-2:] == ["myorb-wallet==1.2", "/plugins/my plugin"]
     assert "--target" in command and str(tmp_path) in command
 
     monkeypatch.setattr("shutil.which", lambda name: None)
@@ -62,5 +60,5 @@ def test_install_runs_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr("subprocess.run", lambda command, check: calls.append(command))
     install("   ", tmp_path / "plugins")
     assert calls == []
-    install("jarvis-wallet", tmp_path / "plugins")
+    install("myorb-wallet", tmp_path / "plugins")
     assert len(calls) == 1 and (tmp_path / "plugins").is_dir()

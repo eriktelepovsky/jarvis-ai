@@ -6,7 +6,7 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from test_integrations import FakeApis, connections
 
-from jarvis_hud.plugins.weather import WeatherPlugin, summarize
+from myorb.plugins.weather import WeatherPlugin, summarize
 
 
 def forecast(start: datetime, rain_at: int | None = None) -> dict:
