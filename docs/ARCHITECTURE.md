@@ -50,6 +50,7 @@ src/jarvis_hud/
 │   ├── code_review/  # Pull requests from GitHub, GitLab and Bitbucket
 │   ├── jira/         # Jira issues assigned to you
 │   ├── weather/      # Forecast from Open-Meteo (no API key)
+│   ├── youtube/      # New videos from YouTube subscriptions
 │   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Welcome screen, widget and panel endpoints
@@ -173,7 +174,8 @@ The generated key protects copies of the database on their own, e.g. in a backup
 The first connection, Google, lives in `src/jarvis_hud/connections/`; the generic Connection API above will be extracted from it when the second provider arrives.
 
 - The setup wizard (`/integrations/google/setup`) walks through creating the Google Cloud project, enabling the Gmail and Calendar APIs, publishing the app (apps in *Testing* lose access every 7 days) and creating the OAuth client. It shows the exact redirect URI to copy.
-- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `calendar.readonly`) with offline access.
+- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `calendar.readonly`, `youtube.readonly`) with offline access; accounts connected before a capability was added are asked to connect again.
+- YouTube: the subscriptions come from the YouTube Data API (cached for 12 hours, a few quota units a day) and the videos from each channel's public RSS feed, which costs no quota.
 - After connecting and on **Test connection**, Jarvis refreshes the access token and makes a cheap read request per capability. The result tells apart a revoked connection, a permission that was not granted and an API that is not enabled in the Google project (with a link to enable it).
 - Disconnecting revokes the token at Google and deletes it.
 - Tests run the whole flow against a fake Google that verifies the PKCE challenge, client credentials and redirect URI.

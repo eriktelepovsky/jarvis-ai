@@ -66,5 +66,5 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [x] **Weather:** today's forecast and rain by the hour (Open-Meteo)
 - [ ] **Commute:** travel time to the first meeting
 - [ ] **News:** AI-picked important stories from RSS feeds, Hacker News and similar sources
-- [ ] **YouTube:** new videos from channels you are subscribed to (YouTube Data API)
+- [x] **YouTube:** new videos from channels you are subscribed to (YouTube Data API)
 - [ ] **Health:** sleep, steps and activity from Apple Health and Strava
