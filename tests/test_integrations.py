@@ -156,7 +156,8 @@ def test_test_and_disconnect(client: TestClient, apis: FakeApis):
 
 
 def test_pull_requests_widget_from_github(client: TestClient, apis: FakeApis):
-    assert "Nothing is connected yet." in client.get("/welcome/widgets").text
+    # Not shown around the orb until a code host is connected.
+    assert 'data-open="detail-code_review-pulls"' not in client.get("/welcome/widgets").text
     github(apis)
     client.post("/integrations/github/connect", data={"token": "ghp_good"})
     text = client.get("/welcome/widgets").text

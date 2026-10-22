@@ -62,6 +62,7 @@ def account_status(accounts: list[AccountData], source: str) -> dict[str, Any]:
         return {
             "source": source,
             "message": "Google is not connected.",
+            "connected": False,
             "message_action": Link("Connect Google", "/integrations"),
         }
     loaded = [account for account in accounts if account.data is not None]

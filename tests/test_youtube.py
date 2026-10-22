@@ -93,7 +93,7 @@ def client(make_client: MakeClient, fake_google: FakeGoogle) -> TestClient:
 
 
 def test_new_videos_from_subscriptions(client: TestClient, fake_google: FakeGoogle):
-    assert "Google is not connected." in client.get("/welcome/widgets").text
+    assert 'data-open="detail-youtube-videos"' not in client.get("/welcome/widgets").text
     connect_google(client, fake_google)
     text = client.get("/welcome/widgets").text
     assert '<span class="node-value">1</span>' in text

@@ -59,6 +59,7 @@ class WalletPlugin(Plugin):
 | `input` | A one-line form (e.g. "Add a task") that POSTs a `text` field. |
 | `source`, `updated_at` | "Gmail · 2m ago" under the title. |
 | `message`, `message_tone`, `message_action` | A problem or an empty state, with a link to fix it. |
+| `connected` | `False` while the service behind the widget is not set up: the widget is then left out of the orb (the Integrations page offers the setup). Problems with a set-up service keep it visible. |
 
 After a row action or the input, answer with the `HX-Trigger: jarvis:refresh` header; the welcome screen reloads its widgets and keeps the dialog open.
 

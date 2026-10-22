@@ -115,6 +115,7 @@ class UptimePlugin(Plugin):
                 value=None,
                 source="Jarvis",
                 message="No websites are monitored yet.",
+                connected=False,
                 message_action=SETUP,
             )
         now = datetime.now(UTC)

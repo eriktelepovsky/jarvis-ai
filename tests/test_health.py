@@ -149,7 +149,7 @@ def connect_strava(client: TestClient) -> httpx2.Response:
 
 def test_strava_connects_refreshes_and_shows_activities(client: TestClient, apis: FakeApis):
     strava = FakeStrava(apis)
-    assert "Nothing is connected yet." in client.get("/welcome/widgets").text
+    assert 'data-open="detail-health-today"' not in client.get("/welcome/widgets").text
     response = connect_strava(client)
     assert "Strava is connected." in response.text
     assert "Tony Stark" in response.text

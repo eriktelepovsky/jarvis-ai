@@ -97,6 +97,7 @@ class HealthPlugin(Plugin):
                 value=None,
                 source="Apple Health · Strava",
                 message="Nothing is connected yet.",
+                connected=False,
                 message_action=SETUP,
             )
         sleep = latest.sleep_minutes if latest and latest.day == today else None

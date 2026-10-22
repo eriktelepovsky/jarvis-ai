@@ -92,6 +92,9 @@ class WidgetData:
     message: str | None = None
     message_tone: Tone = "info"
     message_action: Link | None = None
+    # False when the service behind the widget is not set up yet: the widget is not shown
+    # around the orb until it is (problems with a set-up service are shown instead).
+    connected: bool = True
 
 
 @dataclass(frozen=True)

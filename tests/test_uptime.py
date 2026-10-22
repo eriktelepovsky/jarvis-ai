@@ -58,7 +58,7 @@ def incidents(client: TestClient) -> list[Incident]:
 
 def test_monitor_goes_down_and_recovers(client: TestClient, apis: FakeApis, plugin: UptimePlugin):
     site = Site(apis, "api.example.com")
-    assert "No websites are monitored yet." in client.get("/welcome/widgets").text
+    assert 'data-open="detail-uptime-status"' not in client.get("/welcome/widgets").text
     client.post("/integrations/uptime", data={"name": "API", "url": "https://api.example.com/"})
     assert "✓ Up" in client.get("/welcome/widgets").text
 

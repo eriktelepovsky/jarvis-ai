@@ -48,7 +48,12 @@ async def load_connected(
 def connected_status(results: list[AccountResult], source: str, setup: Link) -> dict[str, Any]:
     """WidgetData fields describing the accounts' state: source, age and any problem."""
     if not results:
-        return {"source": source, "message": "Nothing is connected yet.", "message_action": setup}
+        return {
+            "source": source,
+            "message": "Nothing is connected yet.",
+            "message_action": setup,
+            "connected": False,
+        }
     times = [r.updated_at for r in results if r.data is not None and r.updated_at]
     status: dict[str, Any] = {"source": source, "updated_at": min(times) if times else None}
     if problem := next((r for r in results if r.error), None):

@@ -107,7 +107,8 @@ def connect_google(client: TestClient, fake_google: FakeGoogle) -> None:
 # Widgets
 
 
-def test_widgets_are_ordered_by_plugin_position(client: TestClient):
+def test_widgets_are_ordered_by_plugin_position(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
     text = client.get("/welcome/widgets").text
     assert text.index('data-open="detail-gmail-inbox"') < text.index(
         'data-open="detail-calendar-today"'
@@ -116,10 +117,10 @@ def test_widgets_are_ordered_by_plugin_position(client: TestClient):
 
 def test_widgets_without_google_ask_to_connect(client: TestClient):
     text = client.get("/welcome/widgets").text
-    assert text.count('<span class="node-value">—</span>') == 2
-    assert text.count("Google is not connected.") == 2
-    assert "Connect Google" in text
+    # Nothing around the orb until Google is connected; Integrations lists it instead.
+    assert "node-value" not in text
     assert "Connect a service to get started" in text
+    assert "Online · 0/0 sources" in text
     assert "Connect Google to see today" in client.get("/panels/calendar/today").text
 
 
@@ -180,7 +181,7 @@ def test_disconnect_clears_cached_data(client: TestClient, fake_google: FakeGoog
     connect_google(client, fake_google)
     assert '<span class="node-value">7</span>' in client.get("/welcome/widgets").text
     client.post("/integrations/google/1/disconnect")
-    assert "Google is not connected." in client.get("/welcome/widgets").text
+    assert 'data-open="detail-gmail-inbox"' not in client.get("/welcome/widgets").text
 
 
 def test_today_panel_labels_all_day_events_once(client: TestClient, fake_google: FakeGoogle):

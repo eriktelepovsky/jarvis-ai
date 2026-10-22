@@ -123,9 +123,11 @@ async def widgets(request: Request) -> HTMLResponse:
         (plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()
     ]
     results = await asyncio.gather(*(_load_widget(context, p, w) for p, w in entries))
+    # Widgets of services that are not set up are left out; Integrations lists them instead.
     items = [
         {"plugin": plugin, "widget": widget, "data": data, "key": f"{plugin.id}-{widget.id}"}
         for (plugin, widget), data in zip(entries, results, strict=True)
+        if data.connected
     ]
     return request.app.state.templates.TemplateResponse(
         request, "welcome/widgets.html", {"items": items}
