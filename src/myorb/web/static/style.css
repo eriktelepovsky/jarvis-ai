@@ -1771,3 +1771,15 @@ form.htmx-request .btn[type="submit"]::before {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* A field with buttons next to it, e.g. a token with Generate and Copy */
+
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.input-row .input {
+  flex: 1;
+  min-width: 0;
+}

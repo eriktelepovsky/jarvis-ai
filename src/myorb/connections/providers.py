@@ -21,6 +21,9 @@ class Field:
     help: str = ""
     # An optional field may be left empty; the provider then uses its default.
     required: bool = True
+    # A secret the user may have generated here (e.g. a token they also set in their own app):
+    # the form offers Generate and Copy buttons next to it.
+    generate: bool = False
 
     @property
     def secret(self) -> bool:
