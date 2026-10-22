@@ -9,11 +9,13 @@ from typing import Any
 import httpx2
 
 from myorb.connections.providers import (
+    Choice,
     ConnectedAccount,
     Field,
     Provider,
     ProviderError,
     Verified,
+    hidden,
     request_json,
 )
 from myorb.plugins.base import (
@@ -57,6 +59,7 @@ class Asana(Provider):
     summary = "Tasks assigned to you, from all your workspaces."
     instructions = "asana.html"
     fields = [Field("token", "Personal access token", "password")]
+    choices_label = "Workspaces"
 
     @staticmethod
     def _headers(credentials: dict[str, Any]) -> dict[str, str]:
@@ -80,17 +83,32 @@ class Asana(Provider):
             capability |= {"ok": False, "detail": str(error)}
         return Verified(user.get("email") or user.get("name", "Asana"), credentials, [capability])
 
-    async def tasks(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Task]:
-        headers = self._headers(credentials)
+    async def _workspaces(
+        self, http: httpx2.AsyncClient, credentials: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         me = await request_json(
             http,
             "GET",
             f"{API}/users/me",
             "Asana",
-            headers=headers,
+            headers=self._headers(credentials),
             params={"opt_fields": "workspaces.name"},
         )
-        workspaces = me.get("data", {}).get("workspaces", [])
+        return me.get("data", {}).get("workspaces", [])
+
+    async def choices(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Choice]:
+        workspaces = await self._workspaces(http, credentials)
+        return sorted(
+            (Choice(w["gid"], w.get("name") or w["gid"]) for w in workspaces),
+            key=lambda c: c.name.lower(),
+        )
+
+    async def tasks(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Task]:
+        headers = self._headers(credentials)
+        left_out = hidden(credentials)
+        workspaces = [
+            w for w in await self._workspaces(http, credentials) if w["gid"] not in left_out
+        ]
 
         async def in_workspace(workspace: dict[str, Any]) -> list[Task]:
             items: list[dict[str, Any]] = []

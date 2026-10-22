@@ -30,6 +30,14 @@ class ProviderError(Exception):
 
 
 @dataclass(frozen=True)
+class Choice:
+    """A part of an account the user can leave out, e.g. a workspace they no longer use."""
+
+    id: str
+    name: str
+
+
+@dataclass(frozen=True)
 class Verified:
     """A working connection: its name in the list, what to store, and what works."""
 
@@ -49,10 +57,26 @@ class Provider(ABC):
     instructions: ClassVar[str | None] = None
     # Whether several accounts can be connected (e.g. Jira workspaces).
     multiple: ClassVar[bool] = True
+    # What the account's parts are called when the user can choose among them (e.g.
+    # "Workspaces"); see choices().
+    choices_label: ClassVar[str | None] = None
 
     @abstractmethod
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:
         """Check the form values with the service. Raises ProviderError when they do not work."""
+
+    async def choices(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Choice]:
+        """The account's parts the user can leave out. The ids left out are kept in the
+        credentials as HIDDEN; parts added later in the service are shown until left out too."""
+        return []
+
+
+# The credentials' key with the ids of the parts the user left out (see Provider.choices).
+HIDDEN = "hidden"
+
+
+def hidden(credentials: dict[str, Any]) -> set[str]:
+    return set(credentials.get(HIDDEN) or [])
 
 
 @dataclass(frozen=True)

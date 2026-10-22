@@ -8,11 +8,13 @@ from urllib.parse import urlsplit
 import httpx2
 
 from myorb.connections.providers import (
+    Choice,
     ConnectedAccount,
     Field,
     Provider,
     ProviderError,
     Verified,
+    hidden,
     request_json,
 )
 from myorb.plugins.base import (
@@ -29,8 +31,8 @@ from myorb.plugins.base import (
 from myorb.plugins.connection_data import AccountResult, connected_status, load_connected
 
 ICON = "M4 4h16v16H4zM9 4v16M15 4v16M11 8h2M5.5 8h2"
-JQL = "assignee = currentUser() AND statusCategory != Done ORDER BY priority DESC, updated DESC"
-SPRINT_JQL = "assignee = currentUser() AND statusCategory != Done AND sprint in openSprints()"
+MINE = "assignee = currentUser() AND statusCategory != Done"
+ORDER = " ORDER BY priority DESC, updated DESC"
 FIELDS = "summary,status,priority,duedate,updated,project"
 # Issues read per workspace (in pages of PAGE); the details list all of them.
 MAX_ISSUES = 200
@@ -79,6 +81,7 @@ class Jira(Provider):
         Field("email", "Atlassian account email", "email"),
         Field("token", "API token", "password"),
     ]
+    choices_label = "Projects"
 
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:
         credentials = {**values, "site": site_url(values["site"])}
@@ -95,6 +98,23 @@ class Jira(Provider):
         except ProviderError as error:
             capability |= {"ok": False, "detail": str(error)}
         return Verified(workspace_name(credentials["site"]), credentials, [capability])
+
+    async def choices(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Choice]:
+        """The site's projects the user can see, page by page."""
+        projects: list[dict[str, Any]] = []
+        while True:
+            page = await request_json(
+                http,
+                "GET",
+                f"{credentials['site']}/rest/api/3/project/search",
+                "Jira",
+                auth=httpx2.BasicAuth(credentials["email"], credentials["token"]),
+                params={"startAt": len(projects), "maxResults": 50, "orderBy": "name"},
+            )
+            projects += page.get("values", [])
+            if page.get("isLast", True) or not page.get("values"):
+                break
+        return [Choice(p["key"], f"{p.get('name') or p['key']} ({p['key']})") for p in projects]
 
     async def _search(
         self, http: httpx2.AsyncClient, credentials: dict[str, Any], jql: str, fields: str
@@ -130,7 +150,8 @@ class Jira(Provider):
         """
         auth = httpx2.BasicAuth(credentials["email"], credentials["token"])
         try:
-            in_sprint = await self._search(http, credentials, SPRINT_JQL, "status")
+            jql = f"{mine(credentials)} AND sprint in openSprints()"
+            in_sprint = await self._search(http, credentials, jql, "status")
         except ProviderError:
             return set(), set()
 
@@ -153,7 +174,12 @@ class Jira(Provider):
 
     async def issues(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Issue]:
         site = credentials["site"]
-        items = await self._search(http, credentials, JQL, FIELDS)
+        left_out = hidden(credentials)
+        items = [
+            item
+            for item in await self._search(http, credentials, mine(credentials) + ORDER, FIELDS)
+            if (item.get("fields", {}).get("project") or {}).get("key") not in left_out
+        ]
         projects = {(i.get("fields", {}).get("project") or {}).get("key") for i in items} - {None}
         in_sprint, scrum_projects = await self._sprints(http, credentials, projects)
         issues = []
@@ -183,6 +209,15 @@ class Jira(Provider):
                 )
             )
         return issues
+
+
+def mine(credentials: dict[str, Any]) -> str:
+    """JQL for the user's open issues, without the projects they left out."""
+    left_out = sorted(hidden(credentials))
+    if not left_out:
+        return MINE
+    keys = ", ".join('"' + key.replace('"', "") + '"' for key in left_out)
+    return f"{MINE} AND project not in ({keys})"
 
 
 def is_overdue(issue: Issue, today: date) -> bool:

@@ -1669,3 +1669,29 @@ form.htmx-request .btn[type="submit"]::before {
 @keyframes button-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Checkboxes to choose parts of an account, e.g. Asana workspaces */
+
+.choice-list {
+  display: grid;
+  gap: 2px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: var(--surface-2);
+}
+
+.choice input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}

@@ -34,6 +34,7 @@ MESSAGES = {
     "claude-saved": "Claude is connected. myOrb will write your brief every day.",
     "claude-removed": "Claude was disconnected.",
     "removed": "The connection was removed.",
+    "choices": "Saved. The numbers show only what you chose.",
     "music-saved": "The music settings were saved.",
 }
 
