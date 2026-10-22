@@ -112,8 +112,7 @@ body:has(#welcome) {
   align-items: center;
 }
 
-.header-nav form,
-.header-line > span {
+.header-nav form {
   display: flex;
 }
 
@@ -178,6 +177,35 @@ body:has(#welcome) {
   font-size: 13px;
   line-height: 17px;
   color: var(--neutral);
+}
+
+.clock-extra:not(:empty) {
+  margin-top: 12px;
+}
+
+/* A chip, so the next event does not read as part of the date. */
+.clock-extra .header-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  line-height: 1;
+  background: rgb(79 209 232 / 6%);
+  border: 1px solid var(--line-accent);
+  border-radius: 6px;
+}
+
+.clock-extra .header-item::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.clock-extra .header-item .dim {
+  color: var(--accent);
 }
 
 /* Main grid: schedule, orb, right column */

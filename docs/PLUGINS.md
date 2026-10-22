@@ -3,7 +3,7 @@
 Everything Jarvis shows comes from plugins, including the built-in Gmail, Calendar, Jira and Slack integrations. A plugin is a Python package that registers a `Plugin` subclass; it can add:
 
 - **widgets:** numbers around the orb on the welcome screen, with a details dialog behind each,
-- **panels:** sections in the side column or the header line, rendered from your own template,
+- **panels:** sections in the side column or under the clock, rendered from your own template,
 - **connections:** a form on the Integrations page where the user enters an API token, an address or other values, which Jarvis verifies and stores encrypted,
 - **facts for the AI brief:** plain-text lines Claude writes the daily brief from.
 
@@ -70,7 +70,7 @@ def panels(self) -> list[Panel]:
     return [Panel(id="today", title="Accounts", template="today.html", load=self.load_panel)]
 ```
 
-`load` returns the template's context; the template is relative to `templates_dir` and autoescaped. `placement="header"` puts it in the header line instead of the side column.
+`load` returns the template's context; the template is relative to `templates_dir` and autoescaped. `placement="header"` puts it under the clock in the top-right corner instead of the side column; keep it to one short line.
 
 ### Connections
 

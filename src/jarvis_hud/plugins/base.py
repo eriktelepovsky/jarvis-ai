@@ -118,7 +118,7 @@ class Widget:
 
 @dataclass(frozen=True)
 class Panel:
-    """A section rendered from a template: in the side column or in the header line.
+    """A section rendered from a template: in the side column or under the clock.
 
     `template` is relative to the plugin's `templates_dir`; `load` returns its context.
     """

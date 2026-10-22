@@ -37,15 +37,16 @@
         <a class="label" href="/settings/security">Security</a>
         <form method="post" action="/logout"><button type="submit" class="label">Sign out</button></form>
       </nav>
-      {% for plugin, panel in header_panels %}
-      <span hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 60s, jarvis:refresh from:body"></span>
-      {% endfor %}
       <a class="label header-item warn" id="attention" href="/integrations" hidden></a>
     </div>
     <div class="header-controls">
       <div class="clock">
         <div class="num"><span data-clock-hhmm>{{ now.strftime("%H:%M") }}</span><span class="clock-seconds" data-clock-ss>:{{ now.strftime("%S") }}</span></div>
         <div class="label clock-date" data-clock-date>{{ now.strftime("%A · %-d %b %Y") }}</div>
+        {# Header panels (e.g. the next event) sit under the date, apart from the menu. #}
+        {% for plugin, panel in header_panels %}
+        <div class="clock-extra" hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 60s, jarvis:refresh from:body"></div>
+        {% endfor %}
       </div>
     </div>
   </header>
