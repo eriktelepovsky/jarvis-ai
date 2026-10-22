@@ -34,7 +34,7 @@
         <a href="/integrations" {% if path.startswith("/integrations") %}aria-current="page"{% endif %}>Integrations</a>
         <a href="/settings/security" {% if path.startswith("/settings") %}aria-current="page"{% endif %}>Security</a>
       </nav>
-      <form class="nav topbar-end" method="post" action="/logout">
+      <form class="nav topbar-end" method="post" action="/logout" hx-boost="false">
         <button type="submit">Sign out</button>
       </form>
       {% endif %}

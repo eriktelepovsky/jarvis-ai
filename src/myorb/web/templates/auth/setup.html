@@ -6,7 +6,7 @@
 <h1>Welcome to myOrb</h1>
 {% if allowed %}
 <p class="muted" style="margin: 0">Choose the password you will use to sign in. You can add passkeys after signing in.</p>
-<form method="post" action="/setup" class="form">
+<form method="post" action="/setup" hx-boost="false" class="form">
   <input type="hidden" name="token" value="{{ token }}">
   <div class="field">
     <label class="label" for="assistant">Name your assistant</label>
