@@ -9,6 +9,10 @@
 <form method="post" action="/setup" class="form">
   <input type="hidden" name="token" value="{{ token }}">
   <div class="field">
+    <label class="label" for="name">Your name <span style="text-transform: none">(optional, for the greeting)</span></label>
+    <input class="input" id="name" name="name" autocomplete="given-name" maxlength="40">
+  </div>
+  <div class="field">
     <label class="label" for="password">Password</label>
     <input class="input" id="password" type="password" name="password" autocomplete="new-password" minlength="{{ min_password_length }}" required autofocus {% if error %}aria-invalid="true" aria-describedby="setup-error"{% endif %}>
   </div>

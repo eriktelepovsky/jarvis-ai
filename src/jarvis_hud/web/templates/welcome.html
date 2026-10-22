@@ -75,7 +75,7 @@
     </section>
 
     <div class="stage" id="stage">
-      <h1 class="greeting" data-greeting>{{ "Good morning" if 5 <= now.hour < 12 else "Good afternoon" if 12 <= now.hour < 18 else "Good evening" }}</h1>
+      <h1 class="greeting"><span data-greeting>{{ "Good morning" if 5 <= now.hour < 12 else "Good afternoon" if 12 <= now.hour < 18 else "Good evening" }}</span>{% if name %}, <span class="greeting-name">{{ name }}</span>{% endif %}</h1>
       <div class="orb">
         <span class="ring" style="inset: 0; border-width: 1px; border-color: #16323a"></span>
         <div class="ticks spin-rev" aria-hidden="true"></div>

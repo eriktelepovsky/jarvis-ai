@@ -171,3 +171,22 @@ def test_pages_link_the_manifest(make_client: MakeClient):
         text = client.get(path).text
         assert '<link rel="manifest" href="/manifest.webmanifest">' in text
         assert "app.js" in text
+
+
+# Greeting
+
+
+def test_name_in_greeting(make_client: MakeClient):
+    client = make_client()
+    token = client.app.state.auth.setup_token
+    data = {"password": "correct horse battery", "password_confirmation": "correct horse battery"}
+    client.post("/setup", data={**data, "token": token, "name": "  Tony   "})
+    assert ', <span class="greeting-name">Tony</span>' in client.get("/").text
+
+    response = client.post("/settings/profile", data={"name": "<Pepper>"})
+    assert "Your name was saved." in response.text
+    assert 'value="&lt;Pepper&gt;"' in response.text
+    assert '<span class="greeting-name">&lt;Pepper&gt;</span>' in client.get("/").text
+
+    client.post("/settings/profile", data={"name": ""})
+    assert "greeting-name" not in client.get("/").text
