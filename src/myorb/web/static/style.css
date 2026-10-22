@@ -1582,7 +1582,22 @@ code,
   gap: 6px;
 }
 
+.monitor-group {
+  align-items: center;
+}
+
 .monitor-group .input {
-  width: 160px;
+  width: 180px;
   height: 34px;
+}
+
+.monitor-group .saved-note {
+  width: 64px;
+  color: var(--ok);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.monitor-group.saved .saved-note {
+  opacity: 1;
 }

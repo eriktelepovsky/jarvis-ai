@@ -72,12 +72,17 @@ def _group(name: str) -> str:
 
 
 @router.post(f"{PAGE}/{{monitor_id}}/group")
-async def set_group(db: Db, monitor_id: int, group: Annotated[str, Form()] = "") -> Response:
+async def set_group(
+    request: Request, db: Db, monitor_id: int, group: Annotated[str, Form()] = ""
+) -> Response:
     monitor = await db.get(Monitor, monitor_id)
     if monitor is None:
         raise HTTPException(status_code=404, detail="Monitor not found")
     monitor.group_name = _group(group)
     await db.commit()
+    # From the page (htmx), the field stays as typed; without JavaScript, back to the list.
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204)
     return RedirectResponse(PAGE, 303)
 
 

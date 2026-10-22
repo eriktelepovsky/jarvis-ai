@@ -19,10 +19,14 @@
       <div class="mono muted trunc" style="font-size: 11.5px">{{ monitor.url }}{% if monitor.error %} · {{ monitor.error }}{% elif monitor.response_ms %} · {{ monitor.response_ms }} ms{% endif %}</div>
     </div>
     <div class="actions">
-      <form method="post" action="/integrations/uptime/{{ monitor.id }}/group" class="monitor-group">
+      {# Saved on its own when the field is left or Enter is pressed, without reloading the page,
+         so groups typed into several fields are all kept. #}
+      <form method="post" action="/integrations/uptime/{{ monitor.id }}/group" class="monitor-group"
+            hx-post="/integrations/uptime/{{ monitor.id }}/group" hx-trigger="change, submit" hx-swap="none"
+            hx-on::after-request="if (event.detail.successful) { this.classList.add('saved'); setTimeout(() => this.classList.remove('saved'), 1600) }">
         <label class="visually-hidden" for="group-{{ monitor.id }}">Group of {{ monitor.name }}</label>
         <input class="input" id="group-{{ monitor.id }}" name="group" value="{{ monitor.group_name }}" list="monitor-groups" placeholder="No group" maxlength="60" autocomplete="off">
-        <button type="submit" class="btn">Save</button>
+        <span class="label saved-note" aria-live="polite">✓ Saved</span>
       </form>
       <form method="post" action="/integrations/uptime/{{ monitor.id }}/delete"><button type="submit" class="btn btn-danger">Remove</button></form>
     </div>

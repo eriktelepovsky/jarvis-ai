@@ -128,7 +128,12 @@ def test_monitors_in_groups(client: TestClient, apis: FakeApis):
     client.post("/integrations/uptime", data=data)
     client.post("/integrations/uptime", data={"name": "Shop", "url": "https://shop.example.com/"})
     client.post("/integrations/uptime", data={"name": "Blog", "url": "https://blog.example.com/"})
-    client.post("/integrations/uptime/2/group", data={"group": "Transportly"})
+    response = client.post(
+        "/integrations/uptime/2/group",
+        data={"group": "Transportly"},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 204  # saved in place, the page is not reloaded
     page = client.get("/integrations/uptime").text
     assert '<option value="Transportly">' in page  # offered when typing a group
     assert "<title>Uptime · Orb</title>" in page
