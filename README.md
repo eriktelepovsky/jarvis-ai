@@ -6,8 +6,6 @@ myOrb is your personal AI-powered daily briefing dashboard. It connects to email
 
 Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anything else at setup, and it greets you, sits in the middle of the orb and writes your brief under that name.
 
-**Upgrading from Jarvis:** the project was called Jarvis before. Rename your `JARVIS_*` environment variables to `MYORB_*`; `jarvis.db` in the data directory is renamed to `myorb.db` on the first start, and you sign in once again. The command is now `myorb`, the image `ghcr.io/eriktelepovsky/myorb` and the plugin entry point group `myorb.plugins`.
-
 ## Run on your computer
 
 You need [uv](https://docs.astral.sh/uv/) (it installs the right Python by itself).
