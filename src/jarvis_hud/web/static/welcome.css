@@ -346,7 +346,7 @@ a.ti:hover .t1 {
 
 /* The orb is centered on its own; the greeting sits just above it without pushing it down. */
 .stage {
-  --d: clamp(320px, min(calc((100vh - 300px) * 0.9), calc(100vw - 780px)), 860px);
+  --d: clamp(320px, min(calc((100vh - 360px) * 0.9), calc(100vw - 780px)), 860px);
   --r: calc(var(--d) * 0.41);
   --n: calc(var(--d) * 0.15);
 
@@ -358,7 +358,7 @@ a.ti:hover .t1 {
 }
 
 @media (max-width: 1279px) {
-  .stage { --d: min(calc((100vh - 300px) * 0.9), 88vw, 760px); }
+  .stage { --d: min(calc((100vh - 360px) * 0.9), 88vw, 760px); }
 }
 
 @media (max-width: 720px) {
@@ -401,7 +401,7 @@ a.ti:hover .t1 {
   text-align: center;
   position: absolute;
   right: 0;
-  bottom: calc(100% + var(--d) * 0.055);
+  bottom: calc(100% + var(--d) * 0.09);
   left: 0;
 }
 
