@@ -32,13 +32,21 @@ from jarvis_hud.plugins import Plugin, Widget, WidgetContext, WidgetData
 
 
 class WalletPlugin(Plugin):
-    id = "wallet"                 # unique; also the URL prefix of its templates
+    id = "wallet"  # unique; also the URL prefix of its templates
     name = "Wallet"
     templates_dir = Path(__file__).parent / "templates"
-    position = 70                 # order on the welcome screen
+    position = 70  # order on the welcome screen
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="balance", label="Balance", title="Accounts", icon="M3 6h18v13H3z", load=self.load)]
+        return [
+            Widget(
+                id="balance",
+                label="Balance",
+                title="Accounts",
+                icon="M3 6h18v13H3z",
+                load=self.load,
+            )
+        ]
 
     async def load(self, context: WidgetContext) -> WidgetData:
         return WidgetData(value=1234, summary="EUR across 3 accounts")
@@ -82,12 +90,17 @@ class WalletApi(Provider):
     name = "Wallet"
     logo = "€"
     summary = "Account balances from your wallet."
-    instructions = "connect.html"          # setup steps shown above the form
+    instructions = "connect.html"  # setup steps shown above the form
     fields = [Field("url", "API address", "url"), Field("token", "API token", "password")]
 
     async def verify(self, http, values) -> Verified:
-        data = await request_json(http, "GET", f"{values['url']}/me", "The wallet",
-                                  headers={"Authorization": f"Bearer {values['token']}"})
+        data = await request_json(
+            http,
+            "GET",
+            f"{values['url']}/me",
+            "The wallet",
+            headers={"Authorization": f"Bearer {values['token']}"},
+        )
         return Verified(account=data["name"], credentials=values)
 ```
 
@@ -117,7 +130,9 @@ Tables of built-in plugins are created by Jarvis's migrations; a custom plugin t
 
 ```python
 async def brief(self, context: WidgetContext) -> BriefSection | None:
-    return BriefSection("Accounts", ["Business: 18,420.50 EUR", "Restaurants are 24 EUR over budget"])
+    return BriefSection(
+        "Accounts", ["Business: 18,420.50 EUR", "Restaurants are 24 EUR over budget"]
+    )
 ```
 
 Write facts, most important first; Claude decides what to mention. Return `None` when there is nothing to add.
