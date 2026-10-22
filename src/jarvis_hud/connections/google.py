@@ -129,7 +129,8 @@ async def exchange_code(
 
 async def refresh_access_token(
     http: httpx2.AsyncClient, client: OAuthClient, refresh_token: str
-) -> str:
+) -> tuple[str, int]:
+    """Return a new access token and its lifetime in seconds."""
     body = await _token_request(
         http,
         {
@@ -139,7 +140,7 @@ async def refresh_access_token(
             "client_secret": client.client_secret,
         },
     )
-    return body["access_token"]
+    return body["access_token"], int(body.get("expires_in", 3600))
 
 
 async def fetch_email(http: httpx2.AsyncClient, access_token: str) -> str:
@@ -150,6 +151,13 @@ async def fetch_email(http: httpx2.AsyncClient, access_token: str) -> str:
     if response.status_code != 200 or not response.json().get("email"):
         raise GoogleError("Google did not share the account's email address.")
     return response.json()["email"]
+
+
+def is_api_disabled(response: httpx2.Response) -> bool:
+    reason = _error_reason(response)
+    return response.status_code == 403 and (
+        "SERVICE_DISABLED" in reason or "accessNotConfigured" in reason
+    )
 
 
 def _error_reason(response: httpx2.Response) -> str:
@@ -183,10 +191,7 @@ async def check_capabilities(
             continue
         if response.status_code == 200:
             result["ok"] = True
-        elif response.status_code == 403 and (
-            "SERVICE_DISABLED" in (reason := _error_reason(response))
-            or "accessNotConfigured" in reason
-        ):
+        elif is_api_disabled(response):
             result["detail"] = f"The {capability.api_name} is not enabled in your Google project."
             result["fix_url"] = capability.api_url
         else:

@@ -30,7 +30,7 @@
       <div class="connection-header">
         <strong>{{ connection.account }}</strong>
         <small class="muted">
-          {% if connection.checked_at %}Tested {{ connection.checked_at.strftime("%d %b %Y %H:%M") }} UTC{% else %}Not tested yet{% endif %}
+          {% if connection.checked_at %}Tested {{ connection.checked_at | localtime }}{% else %}Not tested yet{% endif %}
         </small>
       </div>
       {% if connection.capabilities %}

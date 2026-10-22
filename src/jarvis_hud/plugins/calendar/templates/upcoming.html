@@ -1,0 +1,32 @@
+{% from "widgets/google.html" import not_connected, account_header, account_error %}
+{% if not connected %}
+{{ not_connected("Connect Google to see your upcoming events.") }}
+{% else %}
+{% for account in accounts %}
+<div class="account">
+  {{ account_header(account, accounts | length > 1) }}
+  {% if account.email in days %}
+  {% for day in days[account.email] %}
+  <h3 class="day">{{ day.label }}</h3>
+  <ul class="items">
+    {% for event in day.events %}
+    <li class="event">
+      <span class="event-time">
+        {% if event.all_day %}All day{% else %}{{ event.start | localtime("%H:%M") }}–{{ event.end | localtime("%H:%M") }}{% endif %}
+      </span>
+      <span>
+        <a href="{{ event.url }}" target="_blank" rel="noopener" class="item-title">{{ event.title }}</a>
+        {% if event.location or event.calendar %}<small class="muted">{{ [event.location, event.calendar] | select | join(" · ") }}</small>{% endif %}
+        {% if event.video_url %}<a href="{{ event.video_url }}" target="_blank" rel="noopener">Join video call</a>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No events in the next 7 days.</p>
+  {% endfor %}
+  {% endif %}
+  {{ account_error(account) }}
+</div>
+{% endfor %}
+{% endif %}

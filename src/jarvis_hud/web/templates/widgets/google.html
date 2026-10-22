@@ -1,0 +1,19 @@
+{# Shared parts of widgets that show data from Google accounts. #}
+
+{% macro not_connected(text) %}
+<p class="muted">{{ text }}</p>
+<a class="button" href="/integrations">Connect Google</a>
+{% endmacro %}
+
+{% macro account_header(account, show_email) %}
+<div class="account-header">
+  {% if show_email %}<strong>{{ account.email }}</strong>{% endif %}
+  {% if account.updated_at %}<small class="muted">Updated {{ account.updated_at | ago }}</small>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro account_error(account) %}
+{% if account.error %}
+<p class="error">{{ account.error }} <a href="/integrations">Check the connection</a></p>
+{% endif %}
+{% endmacro %}

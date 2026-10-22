@@ -36,12 +36,15 @@ src/jarvis_hud/
 ├── db.py             # SQLAlchemy base, engine and migrations
 ├── crypto.py         # Encryption of stored credentials
 ├── connections/      # Connected accounts: Google OAuth, integrations page
+├── cache.py          # Stale-while-revalidate cache for integration data
 ├── auth/             # Login: passwords, passkeys, sessions, access gate
 ├── migrations/       # Alembic database migrations
 ├── plugins/
 │   ├── base.py       # Plugin and Widget interfaces
 │   ├── registry.py   # Entry point discovery
-│   └── core/         # Built-in plugin (greeting and date)
+│   ├── core/         # Built-in plugin (greeting and date)
+│   ├── gmail/        # Unread and today's emails
+│   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Dashboard and widget endpoints
     ├── templates/    # Base layout and dashboard
@@ -50,7 +53,7 @@ src/jarvis_hud/
 
 ## Plugins
 
-A plugin subclasses `Plugin` and returns a list of `Widget`s. Each widget has a template (relative to the plugin's `templates_dir`) and an async `load()` function that returns the template context.
+A plugin subclasses `Plugin` and returns a list of `Widget`s. Each widget has a template (relative to the plugin's `templates_dir`) and an async `load(context)` function that returns the template context. The `WidgetContext` carries the current time in the user's time zone and the services a widget may use: the cache and the connected Google accounts. `position` orders plugins on the dashboard.
 
 ```python
 class WeatherPlugin(Plugin):
@@ -61,7 +64,7 @@ class WeatherPlugin(Plugin):
     def widgets(self) -> list[Widget]:
         return [Widget(id="today", title="Weather", template="today.html", load=self.load_today)]
 
-    async def load_today(self) -> dict[str, Any]:
+    async def load_today(self, context: WidgetContext) -> dict[str, Any]:
         return {"temperature": 21}
 ```
 
@@ -160,7 +163,11 @@ Data from integrations is cached with **stale-while-revalidate**:
 - Concurrent requests for the same data share one call to the provider (single flight).
 - Failed calls are not cached; the widget shows the error together with the last good data and its age.
 - Saving or changing a connection invalidates its cache.
-- Caches are warmed at startup, and an in-process scheduler refreshes them in the background so the dashboard stays fast and API rate limits are respected.
+- Planned: caches are warmed at startup, and an in-process scheduler refreshes them in the background so the dashboard stays fast and API rate limits are respected.
+
+The cache is `jarvis_hud/cache.py`, kept in memory. The Gmail widget uses a 1-minute freshness window and the Calendar widget 5 minutes. Google access tokens are cached until shortly before they expire, so a dashboard load costs no token refresh.
+
+Times are shown in the user's time zone: `JARVIS_TIMEZONE` (e.g. `Europe/Bratislava`), else the system time zone. Docker containers usually run in UTC, so set it there.
 
 ## AI and actions
 

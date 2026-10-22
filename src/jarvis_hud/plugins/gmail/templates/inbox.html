@@ -1,0 +1,35 @@
+{% from "widgets/google.html" import not_connected, account_header, account_error %}
+{% if not connected %}
+{{ not_connected("Connect Google to see your unread and new emails.") }}
+{% else %}
+{% for account in accounts %}
+<div class="account">
+  {{ account_header(account, accounts | length > 1) }}
+  {% if account.data %}
+  <div class="stats">
+    <a class="stat" href="{{ account.data.url }}" target="_blank" rel="noopener">
+      <span class="stat-value">{{ account.data.unread }}</span>
+      <span class="stat-label">unread</span>
+    </a>
+    <div class="stat">
+      <span class="stat-value">{{ account.data.today }}{% if account.data.today_more %}+{% endif %}</span>
+      <span class="stat-label">new today</span>
+    </div>
+  </div>
+  {% if account.data.latest_unread %}
+  <ul class="items">
+    {% for message in account.data.latest_unread %}
+    <li>
+      <a href="{{ message.url }}" target="_blank" rel="noopener">
+        <span class="item-title">{{ message.subject }}</span>
+        <small class="muted">{{ message.sender }} · {{ message.received | localtime("%d %b %H:%M") }}</small>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
+  {{ account_error(account) }}
+</div>
+{% endfor %}
+{% endif %}

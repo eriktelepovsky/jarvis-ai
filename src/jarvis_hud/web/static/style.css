@@ -299,3 +299,96 @@ button.link {
   border: 1px solid var(--border);
   border-radius: 0.5rem;
 }
+
+.account + .account {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.stat {
+  display: grid;
+  color: inherit;
+  text-decoration: none;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.stat-label,
+.day {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.items {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.items a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.items li > a,
+.event > span:last-child {
+  display: grid;
+}
+
+.items a:hover .item-title,
+a.item-title:hover {
+  color: var(--accent);
+}
+
+.item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day {
+  margin: 1rem 0 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.event {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.event-time {
+  flex: none;
+  width: 6.5rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.event > span:last-child {
+  min-width: 0;
+}
+
+.event > span:last-child > a:not(.item-title) {
+  font-size: 0.85rem;
+  color: var(--accent);
+}

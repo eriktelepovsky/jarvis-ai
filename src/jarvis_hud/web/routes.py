@@ -1,7 +1,19 @@
+import logging
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
+from jarvis_hud.plugins import WidgetContext
+
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
+
+
+def widget_context(request: Request) -> WidgetContext:
+    state = request.app.state
+    return WidgetContext(now=datetime.now(state.timezone), cache=state.cache, google=state.google)
 
 
 @router.get("/healthz", response_class=PlainTextResponse)
@@ -11,8 +23,8 @@ async def health() -> str:
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request) -> HTMLResponse:
-    plugins = request.app.state.plugins
-    widgets = [(plugin, widget) for plugin in plugins.values() for widget in plugin.widgets()]
+    plugins = sorted(request.app.state.plugins.values(), key=lambda p: (p.position, p.id))
+    widgets = [(plugin, widget) for plugin in plugins for widget in plugin.widgets()]
     return request.app.state.templates.TemplateResponse(
         request, "dashboard.html", {"widgets": widgets}
     )
@@ -24,7 +36,11 @@ async def widget(request: Request, plugin_id: str, widget_id: str) -> HTMLRespon
     found = plugin and next((w for w in plugin.widgets() if w.id == widget_id), None)
     if not found:
         raise HTTPException(status_code=404, detail="Widget not found")
-    context = await found.load()
-    return request.app.state.templates.TemplateResponse(
-        request, f"{plugin_id}/{found.template}", context
-    )
+    templates = request.app.state.templates
+    try:
+        context = await found.load(widget_context(request))
+        return templates.TemplateResponse(request, f"{plugin_id}/{found.template}", context)
+    except Exception:
+        # One broken widget must not break the dashboard; show an honest error instead.
+        logger.exception("Widget %s/%s failed", plugin_id, widget_id)
+        return templates.TemplateResponse(request, "widget_error.html", {})

@@ -16,7 +16,7 @@
     <li>
       <span>
         <strong>{{ passkey.name }}</strong>
-        <small>Added {{ passkey.created_at.strftime("%d %b %Y") }}{% if passkey.last_used_at %}, last used {{ passkey.last_used_at.strftime("%d %b %Y") }}{% endif %}</small>
+        <small>Added {{ passkey.created_at | localtime("%d %b %Y") }}{% if passkey.last_used_at %}, last used {{ passkey.last_used_at | localtime("%d %b %Y") }}{% endif %}</small>
       </span>
       <form method="post" action="/settings/security/passkeys/{{ passkey.id }}/delete">
         <button type="submit" class="secondary">Remove</button>

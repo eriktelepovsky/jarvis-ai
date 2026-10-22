@@ -1,8 +1,22 @@
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    from jarvis_hud.cache import Cache
+    from jarvis_hud.connections.google_accounts import GoogleAccounts
+
+
+@dataclass(frozen=True)
+class WidgetContext:
+    """What a widget gets when it loads: the current time and the services it may use."""
+
+    now: datetime  # in the user's time zone
+    cache: "Cache"
+    google: "GoogleAccounts"
 
 
 @dataclass(frozen=True)
@@ -16,7 +30,7 @@ class Widget:
     id: str
     title: str
     template: str
-    load: Callable[[], Awaitable[dict[str, Any]]]
+    load: Callable[[WidgetContext], Awaitable[dict[str, Any]]]
 
 
 class Plugin(ABC):
@@ -29,6 +43,8 @@ class Plugin(ABC):
     id: ClassVar[str]
     name: ClassVar[str]
     templates_dir: ClassVar[Path | None] = None
+    # Dashboard order: plugins with a lower position come first.
+    position: ClassVar[int] = 100
 
     @abstractmethod
     def widgets(self) -> list[Widget]:

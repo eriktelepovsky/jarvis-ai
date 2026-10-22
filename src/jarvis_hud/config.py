@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Key that encrypts stored credentials (OAuth tokens, API keys). When unset, a random key is
     # generated in data_dir/secret.key on first start.
     secret_key: str | None = None
+    # The user's time zone, e.g. Europe/Bratislava. Defaults to the system time zone.
+    timezone: str | None = None
 
     @property
     def database_url(self) -> str:

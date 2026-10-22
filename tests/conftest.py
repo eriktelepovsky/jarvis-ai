@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from jarvis_hud.app import create_app
 from jarvis_hud.config import Settings
+from jarvis_hud.plugins import Plugin
 from jarvis_hud.plugins.core import CorePlugin
 
 PASSWORD = "correct horse battery"
@@ -23,9 +24,14 @@ def make_client(tmp_path: Path) -> Iterator[MakeClient]:
     """
     clients: list[TestClient] = []
 
-    def make(transport: httpx2.AsyncBaseTransport | None = None, **kwargs) -> TestClient:
+    def make(
+        transport: httpx2.AsyncBaseTransport | None = None,
+        plugins: dict[str, Plugin] | None = None,
+        **kwargs,
+    ) -> TestClient:
         settings = Settings(data_dir=tmp_path / "data")
-        app = create_app(settings, plugins={"core": CorePlugin()}, http_transport=transport)
+        plugins = {"core": CorePlugin()} if plugins is None else plugins
+        app = create_app(settings, plugins=plugins, http_transport=transport)
         client = TestClient(app, headers={"Origin": ORIGIN}, **kwargs)
         client.__enter__()
         clients.append(client)
@@ -52,3 +58,8 @@ def client(make_client: MakeClient) -> TestClient:
     client = make_client()
     complete_setup(client)
     return client
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"

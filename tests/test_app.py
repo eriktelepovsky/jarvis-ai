@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from jarvis_hud.app import create_app
 from jarvis_hud.config import Settings
-from jarvis_hud.plugins import Plugin, Widget, discover_plugins
+from jarvis_hud.plugins import Plugin, Widget, WidgetContext, discover_plugins
 from jarvis_hud.plugins.core import CorePlugin, greeting
 
 
@@ -49,7 +49,7 @@ def test_widget_context_is_autoescaped(tmp_path: Path):
         templates_dir = tmp_path / "templates"
 
         def widgets(self) -> list[Widget]:
-            async def load() -> dict[str, Any]:
+            async def load(context: WidgetContext) -> dict[str, Any]:
                 return {"value": "<script>"}
 
             return [Widget(id="echo", title="Echo", template="echo.html", load=load)]

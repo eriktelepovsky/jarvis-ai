@@ -26,6 +26,7 @@ dependencies = [
     "pydantic-settings>=2.16.1",
     "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]>=2.1.5",
+    "tzdata>=2026.5",
     "webauthn>=3.0.1",
 ]
 
@@ -39,6 +40,8 @@ jarvis = "jarvis_hud.cli:main"
 
 [project.entry-points."jarvis_hud.plugins"]
 core = "jarvis_hud.plugins.core:CorePlugin"
+calendar = "jarvis_hud.plugins.calendar:CalendarPlugin"
+gmail = "jarvis_hud.plugins.gmail:GmailPlugin"
 
 [build-system]
 requires = ["hatchling>=1.27"]

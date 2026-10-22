@@ -63,6 +63,12 @@ async def _integrations_page(
     return _render(request, "integrations/index.html", context, status_code)
 
 
+def forget_cached(request: Request, connection_id: int) -> None:
+    """Drop cached tokens and data of a connection that changed or was removed."""
+    request.app.state.google.forget(connection_id)
+    request.app.state.cache.invalidate(f"google:{connection_id}:")
+
+
 async def test_connection(request: Request, db: AsyncSession, connection: Connection) -> None:
     """Check that the account is still accessible and which capabilities work."""
     http = request.app.state.http
@@ -72,7 +78,9 @@ async def test_connection(request: Request, db: AsyncSession, connection: Connec
         if client is None:
             raise google.GoogleError("The OAuth client is missing. Set it up again.")
         credentials = request.app.state.secret_box.decrypt(connection.credentials)
-        access_token = await google.refresh_access_token(http, client, credentials["refresh_token"])
+        access_token, _ = await google.refresh_access_token(
+            http, client, credentials["refresh_token"]
+        )
         granted = set(connection.scopes.split())
         capabilities = [
             {**account, "ok": True},
@@ -199,6 +207,7 @@ async def _finish_connect(request: Request, db: AsyncSession, code: str, verifie
         {"refresh_token": tokens["refresh_token"]},
         tokens.get("scope", ""),
     )
+    forget_cached(request, connection.id)
     await test_connection(request, db, connection)
     return RedirectResponse("/integrations?status=connected", status_code=303)
 
@@ -222,5 +231,6 @@ async def google_disconnect(request: Request, db: Db, connection_id: int) -> Res
     connection = await _connection_or_404(db, connection_id)
     credentials = request.app.state.secret_box.decrypt(connection.credentials)
     await google.revoke(request.app.state.http, credentials["refresh_token"])
+    forget_cached(request, connection.id)
     await store.delete_connection(db, connection)
     return RedirectResponse("/integrations?status=disconnected", status_code=303)
