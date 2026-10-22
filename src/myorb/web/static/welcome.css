@@ -256,7 +256,8 @@ body:has(#welcome) {
 }
 
 .side-right {
-  align-self: stretch;
+  padding-left: 24px;
+  border-left: 1px solid rgb(79 209 232 / 12%);
 }
 
 .side-head {
@@ -1556,4 +1557,33 @@ button.row-btn {
   width: calc(var(--sz) * 0.22);
   height: calc(var(--sz) * 0.22);
   border-width: 2px;
+}
+
+/* The activity list in the right column */
+
+.activity-item {
+  display: grid;
+  grid-template-columns: 38px 14px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 0;
+}
+
+.activity-mark {
+  font-size: 12px;
+  text-align: center;
+}
+
+.activity-mark.ok { color: var(--ok); }
+.activity-mark.fail { color: var(--fail); }
+.activity-mark.warn { color: var(--warn); }
+.activity-mark.info { color: var(--accent); }
+
+.activity-text {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.activity-text a {
+  color: inherit;
 }

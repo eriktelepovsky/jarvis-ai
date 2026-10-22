@@ -153,6 +153,8 @@ async def load_widgets(request: Request) -> list[dict[str, Any]]:
     async with request.app.state.sessionmaker() as db:
         previous = await snapshots.changes(db, context.now.date(), values)
         await snapshots.record(db, context.now.date(), values)
+    # What changed since the last load goes to the activity list: a source failing, new items.
+    await request.app.state.widget_watch.note(request.app.state.sessionmaker, items)
     for item in items:
         item["change"] = snapshots.change_label(previous.get(item["key"]))
         item["size"] = node_size(item["widget"].weight, item["data"])

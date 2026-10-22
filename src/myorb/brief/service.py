@@ -11,6 +11,7 @@ import httpx2
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from myorb.activity.store import record
 from myorb.brief.models import Brief
 from myorb.brief.writer import (
     DEFAULT_MODEL,
@@ -191,6 +192,7 @@ class BriefService:
                 )
             except BriefError as error:
                 self.error = str(error)
+                await record(self._sessionmaker, f"The brief could not be written: {error}", "fail")
                 raise
             brief = Brief(
                 created_at=datetime.now(UTC),
@@ -204,6 +206,8 @@ class BriefService:
                 db.add(brief)
                 await db.commit()
             self.error = None
+            kind = KICKERS.get(brief.kind, "Brief")
+            await record(self._sessionmaker, f"{kind} written: {brief.content['headline']}", "ok")
             return brief
 
     async def due(self) -> bool:

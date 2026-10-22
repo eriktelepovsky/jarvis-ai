@@ -100,7 +100,12 @@
       </div>
     </div>
 
-    <div class="side side-right" aria-hidden="true"></div>
+    <section class="side side-right" aria-label="Activity">
+      <div class="side-head"><span class="label strong">Activity</span><span class="label">Last 12 h</span></div>
+      <div hx-get="/activity" hx-trigger="load, every 60s, myorb:refresh from:body, myorb:brief from:body">
+        <p class="t2">Loading…</p>
+      </div>
+    </section>
   </main>
   <footer class="label welcome-footer">Click a number to open its details</footer>
 

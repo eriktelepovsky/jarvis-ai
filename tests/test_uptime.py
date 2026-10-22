@@ -73,10 +73,13 @@ def test_monitor_goes_down_and_recovers(client: TestClient, apis: FakeApis, plug
     assert "✕ Down · 1 min" in text
     assert "node warn" in text
 
+    assert "API is down: HTTP 502" in client.get("/activity").text
+
     site.status = 200
     check_all(client, plugin)
     [incident] = incidents(client)
     assert incident.ended_at is not None
+    assert "API is up again after 1 min" in client.get("/activity").text
     assert '<span class="node-value">0</span>' in client.get("/welcome/widgets").text
 
 

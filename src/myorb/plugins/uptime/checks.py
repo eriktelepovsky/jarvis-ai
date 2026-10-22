@@ -11,6 +11,7 @@ import httpx2
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from myorb.activity.store import event
 from myorb.plugins.uptime.models import Incident, Monitor
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,10 @@ async def tls_expiry(url: str) -> datetime | None:
         writer.close()
 
 
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 class Checker:
     """Checks all monitors and records incidents. Keeps short-lived state in memory."""
 
@@ -101,6 +106,12 @@ class Checker:
                 )
                 if incident:
                     incident.ended_at = now
+                    minutes = max(
+                        1, round((now - _aware(incident.started_at)).total_seconds() / 60)
+                    )
+                    db.add(
+                        event(f"{monitor.name} is up again after {minutes} min", "ok", monitor.url)
+                    )
             monitor.up, monitor.error = True, None
             return
         self.failures[monitor.id] = self.failures.get(monitor.id, 0) + 1
@@ -108,6 +119,7 @@ class Checker:
         if self.failures[monitor.id] >= FAILURES_BEFORE_DOWN and monitor.up is not False:
             monitor.up = False
             db.add(Incident(monitor_id=monitor.id, started_at=now, error=result["error"]))
+            db.add(event(f"{monitor.name} is down: {result['error']}", "fail", monitor.url))
 
     async def check(self, db: AsyncSession, http: httpx2.AsyncClient, monitor: Monitor) -> None:
         await self.apply(db, monitor, await self.probe(http, monitor))

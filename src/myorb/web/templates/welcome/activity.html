@@ -1,0 +1,10 @@
+{% set marks = {"ok": "✓", "fail": "✕", "warn": "▲", "info": "○"} %}
+{% for event in events %}
+<div class="activity-item">
+  <span class="tt">{{ event.at | localtime("%H:%M") }}</span>
+  <span class="activity-mark {{ event.tone }}" aria-hidden="true">{{ marks[event.tone] }}</span>
+  <span class="t2 activity-text">{% if event.url %}<a href="{{ event.url }}"{% if not event.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ event.text }}</a>{% else %}{{ event.text }}{% endif %}</span>
+</div>
+{% else %}
+<p class="t2">Nothing has happened in the last hours.</p>
+{% endfor %}

@@ -126,6 +126,10 @@ Tables of built-in plugins are created by myOrb's migrations; a custom plugin th
 
 `background(context)` returns a coroutine myOrb runs while it is up, e.g. a loop that checks something every minute; `context()` gives a fresh `WidgetContext`. Handle errors inside the loop and sleep between rounds; the task is cancelled at shutdown. The Uptime plugin uses it to check websites.
 
+### Activity
+
+`await record(context.sessionmaker, "Invoice FV-085 was paid", "ok", url)` from `myorb.activity.store` adds a line to the activity list on the welcome screen (tones `ok`, `fail`, `warn`, `info`). myOrb also notes on its own when a widget starts or stops failing and when its number goes up.
+
 ### Cache and HTTP
 
 `context.http` is a shared `httpx2.AsyncClient` (10-second timeout). `context.cache.get(key, fetch, fresh, max_age)` returns fresh data immediately, serves stale data while refreshing in the background, and keeps the last good value when a refresh fails. `context.now` is the current time in the user's time zone.
