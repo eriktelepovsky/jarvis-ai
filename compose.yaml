@@ -16,6 +16,8 @@ services:
       JARVIS_PUBLIC_URL: ${JARVIS_PUBLIC_URL:-}
       # IP addresses or networks of the reverse proxy whose X-Forwarded-* headers are trusted
       JARVIS_TRUSTED_PROXIES: ${JARVIS_TRUSTED_PROXIES:-127.0.0.1}
+      # Key that encrypts stored credentials; when empty, one is generated in the data volume
+      JARVIS_SECRET_KEY: ${JARVIS_SECRET_KEY:-}
 
 volumes:
   jarvis-data:
