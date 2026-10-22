@@ -219,16 +219,16 @@ def test_assistant_is_named_by_the_user(make_client: MakeClient):
 def test_orb_color_is_chosen_by_the_user(make_client: MakeClient):
     client = make_client()
     complete_setup(client)
-    assert 'style="--orb-hue: 0deg"' in client.get("/").text
+    assert '--orb-hue: 0deg"' in client.get("/").text
     assert 'value="cyan" checked' in client.get("/settings/security").text
 
     client.post("/settings/profile", data={"name": "Tony", "color": "magenta"})
-    assert 'style="--orb-hue: 120deg"' in client.get("/").text
+    assert '--orb-hue: 120deg"' in client.get("/").text
     assert 'value="magenta" checked' in client.get("/settings/security").text
     # An unknown color or none (e.g. the name saved elsewhere) keeps the chosen one.
     client.post("/settings/profile", data={"name": "Tony", "color": "plaid"})
     client.post("/settings/profile", data={"name": "Tony"})
-    assert 'style="--orb-hue: 120deg"' in client.get("/").text
+    assert '--orb-hue: 120deg"' in client.get("/").text
 
 
 def test_static_files_are_revalidated(make_client: MakeClient):
