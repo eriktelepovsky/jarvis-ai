@@ -11,7 +11,8 @@
   <div class="ti now"><span class="tt">{{ event.time | localtime("%H:%M") }}</span><span class="tx" aria-label="Now"></span></div>
   {% else %}
   <a class="ti{% if event.kind == 'past' %} past{% endif %}" href="{{ event.url }}" target="_blank" rel="noopener">
-    <span class="tt">{{ "All day" if event.all_day else event.start | localtime("%H:%M") }}</span>
+    {# All-day events come first; the label is shown only on the first of them. #}
+    <span class="tt">{% if not event.all_day %}{{ event.start | localtime("%H:%M") }}{% elif loop.first %}All day{% endif %}</span>
     <span class="tx"><span class="t1">{{ event.title }}</span>{% if event.sub %}<span class="t2">{{ event.sub }}</span>{% endif %}</span>
   </a>
   {% endif %}

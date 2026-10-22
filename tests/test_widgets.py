@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs
 from zoneinfo import ZoneInfo
@@ -181,6 +181,23 @@ def test_disconnect_clears_cached_data(client: TestClient, fake_google: FakeGoog
     assert '<span class="node-value">7</span>' in client.get("/welcome/widgets").text
     client.post("/integrations/google/1/disconnect")
     assert "Google is not connected." in client.get("/welcome/widgets").text
+
+
+def test_today_panel_labels_all_day_events_once(client: TestClient, fake_google: FakeGoogle):
+    today = datetime.now(TZ).date()
+    all_day = {"start": {"date": str(today)}, "end": {"date": str(today + timedelta(days=1))}}
+    fake_google.routes[CALENDAR] = lambda request: (
+        httpx2.Response(200, json={"items": [{"id": "primary", "primary": True}]})
+        if request.url.path.endswith("/calendarList")
+        else httpx2.Response(
+            200,
+            json={"items": [{"summary": "Name day", **all_day}, {"summary": "Garden", **all_day}]},
+        )
+    )
+    connect_google(client, fake_google)
+    text = client.get("/panels/calendar/today").text
+    assert "Name day" in text and "Garden" in text
+    assert text.count("All day") == 1
 
 
 # Calendar parsing

@@ -134,4 +134,3 @@ def test_server_app_trusts_forwarded_headers_only_from_proxies(
     with TestClient(create_server_app(), client=("198.51.100.7", 50000)) as client:
         local = {"X-Forwarded-For": "127.0.0.1"}
         assert 'name="password"' not in client.get("/setup", headers=local).text
-
