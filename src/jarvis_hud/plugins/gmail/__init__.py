@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from jarvis_hud.connections.google_accounts import GoogleAccount, GoogleAccounts
 from jarvis_hud.plugins.base import Plugin, Widget, WidgetContext
-from jarvis_hud.plugins.google_data import load_accounts
+from jarvis_hud.plugins.google_data import card_for, load_accounts
 
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 API_NAME = "Gmail API"
@@ -84,10 +84,18 @@ class GmailPlugin(Plugin):
     id = "gmail"
     name = "Gmail"
     templates_dir = Path(__file__).parent / "templates"
-    position = 10
+    position = 20
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="inbox", title="Email", template="inbox.html", load=self._load_inbox)]
+        return [
+            Widget(
+                id="inbox",
+                title="Email",
+                template="inbox.html",
+                load=self._load_inbox,
+                icon="mail",
+            )
+        ]
 
     async def _load_inbox(self, context: WidgetContext) -> dict[str, Any]:
         day_start = context.now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -95,11 +103,12 @@ class GmailPlugin(Plugin):
         async def fetch(account: GoogleAccount) -> dict[str, Any]:
             return await fetch_inbox(context.google, account, day_start)
 
-        return await load_accounts(
-            context,
-            SCOPE,
-            f"gmail:{day_start.date()}",
-            fetch,
-            fresh=60,
-            max_age=30 * 60,
+        result = await load_accounts(
+            context, SCOPE, f"gmail:{day_start.date()}", fetch, fresh=60, max_age=30 * 60
         )
+        accounts = result["accounts"]
+        action = {"label": "Open inbox", "url": inbox_url(accounts[0].email)} if accounts else None
+        source = "Gmail" + (f" · {len(accounts)} accounts" if len(accounts) > 1 else "")
+        result["card"] = card_for(accounts, source, action)
+        result["today"] = day_start.date()
+        return result

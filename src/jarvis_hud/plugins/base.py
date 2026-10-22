@@ -23,14 +23,23 @@ class WidgetContext:
 class Widget:
     """A dashboard tile provided by a plugin.
 
-    `template` is relative to the plugin's `templates_dir`. `load` returns the
-    template context and is called each time the widget is rendered.
+    `template` is relative to the plugin's `templates_dir` and renders the card body. `load`
+    returns the template context and is called each time the widget is rendered. An optional
+    `card` entry in the context describes the card around the body: `state` ("error", "stale"
+    or "empty"), `updated_at` (Unix time of the data), `source` (footer label) and `action`
+    (footer link: `{"label": ..., "url": ...}`).
     """
 
     id: str
     title: str
     template: str
     load: Callable[[WidgetContext], Awaitable[dict[str, Any]]]
+    icon: str = "widget"
+    # Width in columns of the 12-column dashboard grid (3, 4, 6, 8 or 12) and height in rows.
+    width: int = 4
+    rows: int = 1
+    # The main card of the dashboard, highlighted with corner ticks.
+    hero: bool = False
 
 
 class Plugin(ABC):

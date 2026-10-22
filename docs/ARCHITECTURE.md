@@ -20,6 +20,7 @@ Browser ── GET / ───────────────────�
 | Web server | Granian | Fast ASGI server written in Rust, with HTTP/2 and WebSockets (voice). It also handles `X-Forwarded-*` headers from trusted reverse proxies. |
 | Web framework | FastAPI | Async I/O for many parallel third-party API calls; built-in support for streaming responses (chat) and WebSockets (voice). |
 | Frontend | Server-rendered Jinja2 templates with HTMX | One codebase without a Node.js build. Plugins ship their widgets as plain templates. Small JavaScript islands are added only where needed (e.g. voice). |
+| Visual design | Dark HUD theme from the "Jarvis Dashboard Design" canvas in Claude Design | Tokens (colors, type, spacing, radii) are CSS custom properties in `web/static/style.css`; components never use raw colors. Fonts (IBM Plex Sans, JetBrains Mono, Barlow Condensed, OFL) are bundled, so the dashboard makes no requests to Google Fonts. |
 | Database | SQLite through SQLAlchemy 2 (async) and Alembic | A single file in the data volume: no extra container and trivial backups. SQLAlchemy keeps PostgreSQL possible later. |
 | Users | Single user per installation | Simpler data model, login and security. Each person runs their own Jarvis. |
 | Plugins | Python entry points (`jarvis_hud.plugins`) | Standard packaging mechanism: built-in and third-party plugins are installed with `pip` and registered the same way. |

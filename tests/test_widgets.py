@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from jarvis_hud.cache import Cache
 from jarvis_hud.connections import google
-from jarvis_hud.plugins.calendar import CalendarPlugin, group_by_day, parse_event
+from jarvis_hud.plugins.calendar import CalendarPlugin, parse_event, today_and_upcoming
 from jarvis_hud.plugins.core import CorePlugin
 from jarvis_hud.plugins.gmail import GmailPlugin
 from jarvis_hud.timezone import resolve_timezone
@@ -110,26 +110,28 @@ def connect_google(client: TestClient, fake_google: FakeGoogle) -> None:
 
 def test_dashboard_orders_widgets_by_plugin_position(client: TestClient):
     text = client.get("/").text
-    assert text.index("widget-core-today") < text.index("widget-gmail-inbox")
-    assert text.index("widget-gmail-inbox") < text.index("widget-calendar-upcoming")
+    assert text.index("widget-core-today") < text.index("widget-calendar-upcoming")
+    assert text.index("widget-calendar-upcoming") < text.index("widget-gmail-inbox")
 
 
 @pytest.mark.parametrize("path", ["/widgets/gmail/inbox", "/widgets/calendar/upcoming"])
 def test_widgets_without_google_ask_to_connect(client: TestClient, path: str):
     response = client.get(path)
     assert "Connect Google" in response.text
-    assert "stat-value" not in response.text
+    assert 'class="num"' not in response.text
+    assert "is-empty" in response.text
 
 
 def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
     text = client.get("/widgets/gmail/inbox").text
-    assert '<span class="stat-value">7</span>' in text
-    assert '<span class="stat-value">3</span>' in text
+    assert '<div class="num" style="font-size: 32px">7</div>' in text
+    assert '<div class="num" style="font-size: 32px">3</div>' in text
     assert "Board meeting &lt;today&gt;" in text
     assert "Pepper Potts" in text
     assert "#inbox/t1" in text
-    assert "Updated just now" in text
+    assert "now" in text
+    assert "Open inbox" in text
 
 
 def test_calendar_widget(client: TestClient, fake_google: FakeGoogle):
@@ -137,7 +139,6 @@ def test_calendar_widget(client: TestClient, fake_google: FakeGoogle):
     text = client.get("/widgets/calendar/upcoming").text
     # 2099 is outside the 7-day window in reality, but the fake ignores the time range.
     assert "Suit fitting" in text
-    assert "Join video call" in text
     assert "Holiday" in text
     assert "Not selected" not in text
     assert text.index("Holiday") < text.index("Suit fitting")
@@ -238,15 +239,27 @@ def test_parse_event_all_day_and_video_link():
     assert parsed["calendar"] == "Team"
 
 
-def test_group_by_day_labels():
+def test_today_and_upcoming():
     now = datetime(2026, 10, 22, 12, 0, tzinfo=TZ)
     events = [
         parse_event(event(start={"date": "2026-10-20"}, end={"date": "2026-10-25"}), {}, TZ),
-        parse_event(event(start={"dateTime": "2026-10-23T10:00:00+02:00"}), {}, TZ),
+        parse_event(event(), {}, TZ),
+        parse_event(
+            event(
+                start={"dateTime": "2026-10-22T15:00:00+02:00"},
+                end={"dateTime": "2026-10-22T16:30:00+02:00"},
+                hangoutLink="https://meet.google.com/x",
+            ),
+            {},
+            TZ,
+        ),
         parse_event(event(start={"dateTime": "2026-10-26T10:00:00+01:00"}), {}, TZ),
     ]
-    labels = [day["label"] for day in group_by_day(events, now)]
-    assert labels == ["Today", "Tomorrow", "Monday 26 Oct"]
+    result = today_and_upcoming(events, now)
+    assert [e["kind"] for e in result["today"]] == ["event", "past", "now", "event"]
+    assert result["today_count"] == 3
+    assert result["today"][3]["sub"] == "1 h 30 min · Video call"
+    assert [e["start"].day for e in result["upcoming"]] == [26]
 
 
 # Cache

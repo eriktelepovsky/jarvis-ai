@@ -3,6 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
+from markupsafe import Markup
 
 from jarvis_hud.plugins import WidgetContext
 
@@ -39,8 +40,15 @@ async def widget(request: Request, plugin_id: str, widget_id: str) -> HTMLRespon
     templates = request.app.state.templates
     try:
         context = await found.load(widget_context(request))
-        return templates.TemplateResponse(request, f"{plugin_id}/{found.template}", context)
+        body = templates.env.get_template(f"{plugin_id}/{found.template}").render(context)
+        card = context.get("card", {})
     except Exception:
         # One broken widget must not break the dashboard; show an honest error instead.
         logger.exception("Widget %s/%s failed", plugin_id, widget_id)
-        return templates.TemplateResponse(request, "widget_error.html", {})
+        body = templates.env.get_template("widget_error.html").render()
+        card = {"state": "error"}
+    return templates.TemplateResponse(
+        request,
+        "widgets/card.html",
+        {"plugin": plugin, "widget": found, "card": card, "body": Markup(body), "loading": False},
+    )

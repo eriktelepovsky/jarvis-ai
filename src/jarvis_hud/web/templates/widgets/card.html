@@ -1,0 +1,39 @@
+{# One dashboard widget. The dashboard renders it loading; HTMX then replaces it with the
+   loaded card, which refreshes itself every 5 minutes. #}
+{% from "icons.html" import icon %}
+{% set widget_key = plugin.id ~ "-" ~ widget.id %}
+<section class="card span-{{ widget.width }}{% if widget.rows > 1 %} rows-{{ widget.rows }}{% endif %}{% if widget.hero %} hero hud-corners{% endif %}{% if card.state %} is-{{ card.state }}{% endif %}"
+         id="widget-{{ widget_key }}"
+         aria-labelledby="widget-{{ widget_key }}-title"
+         {% if loading %}aria-busy="true"{% endif %}
+         hx-get="{{ url_for('widget', plugin_id=plugin.id, widget_id=widget.id) }}"
+         hx-trigger="{{ 'load' if loading else 'every 5m' }}"
+         hx-swap="outerHTML">
+  {% if widget.hero %}<span class="hud-corner-b" aria-hidden="true"></span>{% endif %}
+  <header class="card-header">
+    {{ icon(widget.icon) }}
+    <h2 class="card-title" id="widget-{{ widget_key }}-title">{{ widget.title }}</h2>
+    <span class="card-meta">
+      {% if loading %}◌ Loading…
+      {% elif card.state == "error" %}<span class="badge badge-fail">✕ Error</span>
+      {% elif card.state == "stale" %}<span class="badge badge-warn">▲ {{ card.updated_at | age }} old</span>
+      {% elif card.updated_at %}<span class="live-dot" aria-hidden="true"></span>{{ card.updated_at | ago }}
+      {% endif %}
+    </span>
+  </header>
+  <div class="card-body">
+    {% if loading %}
+    <div class="skeleton" style="width: 46%; height: 30px"></div>
+    <div class="skeleton" style="width: 80%"></div>
+    <div class="skeleton" style="width: 64%"></div>
+    {% else %}
+    {{ body }}
+    {% endif %}
+  </div>
+  {% if card.source or card.action %}
+  <footer class="card-footer">
+    <span class="label">{{ card.source or "" }}</span>
+    {% if card.action %}<a class="card-action" href="{{ card.action.url }}" target="_blank" rel="noopener">{{ card.action.label }} →</a>{% endif %}
+  </footer>
+  {% endif %}
+</section>

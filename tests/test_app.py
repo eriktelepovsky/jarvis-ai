@@ -31,7 +31,8 @@ def test_dashboard_lazy_loads_widgets(client: TestClient):
 def test_widget_renders_plugin_template(client: TestClient):
     response = client.get("/widgets/core/today")
     assert response.status_code == 200
-    assert '<p class="greeting">' in response.text
+    assert 'class="card span-8 hero' in response.text
+    assert "Good " in response.text
 
 
 @pytest.mark.parametrize("path", ["/widgets/missing/today", "/widgets/core/missing"])
@@ -57,7 +58,9 @@ def test_widget_context_is_autoescaped(tmp_path: Path):
     app = create_app(Settings(data_dir=tmp_path / "data"), plugins={"echo": EchoPlugin()})
     with TestClient(app, headers={"Origin": ORIGIN}) as client:
         complete_setup(client)
-        assert client.get("/widgets/echo/echo").text == "&lt;script&gt;"
+        text = client.get("/widgets/echo/echo").text
+        assert "&lt;script&gt;" in text
+        assert "<script>" not in text
 
 
 @pytest.mark.parametrize(

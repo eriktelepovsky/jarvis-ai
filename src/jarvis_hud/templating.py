@@ -10,16 +10,22 @@ def register_filters(env: Environment, timezone: tzinfo) -> None:
             value = value.replace(tzinfo=UTC)
         return value.astimezone(timezone).strftime(format)
 
-    def ago(timestamp: float) -> str:
-        """How long ago a Unix timestamp was, e.g. "3 min ago"."""
+    def age(timestamp: float) -> str:
+        """How old a Unix timestamp is, compactly: "now", "3m", "2h", "4d"."""
         seconds = max(0, int(datetime.now(UTC).timestamp() - timestamp))
         if seconds < 60:
-            return "just now"
+            return "now"
         if seconds < 3600:
-            return f"{seconds // 60} min ago"
+            return f"{seconds // 60}m"
         if seconds < 86400:
-            return f"{seconds // 3600} h ago"
-        return f"{seconds // 86400} d ago"
+            return f"{seconds // 3600}h"
+        return f"{seconds // 86400}d"
+
+    def ago(timestamp: float) -> str:
+        """How long ago a Unix timestamp was: "now", "3m ago"."""
+        value = age(timestamp)
+        return value if value == "now" else f"{value} ago"
 
     env.filters["localtime"] = localtime
+    env.filters["age"] = age
     env.filters["ago"] = ago

@@ -3,27 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07090c">
   <title>{% block title %}Jarvis{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
-  <header class="topbar">
-    <h1><a href="/">Jarvis</a></h1>
-    {% if request.state.authenticated %}
-    <nav class="nav">
-      <a href="/integrations">Integrations</a>
-      <a href="/settings/security">Security</a>
-      <form method="post" action="/logout">
-        <button type="submit" class="link">Sign out</button>
+  {% block body %}
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Jarvis dashboard">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name" aria-hidden="true">J.A.R.V.I.S.</span>
+      </a>
+      {% if request.state.authenticated %}
+      {% set path = request.url.path %}
+      <nav class="nav" aria-label="Main">
+        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="/integrations" {% if path.startswith("/integrations") %}aria-current="page"{% endif %}>Integrations</a>
+        <a href="/settings/security" {% if path.startswith("/settings") %}aria-current="page"{% endif %}>Security</a>
+      </nav>
+      <form class="nav topbar-end" method="post" action="/logout">
+        <button type="submit">Sign out</button>
       </form>
-    </nav>
-    {% endif %}
-  </header>
-  <main>
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="footer">Jarvis {{ version }}</footer>
+      {% endif %}
+    </header>
+    <main class="{% block main_class %}{% endblock %}">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="footer label">
+      <span>Jarvis {{ version }} · self-hosted</span>
+    </footer>
+  </div>
+  {% endblock %}
 </body>
 </html>

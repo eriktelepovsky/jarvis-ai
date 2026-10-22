@@ -6,52 +6,64 @@
 <script src="{{ url_for('static', path='passkeys.js') }}" defer></script>
 {% endblock %}
 
+{% block main_class %}form{% endblock %}
+
 {% block content %}
-<section class="panel narrow">
-  <h2>Passkeys</h2>
-  <p>Sign in with Face ID, Touch ID, Windows Hello or a security key instead of your password.</p>
-  {% if passkeys %}
-  <ul class="list">
-    {% for passkey in passkeys %}
-    <li>
-      <span>
-        <strong>{{ passkey.name }}</strong>
-        <small>Added {{ passkey.created_at | localtime("%d %b %Y") }}{% if passkey.last_used_at %}, last used {{ passkey.last_used_at | localtime("%d %b %Y") }}{% endif %}</small>
-      </span>
-      <form method="post" action="/settings/security/passkeys/{{ passkey.id }}/delete">
-        <button type="submit" class="secondary">Remove</button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted">No passkeys yet.</p>
-  {% endif %}
-  <form class="form" data-passkey-register>
-    <label>Name
-      <input type="text" name="name" maxlength="100" placeholder="e.g. MacBook, iPhone" required>
-    </label>
-    <button type="submit">Add a passkey</button>
-    <p class="error" role="alert" data-passkey-error hidden></p>
+<div class="page-title">
+  <div><div class="label">Settings</div><h1>Security</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="passkeys-title">
+  <div class="panel-header"><h2 class="label" id="passkeys-title">Passkeys</h2></div>
+  <div class="panel-section">
+    <p class="muted" style="margin: 0">Sign in with Face ID, Touch ID, Windows Hello or a security key instead of your password.</p>
+    {% if passkeys %}
+    <ul class="list">
+      {% for passkey in passkeys %}
+      <li class="row spread">
+        <span style="min-width: 0">
+          <span style="display: block; font-weight: 500">{{ passkey.name }}</span>
+          <span class="label">Added {{ passkey.created_at | localtime("%-d %b %Y") }}{% if passkey.last_used_at %} · last used {{ passkey.last_used_at | localtime("%-d %b %Y") }}{% endif %}</span>
+        </span>
+        <form method="post" action="/settings/security/passkeys/{{ passkey.id }}/delete">
+          <button type="submit" class="btn btn-danger">Remove</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="label" style="margin: 0">○ No passkeys yet</p>
+    {% endif %}
+  </div>
+  <form class="panel-section form" data-passkey-register>
+    <div class="field">
+      <label class="label" for="passkey-name">Name</label>
+      <input class="input" id="passkey-name" type="text" name="name" maxlength="100" placeholder="e.g. MacBook, iPhone" required>
+    </div>
+    <div class="actions"><button type="submit" class="btn btn-primary">Add a passkey</button></div>
+    <div class="alert alert-error" role="alert" data-passkey-error hidden></div>
   </form>
 </section>
 
-<section class="panel narrow">
-  <h2>Password</h2>
-  <p>Changing the password signs you out on all other devices.</p>
-  {% if changed %}<p class="success" role="status">The password was changed.</p>{% endif %}
-  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-  <form method="post" action="/settings/security/password" class="form">
-    <label>Current password
-      <input type="password" name="current_password" autocomplete="current-password" required>
-    </label>
-    <label>New password
-      <input type="password" name="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
-    </label>
-    <label>Confirm new password
-      <input type="password" name="password_confirmation" autocomplete="new-password" minlength="{{ min_password_length }}" required>
-    </label>
-    <button type="submit">Change password</button>
+<section class="panel panel-narrow" aria-labelledby="password-title">
+  <div class="panel-header"><h2 class="label" id="password-title">Password</h2></div>
+  <form method="post" action="/settings/security/password" class="panel-section form">
+    <p class="muted" style="margin: 0">Changing the password signs you out on all other devices.</p>
+    {% if changed %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The password was changed.</span></div>{% endif %}
+    {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="field">
+      <label class="label" for="current-password">Current password</label>
+      <input class="input" id="current-password" type="password" name="current_password" autocomplete="current-password" required>
+    </div>
+    <div class="field">
+      <label class="label" for="new-password">New password</label>
+      <input class="input" id="new-password" type="password" name="password" autocomplete="new-password" minlength="{{ min_password_length }}" required>
+    </div>
+    <div class="field">
+      <label class="label" for="new-password-confirmation">Confirm new password</label>
+      <input class="input" id="new-password-confirmation" type="password" name="password_confirmation" autocomplete="new-password" minlength="{{ min_password_length }}" required>
+    </div>
+    <div class="actions"><button type="submit" class="btn btn-primary">Change password</button></div>
   </form>
 </section>
 {% endblock %}

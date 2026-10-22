@@ -6,15 +6,20 @@ from urllib.parse import quote
 
 from jarvis_hud.connections.google_accounts import GoogleAccount, GoogleAccounts
 from jarvis_hud.plugins.base import Plugin, Widget, WidgetContext
-from jarvis_hud.plugins.google_data import load_accounts
+from jarvis_hud.plugins.google_data import card_for, load_accounts
 
 API = "https://www.googleapis.com/calendar/v3"
 API_NAME = "Google Calendar API"
 SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
 DAYS_AHEAD = 7
-EVENTS_SHOWN = 10
+EVENTS_PER_CALENDAR = 25
+UPCOMING_SHOWN = 4
 # Event types that are not meetings and would only clutter the list.
 HIDDEN_EVENT_TYPES = {"workingLocation"}
+
+
+def calendar_url(email: str) -> str:
+    return f"https://calendar.google.com/calendar/u/?authuser={quote(email)}"
 
 
 def parse_event(
@@ -54,23 +59,45 @@ def parse_event(
     }
 
 
-def group_by_day(events: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
-    """Group events under "Today", "Tomorrow" or a date, in order."""
-    groups: dict[date, list[dict[str, Any]]] = {}
-    for event in events:
-        # Multi-day events that started earlier are shown under today.
-        day = max(event["start"].date(), now.date())
-        groups.setdefault(day, []).append(event)
-    labels = {now.date(): "Today", now.date() + timedelta(days=1): "Tomorrow"}
-    return [
-        {"label": labels.get(day, day.strftime("%A %d %b")), "events": day_events}
-        for day, day_events in groups.items()
-    ]
+def describe(event: dict[str, Any]) -> str:
+    """The line under an event title: duration, then where it happens."""
+    parts = []
+    if not event["all_day"]:
+        minutes = int((event["end"] - event["start"]).total_seconds() // 60)
+        hours, rest = divmod(minutes, 60)
+        parts.append(
+            f"{hours} h {rest} min" if hours and rest else f"{hours} h" if hours else f"{rest} min"
+        )
+    if event["video_url"] and not event["location"]:
+        parts.append("Video call")
+    parts += [part for part in (event["location"], event["calendar"]) if part]
+    return " · ".join(parts)
+
+
+def today_and_upcoming(events: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
+    """Split events into today's (with a "now" marker) and the next days'."""
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    today: list[dict[str, Any]] = []
+    marked = False
+    for event in [e for e in events if e["start"] < tomorrow]:
+        kind = "past" if event["end"] <= now else "event"
+        if not marked and event["start"] > now:
+            today.append({"kind": "now", "time": now})
+            marked = True
+        today.append({**event, "kind": kind, "sub": describe(event)})
+    if today and not marked and not all(e.get("all_day") for e in today):
+        today.append({"kind": "now", "time": now})
+    upcoming = [e for e in events if e["start"] >= tomorrow][:UPCOMING_SHOWN]
+    return {
+        "today": today,
+        "today_count": sum(1 for e in today if e["kind"] != "now"),
+        "upcoming": upcoming,
+    }
 
 
 async def fetch_events(
     google: GoogleAccounts, account: GoogleAccount, now: datetime
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     calendar_list = await google.get_json(
         account, f"{API}/users/me/calendarList", API_NAME, {"minAccessRole": "reader"}
     )
@@ -83,10 +110,10 @@ async def fetch_events(
     params = {
         "singleEvents": "true",
         "orderBy": "startTime",
-        # Events are listed by their end time, so ongoing events are included.
-        "timeMin": now.isoformat(),
+        # Events are listed by their end time: everything that ends today or later.
+        "timeMin": day_start.isoformat(),
         "timeMax": (day_start + timedelta(days=DAYS_AHEAD)).isoformat(),
-        "maxResults": EVENTS_SHOWN,
+        "maxResults": EVENTS_PER_CALENDAR,
     }
     responses = await asyncio.gather(
         *(
@@ -107,7 +134,7 @@ async def fetch_events(
     ]
     # All-day events first within a day, then by start time.
     events.sort(key=lambda e: (max(e["start"], day_start).date(), not e["all_day"], e["start"]))
-    return events[:EVENTS_SHOWN]
+    return {"events": events, "calendars": len(calendars)}
 
 
 class CalendarPlugin(Plugin):
@@ -116,24 +143,42 @@ class CalendarPlugin(Plugin):
     id = "calendar"
     name = "Calendar"
     templates_dir = Path(__file__).parent / "templates"
-    position = 20
+    position = 10
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="upcoming", title="Calendar", template="upcoming.html", load=self._load)]
+        return [
+            Widget(
+                id="upcoming",
+                title="Calendar",
+                template="upcoming.html",
+                load=self._load,
+                icon="calendar",
+                rows=2,
+            )
+        ]
 
     async def _load(self, context: WidgetContext) -> dict[str, Any]:
-        async def fetch(account: GoogleAccount) -> list[dict[str, Any]]:
+        async def fetch(account: GoogleAccount) -> dict[str, Any]:
             return await fetch_events(context.google, account, context.now)
 
         result = await load_accounts(
-            context, SCOPE, "calendar", fetch, fresh=5 * 60, max_age=2 * 60 * 60
+            context,
+            SCOPE,
+            f"calendar:{context.now.date()}",
+            fetch,
+            fresh=5 * 60,
+            max_age=2 * 60 * 60,
         )
-        # Events that ended since they were fetched are dropped.
+        accounts = result["accounts"]
         result["days"] = {
-            account.email: group_by_day(
-                [event for event in account.data if event["end"] > context.now], context.now
-            )
-            for account in result["accounts"]
+            account.email: today_and_upcoming(account.data["events"], context.now)
+            for account in accounts
             if account.data is not None
         }
+        calendars = sum(account.data["calendars"] for account in accounts if account.data)
+        source = "Google Calendar" + (f" · {calendars} calendars" if calendars > 1 else "")
+        action = (
+            {"label": "Open calendar", "url": calendar_url(accounts[0].email)} if accounts else None
+        )
+        result["card"] = card_for(accounts, source, action)
         return result

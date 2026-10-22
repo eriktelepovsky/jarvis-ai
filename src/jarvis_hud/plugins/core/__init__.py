@@ -21,7 +21,17 @@ class CorePlugin(Plugin):
     position = 0
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="today", title="Today", template="today.html", load=self._load_today)]
+        return [
+            Widget(
+                id="today",
+                title="Today",
+                template="today.html",
+                load=self._load_today,
+                icon="brief",
+                width=8,
+                hero=True,
+            )
+        ]
 
     async def _load_today(self, context: WidgetContext) -> dict[str, Any]:
         return {"now": context.now, "greeting": greeting(context.now.hour)}

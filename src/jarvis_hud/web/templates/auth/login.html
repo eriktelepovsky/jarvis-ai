@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
+{% from "icons.html" import icon %}
 
 {% block title %}Sign in · Jarvis{% endblock %}
 
@@ -6,21 +7,24 @@
 <script src="{{ url_for('static', path='passkeys.js') }}" defer></script>
 {% endblock %}
 
-{% block content %}
-<section class="panel narrow">
-  <h2>Sign in</h2>
-  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-  {% if has_passkeys %}
-  <button type="button" data-passkey-login data-next="{{ next }}">Sign in with a passkey</button>
-  <p class="error" role="alert" data-passkey-error hidden></p>
-  <p class="divider">or</p>
-  {% endif %}
-  <form method="post" action="/login" class="form">
-    <input type="hidden" name="next" value="{{ next }}">
-    <label>Password
-      <input type="password" name="password" autocomplete="current-password" required {% if not has_passkeys %}autofocus{% endif %}>
-    </label>
-    <button type="submit">Sign in</button>
-  </form>
-</section>
+{% block card %}
+<h1>Welcome back</h1>
+{% if has_passkeys %}
+<button type="button" class="btn btn-primary btn-large" data-passkey-login data-next="{{ next }}">
+  {{ icon("key", 18) }} Sign in with passkey
+</button>
+<div class="alert alert-error" role="alert" data-passkey-error hidden></div>
+<div class="divider"><span class="label">or password</span></div>
+{% endif %}
+<form method="post" action="/login" class="form">
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="field">
+    <label class="label" for="password">Password</label>
+    <input class="input" id="password" type="password" name="password" autocomplete="current-password" required {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %} {% if not has_passkeys %}autofocus{% endif %}>
+  </div>
+  <button type="submit" class="btn {{ 'btn-large' if has_passkeys else 'btn-primary btn-large' }}">Sign in</button>
+</form>
+{% if error %}
+<div class="alert alert-error" role="alert" id="login-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>
+{% endif %}
 {% endblock %}

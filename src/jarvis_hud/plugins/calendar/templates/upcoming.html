@@ -1,32 +1,46 @@
-{% from "widgets/google.html" import not_connected, account_header, account_error %}
+{% from "widgets/google.html" import not_connected, account_name, account_error %}
 {% if not connected %}
-{{ not_connected("Connect Google to see your upcoming events.") }}
+{{ not_connected("Connect your Google account to see today's and upcoming events.") }}
 {% else %}
 {% for account in accounts %}
-<div class="account">
-  {{ account_header(account, accounts | length > 1) }}
-  {% if account.email in days %}
-  {% for day in days[account.email] %}
-  <h3 class="day">{{ day.label }}</h3>
-  <ul class="items">
-    {% for event in day.events %}
-    <li class="event">
-      <span class="event-time">
-        {% if event.all_day %}All day{% else %}{{ event.start | localtime("%H:%M") }}–{{ event.end | localtime("%H:%M") }}{% endif %}
-      </span>
-      <span>
-        <a href="{{ event.url }}" target="_blank" rel="noopener" class="item-title">{{ event.title }}</a>
-        {% if event.location or event.calendar %}<small class="muted">{{ [event.location, event.calendar] | select | join(" · ") }}</small>{% endif %}
-        {% if event.video_url %}<a href="{{ event.video_url }}" target="_blank" rel="noopener">Join video call</a>{% endif %}
-      </span>
-    </li>
-    {% endfor %}
-  </ul>
+{{ account_name(account, accounts | length > 1) }}
+{% if account.email in days %}
+{% set day = days[account.email] %}
+<div><span class="num" style="font-size: 34px">{{ day.today_count }}</span> <span class="muted">{{ "event" if day.today_count == 1 else "events" }} today</span></div>
+{% if day.today %}
+<div class="events">
+  {% for event in day.today %}
+  {% if event.kind == "now" %}
+  <div class="event is-now" aria-label="Now"><span class="event-time" style="color: var(--fail)">{{ event.time | localtime("%H:%M") }}</span><div class="event-body"></div></div>
   {% else %}
-  <p class="muted">No events in the next 7 days.</p>
-  {% endfor %}
+  <div class="event{% if event.kind == 'past' %} is-past{% endif %}">
+    <span class="event-time">{{ "All day" if event.all_day else event.start | localtime("%H:%M") }}</span>
+    <div class="event-body">
+      <a class="event-title" href="{{ event.url }}" target="_blank" rel="noopener">{{ event.title }}</a>
+      {% if event.sub %}<div class="event-sub">{{ event.sub }}</div>{% endif %}
+      {% if event.video_url and event.kind != "past" %}<a class="card-action" href="{{ event.video_url }}" target="_blank" rel="noopener">Join call →</a>{% endif %}
+    </div>
+  </div>
   {% endif %}
-  {{ account_error(account) }}
+  {% endfor %}
 </div>
+{% else %}
+<p class="muted" style="margin: 0">Nothing on the calendar today.</p>
+{% endif %}
+<div class="section-label"><span class="label">Upcoming</span></div>
+{% if day.upcoming %}
+<ul class="list">
+  {% for event in day.upcoming %}
+  <li class="row spread">
+    <a class="trunc" href="{{ event.url }}" target="_blank" rel="noopener">{{ event.title }}</a>
+    <span class="mono muted" style="flex: none; font-size: 11.5px">{{ event.start | localtime("%a" if event.all_day else "%a %H:%M") }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted" style="margin: 0">No events in the next {{ 7 }} days.</p>
+{% endif %}
+{% endif %}
+{{ account_error(account) }}
 {% endfor %}
 {% endif %}

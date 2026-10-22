@@ -2,67 +2,78 @@
 
 {% block title %}Integrations · Jarvis{% endblock %}
 
+{% block main_class %}form{% endblock %}
+
 {% block content %}
-<section class="panel narrow wide">
-  <h2>Integrations</h2>
-  {% if message %}<p class="success" role="status">{{ message }}</p>{% endif %}
-  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<div class="page-title">
+  <div><div class="label">Settings</div><h1>Integrations</h1></div>
+</div>
 
-  <article class="integration">
-    <header class="integration-header">
-      <div>
-        <h3>Google</h3>
-        <p class="muted">Gmail and Google Calendar.</p>
-      </div>
-      {% if not client %}
-      <span class="badge">Not set up</span>
-      {% elif not connections %}
-      <span class="badge">No account connected</span>
-      {% endif %}
-    </header>
+{% if message %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
+{% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
 
-    {% if not client %}
-    <p>Jarvis connects to Google through your own Google Cloud OAuth client. Setting it up takes about 10 minutes and is free.</p>
-    <a class="button" href="/integrations/google/setup">Set up Google</a>
-    {% else %}
-    {% for connection in connections %}
-    <div class="connection">
-      <div class="connection-header">
-        <strong>{{ connection.account }}</strong>
-        <small class="muted">
-          {% if connection.checked_at %}Tested {{ connection.checked_at | localtime }}{% else %}Not tested yet{% endif %}
-        </small>
-      </div>
-      {% if connection.capabilities %}
-      <ul class="capabilities">
-        {% for capability in connection.capabilities %}
-        <li>
-          <span class="status {{ 'ok' if capability.ok else 'failed' }}">{{ "Works" if capability.ok else "Not working" }}</span>
-          <span>
-            {{ capability.label }}
-            {% if capability.detail %}<small class="muted">{{ capability.detail }}{% if capability.fix_url %} <a href="{{ capability.fix_url }}" target="_blank" rel="noopener">Enable it</a>, then test again.{% endif %}</small>{% endif %}
-          </span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-      <div class="actions">
-        <form method="post" action="/integrations/google/{{ connection.id }}/test">
-          <button type="submit" class="secondary">Test connection</button>
-        </form>
-        <form method="post" action="/integrations/google/{{ connection.id }}/disconnect">
-          <button type="submit" class="secondary">Disconnect</button>
-        </form>
-      </div>
+<section class="panel" aria-labelledby="sources-title">
+  <div class="panel-header">
+    <h2 class="label" id="sources-title">Connected sources</h2>
+  </div>
+
+  {% if not client %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">G</span>
+    <div>
+      <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar</span></div>
+      <div class="muted" style="font-size: 12.5px">Jarvis connects through your own Google Cloud OAuth client. Setting it up takes about 10 minutes and is free.</div>
     </div>
-    {% endfor %}
+    <div class="actions"><span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/google/setup">Set up Google</a></div>
+  </div>
+  {% else %}
+  {% for connection in connections %}
+  {% set problems = connection.capabilities | rejectattr("ok") | list if connection.capabilities else [] %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">G</span>
+    <div style="min-width: 0">
+      <div class="integration-name"><strong class="trunc">{{ connection.account }}</strong><span class="label">Google</span></div>
+      <div class="mono muted" style="font-size: 11.5px">{% if connection.checked_at %}Tested {{ connection.checked_at | localtime }}{% else %}Not tested yet{% endif %}</div>
+    </div>
     <div class="actions">
-      <form method="post" action="/integrations/google/connect">
-        <button type="submit">{{ "Connect another account" if connections else "Connect a Google account" }}</button>
-      </form>
-      <a class="button secondary" href="/integrations/google/setup">OAuth client settings</a>
+      {% if not connection.capabilities %}<span class="badge badge-neutral">○ Not tested</span>
+      {% elif problems %}<span class="badge badge-fail">✕ {{ problems | length }} {{ "problem" if problems | length == 1 else "problems" }}</span>
+      {% else %}<span class="badge badge-ok">✓ Connected</span>{% endif %}
+      <form method="post" action="/integrations/google/{{ connection.id }}/test"><button type="submit" class="btn">Test connection</button></form>
+      <form method="post" action="/integrations/google/{{ connection.id }}/disconnect"><button type="submit" class="btn btn-danger">Disconnect</button></form>
     </div>
-    {% endif %}
-  </article>
+  </div>
+  {% if connection.capabilities %}
+  <div class="panel-section" style="border-top: 0; padding-top: 0; padding-left: 72px">
+    <ul class="capabilities">
+      {% for capability in connection.capabilities %}
+      <li>
+        <span class="badge {{ 'badge-ok' if capability.ok else 'badge-fail' }}" style="justify-self: start">{{ "✓ Works" if capability.ok else "✕ Not working" }}</span>
+        <span>
+          {{ capability.label }}
+          {% if capability.detail %}<span class="muted" style="display: block; font-size: 12.5px">{{ capability.detail }}{% if capability.fix_url %} <a href="{{ capability.fix_url }}" target="_blank" rel="noopener">Enable it</a>, then test again.{% endif %}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">G</span>
+    <div>
+      <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar</span></div>
+      <div class="muted" style="font-size: 12.5px">The OAuth client is set up. Connect your Google account.</div>
+    </div>
+    <div class="actions"><span class="badge badge-neutral">○ No account</span></div>
+  </div>
+  {% endfor %}
+  <div class="panel-section actions">
+    <form method="post" action="/integrations/google/connect">
+      <button type="submit" class="btn btn-primary">{{ "Connect another account" if connections else "Connect a Google account" }}</button>
+    </form>
+    <a class="btn btn-ghost" href="/integrations/google/setup">OAuth client settings</a>
+  </div>
+  {% endif %}
 </section>
 {% endblock %}

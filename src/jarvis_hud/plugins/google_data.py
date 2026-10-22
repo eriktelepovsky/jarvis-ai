@@ -51,3 +51,22 @@ async def load_accounts(
         "connected": bool(accounts),
         "accounts": await asyncio.gather(*(load(account) for account in accounts)),
     }
+
+
+def card_for(
+    accounts: list[AccountData], source: str, action: dict[str, str] | None
+) -> dict[str, Any]:
+    """Describe the card around a Google widget from the state of its accounts."""
+    if not accounts:
+        return {"state": "empty", "source": source}
+    loaded = [account for account in accounts if account.data is not None]
+    if not loaded:
+        return {"state": "error", "source": source}
+    times = [account.updated_at for account in loaded if account.updated_at]
+    stale = any(account.error for account in loaded)
+    return {
+        "state": "stale" if stale else None,
+        "updated_at": min(times) if times else None,
+        "source": source,
+        "action": action,
+    }
