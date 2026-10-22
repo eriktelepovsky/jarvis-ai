@@ -1,7 +1,7 @@
 /* Welcome screen: the orb with numbers around it, today's schedule and the header controls.
    Follows "6 · Welcome — after sign-in" in the Jarvis design. */
 
-.welcome-body {
+body:has(#welcome) {
   background: #06080b;
 }
 
@@ -145,70 +145,6 @@
   align-items: flex-start;
   gap: 16px;
   margin-left: auto;
-}
-
-.btn-small {
-  height: 30px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-[data-toggle="sounds"] {
-  width: 34px;
-  padding: 0;
-}
-
-[data-toggle="sounds"] .sound-on,
-[data-toggle="sounds"][aria-pressed="true"] .sound-off {
-  display: none;
-}
-
-[data-toggle="sounds"][aria-pressed="true"] .sound-on {
-  display: inline;
-}
-
-.music {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.volume {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.volume input {
-  width: 90px;
-  accent-color: var(--accent);
-}
-
-.eq {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 12px;
-}
-
-.eq i {
-  display: block;
-  width: 2px;
-  height: 12px;
-  background: var(--accent);
-  transform: scaleY(0.3);
-  transform-origin: bottom;
-}
-
-.eq.on i { animation: eq 1.4s ease-in-out infinite; }
-.eq.on i:nth-child(2) { animation-delay: 0.3s; }
-.eq.on i:nth-child(3) { animation-delay: 0.7s; }
-.eq.on i:nth-child(4) { animation-delay: 0.15s; }
-
-@keyframes eq {
-  0%,
-  100% { transform: scaleY(0.3); }
-  50% { transform: scaleY(1); }
 }
 
 .clock {
@@ -820,16 +756,7 @@ a.ti:hover .t1 {
   border-top: 1px solid var(--line-soft);
 }
 
-/* Paused and reduced motion */
-
-.welcome.paused .floor,
-.welcome.paused .cloud,
-.welcome.paused .spin,
-.welcome.paused .spin-fast,
-.welcome.paused .spin-rev,
-.welcome.paused .core {
-  animation-play-state: paused;
-}
+/* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
   .floor,
@@ -1046,35 +973,4 @@ button.row-btn {
 
 /* YouTube mini player: YouTube requires its player to stay visible, at least 200 px tall. */
 
-.music-player {
-  position: fixed;
-  right: max(20px, env(safe-area-inset-right));
-  bottom: max(20px, env(safe-area-inset-bottom));
-  z-index: 5;
-  width: min(356px, calc(100vw - 40px));
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--line-accent);
-  border-radius: var(--r-card);
-  box-shadow: 0 20px 50px -20px rgb(0 0 0 / 80%), 0 0 40px -20px var(--accent-glow);
-}
-
-.music-player-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px 6px 12px;
-}
-
-.music-player-head .icon-btn {
-  width: 26px;
-  height: 26px;
-}
-
-.music-player iframe {
-  display: block;
-  width: 100%;
-  height: 200px;
-  border: 0;
-}
 

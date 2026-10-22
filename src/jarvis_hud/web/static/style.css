@@ -1249,3 +1249,180 @@ code,
   border-radius: var(--r-control);
 }
 
+
+/* Media dock: sound and music controls in the bottom-right corner, on every page */
+
+.media-dock {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.media-dock > * {
+  pointer-events: auto;
+}
+
+.music-player.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dock-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  background: rgb(13 17 23 / 85%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+}
+
+.page {
+  padding-bottom: 72px;
+}
+
+.btn-small {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+[data-toggle="sounds"],
+.dock-controls [data-toggle="video"],
+.dock-controls [data-toggle="volume"] {
+  width: 34px;
+  padding: 0;
+}
+
+[data-toggle="sounds"] .sound-on,
+[data-toggle="sounds"][aria-pressed="true"] .sound-off {
+  display: none;
+}
+
+[data-toggle="sounds"][aria-pressed="true"] .sound-on {
+  display: inline;
+}
+
+.music {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.media-dock .volume {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px -12px rgb(0 0 0 / 80%);
+}
+
+.media-dock .volume[hidden] {
+  display: none;
+}
+
+.volume input {
+  width: 90px;
+  accent-color: var(--accent);
+}
+
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.eq i {
+  display: block;
+  width: 2px;
+  height: 12px;
+  background: var(--accent);
+  transform: scaleY(0.3);
+  transform-origin: bottom;
+}
+
+.eq.on i { animation: eq 1.4s ease-in-out infinite; }
+.eq.on i:nth-child(2) { animation-delay: 0.3s; }
+.eq.on i:nth-child(3) { animation-delay: 0.7s; }
+.eq.on i:nth-child(4) { animation-delay: 0.15s; }
+
+@keyframes eq {
+  0%,
+  100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+.music-player {
+  width: min(356px, calc(100vw - 40px));
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--r-card);
+  box-shadow: 0 20px 50px -20px rgb(0 0 0 / 80%), 0 0 40px -20px var(--accent-glow);
+}
+
+.music-player-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 12px;
+}
+
+.music-player-head .icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.music-player iframe {
+  display: block;
+  width: 100%;
+  height: 200px;
+  border: 0;
+}
+
+/* The logo breathes, as in the design */
+
+@keyframes logo-pulse {
+  0%,
+  100% { transform: scale(0.92); box-shadow: 0 0 6px -2px rgb(79 209 232 / 40%); }
+  50% { transform: scale(1.08); box-shadow: 0 0 18px 2px rgb(79 209 232 / 75%); }
+}
+
+@keyframes logo-dot {
+  0%,
+  100% { opacity: 0.55; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.brand-mark {
+  animation: logo-pulse 2.6s ease-in-out infinite;
+}
+
+.brand-mark::after {
+  animation: logo-dot 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark,
+  .brand-mark::after {
+    animation: none;
+  }
+}

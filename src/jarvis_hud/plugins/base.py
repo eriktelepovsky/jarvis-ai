@@ -69,6 +69,8 @@ class Row:
     tone: Tone = "neutral"
     url: str | None = None
     actions: list[Action] = field(default_factory=list)
+    # The label of the `url` link. Links within Jarvis ("/…") open in the same tab.
+    url_label: str = "Open"
 
 
 @dataclass(frozen=True)

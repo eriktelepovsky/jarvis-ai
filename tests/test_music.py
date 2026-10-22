@@ -39,20 +39,25 @@ def client(make_client: MakeClient) -> TestClient:
 
 
 def test_music_defaults_to_ambient(client: TestClient):
-    assert 'data-source="ambient"' in client.get("/").text
+    assert client.get("/music/config").json() == {
+        "source": "ambient",
+        "video": None,
+        "playlist": None,
+    }
+    assert 'id="media-dock"' in client.get("/").text
+    assert 'id="media-dock"' in client.get("/integrations").text
 
 
 def test_choose_youtube(client: TestClient):
     url = f"https://www.youtube.com/watch?v={VIDEO}&list={PLAYLIST}"
     response = client.post("/integrations/music", data={"source": "youtube", "url": url})
     assert "The music settings were saved." in response.text
-    text = client.get("/").text
-    assert 'data-source="youtube"' in text
-    assert f'data-video="{VIDEO}"' in text and f'data-playlist="{PLAYLIST}"' in text
+    config = client.get("/music/config").json()
+    assert config == {"source": "youtube", "video": VIDEO, "playlist": PLAYLIST}
     assert f'value="{url.replace("&", "&amp;")}"' in client.get("/integrations/music").text
 
     client.post("/integrations/music", data={"source": "ambient"})
-    assert 'data-source="ambient"' in client.get("/").text
+    assert client.get("/music/config").json()["source"] == "ambient"
 
 
 def test_invalid_youtube_link(client: TestClient):

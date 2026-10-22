@@ -57,6 +57,13 @@ async def load_music(request: Request, db: AsyncSession) -> Music:
     return Music(**data) if data else Music()
 
 
+@router.get("/music/config")
+async def music_config(request: Request, db: Db) -> dict[str, str | None]:
+    """Where the music comes from, read by the media dock when the music starts."""
+    music = await load_music(request, db)
+    return {"source": music.source, "video": music.video, "playlist": music.playlist}
+
+
 @router.get("/integrations/music", response_class=HTMLResponse)
 async def music_page(request: Request, db: Db) -> Response:
     music = await load_music(request, db)

@@ -54,9 +54,22 @@ class TasksPlugin(Plugin):
                         title=task.title,
                         badge=due_label(task, now),
                         tone=tone.get(name, "neutral"),
+                        url=f"/tasks?edit={task.id}",
+                        url_label="Edit",
                         actions=[Action("Done", f"/tasks/{task.id}/done")],
                     )
                 )
+        rows = rows[:ROWS_SHOWN]
+        # Done today, so a task checked off by mistake can be brought back.
+        for task in done:
+            rows.append(
+                Row(
+                    title=task.title,
+                    badge="✓ Done",
+                    tone="ok",
+                    actions=[Action("Undo", f"/tasks/{task.id}/undo")],
+                )
+            )
         return WidgetData(
             value=len(tasks),
             summary="open" + (f" · {overdue} overdue" if overdue else ""),
@@ -67,7 +80,7 @@ class TasksPlugin(Plugin):
                 Stat(len(done), "Done today"),
             ],
             list_title="Open tasks",
-            rows=rows[:ROWS_SHOWN],
+            rows=rows,
             action=Link("All tasks", "/tasks"),
             input=Input("/tasks", PLACEHOLDER, "New task"),
             source="Jarvis",

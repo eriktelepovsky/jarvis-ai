@@ -188,6 +188,17 @@ def test_widget_shows_open_tasks_with_actions(client: TestClient):
     assert 'hx-post="/tasks/1/done"' in text
     assert 'hx-post="/tasks"' in text
     assert "All tasks" in text
+    assert '<a class="row-btn" href="/tasks?edit=1">Edit</a>' in text
+
+
+def test_widget_can_undo_tasks_done_today(client: TestClient):
+    client.post("/tasks", data={"text": "Water plants"})
+    client.post("/tasks/1/done")
+    text = client.get("/welcome/widgets").text
+    assert "✓ Done" in text
+    assert 'hx-post="/tasks/1/undo"' in text
+    client.post("/tasks/1/undo")
+    assert 'hx-post="/tasks/1/done"' in client.get("/welcome/widgets").text
 
 
 def test_panel_lists_overdue_and_today(client: TestClient):

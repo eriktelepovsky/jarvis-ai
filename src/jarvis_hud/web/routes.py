@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jarvis_hud import __version__
 from jarvis_hud.db import get_db
-from jarvis_hud.music import load_music
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
 from jarvis_hud.profile import user_name
 
@@ -102,7 +101,6 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "now": datetime.now(request.app.state.timezone),
             "side_panels": [(p, panel) for p, panel in panels if panel.placement == "side"],
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
-            "music": await load_music(request, db),
             "name": await user_name(request, db),
         },
     )

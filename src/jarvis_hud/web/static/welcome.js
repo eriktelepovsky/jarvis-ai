@@ -1,29 +1,13 @@
-// Welcome screen: clock, the animated point-cloud orb, details dialogs, interface sounds,
-// ambient music and pause. Data comes from the server (HTMX); this only adds behavior.
+// Welcome screen: clock, the animated point-cloud orb, details dialogs and the report. Data
+// comes from the server (HTMX); this only adds behavior. Sound and music are in media.js.
+// Loaded on every page: with hx-boost, the welcome screen can appear without a page load.
 
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "jarvis.welcome";
+  const media = () => window.jarvisMedia;
+  const sound = (kind) => media()?.sound(kind);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  function loadPrefs() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    } catch {
-      return {};
-    }
-  }
-
-  function savePrefs() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-    } catch {
-      // Storage may be unavailable (private mode); preferences then last for this page only.
-    }
-  }
-
-  const prefs = { sounds: false, volume: 0.45, paused: false, ...loadPrefs() };
 
   // Clock and greeting
 
@@ -181,257 +165,24 @@
     }
   }
 
+  let orbTimer = null;
+
   function startOrb() {
+    // The welcome screen may be shown again without a page load: bind to its new paths.
+    orb.paths = {};
     document.querySelectorAll("[data-orb]").forEach((path) => {
       orb.paths[path.dataset.orb] = path;
     });
-    orb.model = buildOrb();
+    orb.model ??= buildOrb();
     drawOrb();
-    if (reducedMotion) return;
-    setInterval(() => {
-      if (prefs.paused || document.hidden) return;
+    if (reducedMotion || orbTimer) return;
+    orbTimer = setInterval(() => {
+      if (document.hidden || !document.getElementById("welcome")) return;
       stepSignals();
       orb.angle = (orb.angle + 0.006) % (Math.PI * 2);
       orb.time += 0.05;
       drawOrb();
     }, 50);
-  }
-
-  // Interface sounds: short synthesized tones, off by default
-
-  const ui = { ctx: null, out: null };
-
-  function uiContext() {
-    if (!ui.ctx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return null;
-      ui.ctx = new AudioContext();
-      ui.out = ui.ctx.createGain();
-      ui.out.gain.value = 5.5;
-      ui.out.connect(ui.ctx.destination);
-    }
-    if (ui.ctx.state === "suspended") ui.ctx.resume().catch(() => {});
-    return ui;
-  }
-
-  function tone(f1, f2, start, duration, peak, type = "sine") {
-    const { ctx, out } = ui;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const t0 = ctx.currentTime + start;
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(f1, t0);
-    oscillator.frequency.exponentialRampToValueAtTime(f2, t0 + duration);
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(peak, t0 + 0.006);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    oscillator.connect(gain);
-    gain.connect(out);
-    oscillator.start(t0);
-    oscillator.stop(t0 + duration + 0.02);
-  }
-
-  function sound(kind) {
-    if (!prefs.sounds) return;
-    // Hover never starts audio by itself: browsers only allow it after a click.
-    if (kind === "hover" ? !ui.ctx || ui.ctx.state !== "running" : !uiContext()) return;
-    if (kind === "hover") {
-      tone(2400, 2000, 0, 0.04, 0.02);
-    } else if (kind === "open") {
-      tone(523.25, 523.25, 0, 0.18, 0.035);
-      tone(783.99, 783.99, 0.06, 0.2, 0.03);
-      tone(1046.5, 1046.5, 0.12, 0.35, 0.028);
-    } else if (kind === "close") {
-      tone(1046.5, 1046.5, 0, 0.12, 0.025);
-      tone(659.25, 659.25, 0.05, 0.22, 0.025);
-    } else {
-      tone(900, 1350, 0, 0.06, 0.035);
-      tone(1800, 1800, 0.012, 0.05, 0.01, "triangle");
-    }
-  }
-
-  // Ambient music: a slowly swelling pad with occasional chimes, synthesized in the browser
-
-  let music = null;
-
-  function startMusic() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return false;
-    const ctx = new AudioContext();
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(prefs.volume * 0.5, ctx.currentTime + 4);
-    master.connect(ctx.destination);
-
-    const lowpass = ctx.createBiquadFilter();
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = 900;
-    lowpass.Q.value = 0.6;
-    lowpass.connect(master);
-    const sweep = ctx.createOscillator();
-    const sweepAmount = ctx.createGain();
-    sweep.frequency.value = 0.04;
-    sweepAmount.gain.value = 450;
-    sweep.connect(sweepAmount);
-    sweepAmount.connect(lowpass.frequency);
-    sweep.start();
-
-    const delay = ctx.createDelay(2);
-    const feedback = ctx.createGain();
-    const delayFilter = ctx.createBiquadFilter();
-    const wet = ctx.createGain();
-    delay.delayTime.value = 0.48;
-    feedback.gain.value = 0.5;
-    delayFilter.type = "lowpass";
-    delayFilter.frequency.value = 2200;
-    wet.gain.value = 0.4;
-    delay.connect(delayFilter);
-    delayFilter.connect(feedback);
-    feedback.connect(delay);
-    delayFilter.connect(wet);
-    wet.connect(master);
-
-    [73.42, 110, 146.83, 174.61, 220, 261.63, 329.63].forEach((frequency, i) => {
-      const gain = ctx.createGain();
-      gain.gain.value = 0.05 / (1 + i * 0.15);
-      const swell = ctx.createOscillator();
-      const swellAmount = ctx.createGain();
-      swell.frequency.value = 0.025 + Math.random() * 0.05;
-      swellAmount.gain.value = gain.gain.value * 0.8;
-      swell.connect(swellAmount);
-      swellAmount.connect(gain.gain);
-      swell.start();
-      [-6, 6].forEach((detune, k) => {
-        const oscillator = ctx.createOscillator();
-        oscillator.type = k ? "triangle" : "sine";
-        oscillator.frequency.value = frequency;
-        oscillator.detune.value = detune;
-        oscillator.connect(gain);
-        oscillator.start();
-      });
-      gain.connect(lowpass);
-      gain.connect(delay);
-    });
-
-    const bells = [587.33, 659.25, 698.46, 880, 1046.5, 1174.66];
-    const chime = () => {
-      if (!music) return;
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const t0 = ctx.currentTime;
-      oscillator.type = "sine";
-      oscillator.frequency.value = bells[Math.floor(Math.random() * bells.length)];
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.03, t0 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.5);
-      oscillator.connect(gain);
-      gain.connect(master);
-      gain.connect(delay);
-      oscillator.start(t0);
-      oscillator.stop(t0 + 3.6);
-      music.chime = setTimeout(chime, 2500 + Math.random() * 4500);
-    };
-    music = { ctx, master, chime: setTimeout(chime, 3000) };
-    return true;
-  }
-
-  function stopMusic() {
-    if (!music) return;
-    const { ctx, master, chime } = music;
-    music = null;
-    clearTimeout(chime);
-    const t = ctx.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(0, t + 1.5);
-    setTimeout(() => ctx.close().catch(() => {}), 1700);
-  }
-
-  // YouTube music: the official IFrame player API, loaded only when the music starts. YouTube
-  // requires its player to stay visible, so it plays in the small player in the corner.
-
-  const youtube = { player: null, api: null };
-
-  function musicSource() {
-    const button = document.querySelector('button[data-toggle="music"][data-source]');
-    return button?.dataset.source === "youtube" ? button.dataset : null;
-  }
-
-  function loadYouTubeApi() {
-    if (!youtube.api) {
-      youtube.api = new Promise((resolve) => {
-        window.onYouTubeIframeAPIReady = () => resolve(window.YT);
-        const script = document.createElement("script");
-        script.src = "https://www.youtube.com/iframe_api";
-        document.head.append(script);
-      });
-    }
-    return youtube.api;
-  }
-
-  async function startYouTube(source) {
-    document.querySelector(".music-player").hidden = false;
-    music = { youtube: true };
-    if (youtube.player) {
-      youtube.player.playVideo();
-      return;
-    }
-    const YT = await loadYouTubeApi();
-    const playerVars = { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 };
-    if (source.playlist) {
-      playerVars.listType = "playlist";
-      playerVars.list = source.playlist;
-    }
-    youtube.player = new YT.Player("youtube-player", {
-      host: "https://www.youtube-nocookie.com",
-      videoId: source.video || undefined,
-      playerVars,
-      events: {
-        onReady: (event) => {
-          event.target.setVolume(Math.round(prefs.volume * 100));
-          event.target.playVideo();
-        },
-      },
-    });
-  }
-
-  function stopYouTube() {
-    youtube.player?.pauseVideo();
-    document.querySelector(".music-player").hidden = true;
-    music = null;
-  }
-
-  // Header toggles
-
-  function render() {
-    const page = document.getElementById("welcome");
-    page.classList.toggle("paused", prefs.paused);
-    const toggle = (name) => document.querySelector(`[data-toggle="${name}"]`);
-    toggle("sounds").setAttribute("aria-pressed", String(prefs.sounds));
-    toggle("pause").setAttribute("aria-pressed", String(prefs.paused));
-    document.querySelector("[data-pause-label]").textContent = prefs.paused ? "Resume" : "Pause";
-    toggle("music").setAttribute("aria-pressed", String(Boolean(music)));
-    const name = musicSource() ? "YouTube" : "Ambient";
-    document.querySelector("[data-music-label]").textContent = `${name} ${music ? "on" : "off"}`;
-    document.querySelector(".eq").classList.toggle("on", Boolean(music));
-    document.querySelector(".volume").hidden = !music;
-  }
-
-  function onToggle(name) {
-    if (name === "sounds") {
-      prefs.sounds = !prefs.sounds;
-      if (prefs.sounds) uiContext();
-    } else if (name === "pause") {
-      prefs.paused = !prefs.paused;
-    } else if (name === "music" && musicSource()) {
-      if (music) stopYouTube();
-      else startYouTube(musicSource());
-    } else if (name === "music") {
-      if (music) stopMusic();
-      else startMusic();
-    }
-    savePrefs();
-    render();
   }
 
   // Details dialogs
@@ -455,12 +206,10 @@
   }
 
   document.addEventListener("click", (event) => {
-    const toggle = event.target.closest("[data-toggle]");
     const opener = event.target.closest("[data-open]");
     const dialog = event.target.closest("dialog[data-detail]");
-    if (toggle) {
-      onToggle(toggle.dataset.toggle);
-      sound("click");
+    if (event.target.closest("#media-dock")) {
+      return;
     } else if (opener) {
       openDialog(document.getElementById(opener.dataset.open));
       sound("open");
@@ -537,14 +286,6 @@
     lastHover = target;
   });
 
-  document.addEventListener("input", (event) => {
-    if (!event.target.matches("[data-volume]")) return;
-    prefs.volume = Number(event.target.value) / 100;
-    savePrefs();
-    if (music?.youtube) youtube.player?.setVolume(Math.round(prefs.volume * 100));
-    else if (music) music.master.gain.setTargetAtTime(prefs.volume * 0.5, music.ctx.currentTime, 0.1);
-  });
-
   // Periodic refreshes must not replace the numbers while their details are open...
   let reopen = null;
   document.addEventListener("htmx:beforeSwap", (event) => {
@@ -556,6 +297,7 @@
   // ...but after a change made in a dialog (a task added or done), the widgets reload and
   // the same dialog opens again with the new data.
   document.body.addEventListener("jarvis:refresh", () => {
+    if (!document.getElementById("orb-widgets")) return;
     const open = document.querySelector("dialog[data-detail][open]");
     reopen = open ? open.id : "";
     const focused = document.activeElement?.id;
@@ -568,11 +310,22 @@
     });
   });
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelector("[data-volume]").value = Math.round(prefs.volume * 100);
-    render();
+  let clockTimer = null;
+  let welcomePage = null;
+
+  function initWelcome() {
+    const page = document.getElementById("welcome");
+    // A page restored from history is a new element, even with the same id.
+    if (!page || page === welcomePage) return;
+    welcomePage = page;
     tick();
-    setInterval(tick, 1000);
+    clockTimer ??= setInterval(tick, 1000);
     startOrb();
-  });
+  }
+
+  document.addEventListener("DOMContentLoaded", initWelcome);
+  // Coming back to the welcome screen from another page (hx-boost) or with the browser's Back
+  // button loads no new page. (htmx:afterSettle would fire on the replaced, detached #app.)
+  document.addEventListener("htmx:load", initWelcome);
+  document.addEventListener("htmx:historyRestore", initWelcome);
 })();
