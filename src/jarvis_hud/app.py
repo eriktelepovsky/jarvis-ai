@@ -20,7 +20,9 @@ from jarvis_hud.brief import routes as brief_routes
 from jarvis_hud.brief.service import BriefService
 from jarvis_hud.cache import Cache
 from jarvis_hud.config import Settings
+from jarvis_hud.connections import form_routes
 from jarvis_hud.connections import routes as connection_routes
+from jarvis_hud.connections.accounts import Connections
 from jarvis_hud.connections.google_accounts import GoogleAccounts
 from jarvis_hud.crypto import SecretBox, load_secret_key
 from jarvis_hud.db import create_engine, create_sessionmaker, run_migrations
@@ -73,6 +75,7 @@ def create_app(
         app.state.google = GoogleAccounts(
             app.state.sessionmaker, app.state.secret_box, app.state.http
         )
+        app.state.connections = Connections(app.state.sessionmaker, app.state.secret_box)
         app.state.brief = BriefService(
             app.state.sessionmaker,
             app.state.secret_box,
@@ -109,6 +112,8 @@ def create_app(
     app.include_router(connection_routes.router)
     app.include_router(task_routes.router)
     app.include_router(brief_routes.router)
+    # Last: its /integrations/{provider}/... paths would otherwise shadow Google's.
+    app.include_router(form_routes.router)
     app.include_router(router)
     return app
 

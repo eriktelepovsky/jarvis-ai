@@ -47,6 +47,8 @@ src/jarvis_hud/
 │   ├── base.py       # Plugin, Widget and Panel interfaces
 │   ├── registry.py   # Entry point discovery
 │   ├── gmail/        # Unread and today's emails
+│   ├── code_review/  # Pull requests from GitHub, GitLab and Bitbucket
+│   ├── jira/         # Jira issues assigned to you
 │   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Welcome screen, widget and panel endpoints
@@ -152,6 +154,12 @@ The `Plugin` interface gains a declaration of the connection it needs, and Jarvi
 - **Status per capability:** instead of a single "connected" flag, each capability has its own state, e.g. Gmail "read: OK, create drafts: missing permission". The UI shows exactly what works and what to fix.
 - **Multiple connections per plugin:** e.g. several Jira workspaces or two Gmail accounts.
 - **Shared connections:** one Google connection is used by the Gmail, Calendar and YouTube plugins. Each requests additional OAuth scopes only when it needs them (incremental authorization).
+
+### Form-based connections
+
+Services that use an API token, a URL or a place name instead of OAuth are declared by plugins as `Provider`s (`connections/providers.py`): the form fields, the setup instructions (a template of the plugin) and `verify()`, which checks the values with the service and returns the account's name, what to store and which capabilities work. Jarvis then renders the connect form, stores the values encrypted in `connections`, tests them again on request and lists them on the Integrations page, all through generic routes (`connections/form_routes.py`). Plugins read their accounts through `context.connections` and load data per account through the cache (`plugins/connection_data.py`).
+
+One plugin can declare several providers: the Pull requests plugin connects GitHub (GraphQL search), GitLab (GraphQL, also self-managed) and Bitbucket (REST; it has no "waiting for my review" search, so the 30 most recently updated repositories of the workspace are queried), and shows them as one number. Jira connects each site (workspace) separately with an Atlassian API token.
 
 ### Stored credentials
 

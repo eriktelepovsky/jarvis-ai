@@ -33,6 +33,8 @@ def app_context(app: FastAPI) -> WidgetContext:
         cache=state.cache,
         google=state.google,
         sessionmaker=state.sessionmaker,
+        http=state.http,
+        connections=state.connections,
     )
 
 

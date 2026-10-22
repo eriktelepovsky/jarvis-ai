@@ -6,10 +6,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 if TYPE_CHECKING:
+    import httpx2
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from jarvis_hud.cache import Cache
+    from jarvis_hud.connections.accounts import Connections
     from jarvis_hud.connections.google_accounts import GoogleAccounts
+    from jarvis_hud.connections.providers import Provider
 
 Tone = Literal["ok", "warn", "fail", "info", "neutral"]
 
@@ -22,6 +25,8 @@ class WidgetContext:
     cache: "Cache"
     google: "GoogleAccounts"
     sessionmaker: "async_sessionmaker[AsyncSession]"
+    http: "httpx2.AsyncClient"
+    connections: "Connections"
 
 
 @dataclass(frozen=True)
@@ -146,6 +151,10 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
 
     def panels(self) -> list[Panel]:
         """Return the sections this plugin adds to the side column or the header."""
+        return []
+
+    def connections(self) -> list["Provider"]:
+        """Return the connections this plugin is set up with on the Integrations page."""
         return []
 
     async def brief(self, context: WidgetContext) -> BriefSection | None:

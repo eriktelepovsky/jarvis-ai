@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Connect {{ provider.name }} · Jarvis{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Connect {{ provider.name }}</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="connect-title">
+  <div class="panel-header"><h2 class="label" id="connect-title">{{ provider.summary }}</h2></div>
+  {% if instructions %}
+  <div class="panel-section instructions">{% include instructions %}</div>
+  {% endif %}
+  <form method="post" action="/integrations/{{ provider.id }}/connect" class="panel-section form">
+    {% for field in provider.fields %}
+    <div class="field">
+      <label class="label" for="field-{{ field.name }}">{{ field.label }}</label>
+      <input class="input" id="field-{{ field.name }}" name="{{ field.name }}" type="{{ field.type }}" value="{{ values.get(field.name, '') }}" placeholder="{{ field.placeholder }}" autocomplete="off" required {% if error %}aria-describedby="connect-error"{% endif %}>
+      {% if field.help %}<span class="muted" style="font-size: 12.5px">{{ field.help }}</span>{% endif %}
+    </div>
+    {% endfor %}
+    {% if error %}<div class="alert alert-error" role="alert" id="connect-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Connect</button><a class="btn btn-ghost" href="/integrations">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

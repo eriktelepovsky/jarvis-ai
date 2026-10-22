@@ -1,0 +1,6 @@
+<ol class="steps-inline">
+  <li>Open <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener">Atlassian account → API tokens</a> and choose <strong>Create API token with scopes</strong>.</li>
+  <li>Name it <code>Jarvis</code>, choose the <strong>Bitbucket</strong> app and the read scopes for <em>user</em>, <em>workspace</em>, <em>repository</em> and <em>pull request</em> (<code>read:user:bitbucket</code>, <code>read:workspace:bitbucket</code>, <code>read:repository:bitbucket</code>, <code>read:pullrequest:bitbucket</code>).</li>
+  <li>Paste the token below with your Atlassian account email and the workspace. Each workspace is a separate connection.</li>
+</ol>
+<p class="muted">Bitbucket has no search for pull requests waiting for your review, so Jarvis checks the 30 most recently updated repositories of the workspace.</p>

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jarvis_hud.auth.sessions import expected_origin, is_secure
 from jarvis_hud.auth.tokens import sign, unsign
 from jarvis_hud.connections import google, store
+from jarvis_hud.connections.form_routes import providers as form_providers
 from jarvis_hud.connections.models import Connection
 from jarvis_hud.db import get_db
 
@@ -31,6 +32,7 @@ MESSAGES = {
     "denied": "Access was not granted in Google.",
     "claude-saved": "Claude is connected. Jarvis will write your brief every day.",
     "claude-removed": "Claude was disconnected.",
+    "removed": "The connection was removed.",
 }
 
 
@@ -60,6 +62,10 @@ async def _integrations_page(
         "client": await oauth_client(request, db),
         "connections": await store.list_connections(db, google.PROVIDER),
         "claude": await request.app.state.brief.settings(),
+        "providers": [
+            (provider, await store.list_connections(db, provider.id))
+            for _, provider in form_providers(request)
+        ],
         "message": message,
         "error": error,
     }
@@ -95,8 +101,13 @@ async def test_connection(request: Request, db: AsyncSession, connection: Connec
 
 
 @router.get("/integrations", response_class=HTMLResponse)
-async def integrations(request: Request, db: Db, status: str | None = None) -> Response:
-    return await _integrations_page(request, db, message=MESSAGES.get(status or ""))
+async def integrations(
+    request: Request, db: Db, status: str | None = None, provider: str | None = None
+) -> Response:
+    message = MESSAGES.get(status or "")
+    if status == "connected" and provider and provider != google.PROVIDER:
+        message = "The connection works."
+    return await _integrations_page(request, db, message=message)
 
 
 @router.get("/integrations/google/setup", response_class=HTMLResponse)
