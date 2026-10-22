@@ -1783,3 +1783,7 @@ form.htmx-request .btn[type="submit"]::before {
   flex: 1;
   min-width: 0;
 }
+
+.input-row .btn {
+  height: 44px; /* as tall as the field */
+}
