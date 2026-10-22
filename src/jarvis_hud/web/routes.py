@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
@@ -20,7 +20,12 @@ FAILED = WidgetData(
 
 
 def widget_context(request: Request) -> WidgetContext:
-    state = request.app.state
+    return app_context(request.app)
+
+
+def app_context(app: FastAPI) -> WidgetContext:
+    """The context plugins load with, also outside a request (e.g. the brief scheduler)."""
+    state = app.state
     return WidgetContext(
         now=datetime.now(state.timezone),
         cache=state.cache,

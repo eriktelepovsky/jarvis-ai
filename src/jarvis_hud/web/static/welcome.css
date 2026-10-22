@@ -877,3 +877,128 @@ button.row-btn {
 .t2.overdue {
   color: var(--fail);
 }
+
+/* Brief: headline and button in the orb's core, and the report dialog */
+
+.core:has(.brief-headline) #core-line {
+  display: none;
+}
+
+.core-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.full-report {
+  display: inline-flex;
+  align-items: center;
+  height: 2.6em;
+  margin-top: 6px;
+  padding: 0 1.3em;
+  font-size: max(10px, calc(var(--d) * 0.015));
+  color: var(--accent);
+  background: var(--accent-surface);
+  border: 1px solid var(--line-accent);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.full-report:hover {
+  color: #e8fbfe;
+  background: #0f2a33;
+  border-color: var(--accent);
+  box-shadow: 0 0 18px -2px rgb(79 209 232 / 55%);
+}
+
+.modal-report {
+  width: min(1180px, calc(100% - 48px));
+}
+
+.report {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.report-title {
+  margin: 2px 0;
+  font-family: "Chakra Petch", var(--font-mono);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.report-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px 32px;
+  align-content: start;
+  min-height: 0;
+  padding: 22px 24px;
+  overflow-y: auto;
+}
+
+.report-wide,
+.report-body > .alert {
+  grid-column: 1 / -1;
+}
+
+.report-summary { grid-column: span 7; }
+.report-priorities { grid-column: span 5; }
+
+@media (max-width: 900px) {
+  .report-summary,
+  .report-priorities {
+    grid-column: 1 / -1;
+  }
+}
+
+.report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.report-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.report-paragraph {
+  max-width: 72ch;
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-body);
+}
+
+.report-paragraph:first-child {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.report-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.report-item .badge {
+  flex: none;
+  justify-content: center;
+  min-width: 72px;
+}
+

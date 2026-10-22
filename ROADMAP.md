@@ -15,7 +15,7 @@ The smallest useful version for a daily morning routine.
 - [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
 - [ ] Integrations page and setup checklist that guides the user through connecting services
 - [ ] Sample data mode with fictional data for development and demos
-- [ ] AI powered by Claude (Anthropic API)
+- [x] AI powered by Claude (Anthropic API)
 
 ### Features
 
@@ -23,7 +23,7 @@ The smallest useful version for a daily morning routine.
 - [ ] **AI email summary:** summary of important emails and a list of emails waiting for your reply
 - [x] **Calendar:** upcoming events (Google Calendar)
 - [x] **TODO list:** simple task list built into Jarvis, with due dates written in plain language
-- [ ] **Morning AI brief:** a single "what awaits you today" summary across all sources
+- [x] **Morning AI brief:** a single "what awaits you today" summary across all sources
 
 ## Phase 1: Plugin system
 

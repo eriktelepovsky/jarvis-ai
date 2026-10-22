@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Claude · Jarvis{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Claude</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="claude-title">
+  <div class="panel-header"><h2 class="label" id="claude-title">Daily brief</h2></div>
+  <div class="panel-section">
+    <p style="margin: 0">Jarvis asks Claude, Anthropic's AI, to write your daily brief from today's calendar, the subjects and senders of your latest unread emails, and your to-do list. That information is sent to Anthropic's API with your own API key each time a brief is written: once a day at the time below, and when you ask for a new one.</p>
+    <p class="muted" style="margin: 0">Create an API key in the <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic Console</a>. Jarvis uses Claude Opus 5.5; a brief costs a few cents.</p>
+  </div>
+  <form method="post" action="/integrations/claude" class="panel-section form">
+    <div class="field">
+      <label class="label" for="api-key">API key</label>
+      <input class="input" id="api-key" type="password" name="api_key" autocomplete="off" placeholder="{{ 'Saved; leave empty to keep it' if settings else 'sk-ant-…' }}" {% if not settings %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="claude-error"{% endif %}>
+    </div>
+    <div class="field">
+      <label class="label" for="language">Language of the brief</label>
+      <select class="input" id="language" name="language">
+        {% set current = language or (settings.language if settings else "en") %}
+        {% for code, name in languages.items() %}<option value="{{ code }}" {% if code == current %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="brief-time">Write the brief every day at</label>
+      <input class="input" id="brief-time" type="time" name="brief_time" value="{{ brief_time or (settings.brief_time if settings else default_time) }}" required>
+    </div>
+    {% if error %}<div class="alert alert-error" role="alert" id="claude-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+  {% if settings %}
+  <form method="post" action="/integrations/claude/remove" class="panel-section actions">
+    <button type="submit" class="btn btn-danger">Disconnect Claude</button>
+    <span class="muted" style="font-size: 12.5px">Removes the API key. Written briefs stay.</span>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

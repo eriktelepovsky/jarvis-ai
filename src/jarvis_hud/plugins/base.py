@@ -119,6 +119,14 @@ class Panel:
     placement: Literal["side", "header"] = "side"
 
 
+@dataclass(frozen=True)
+class BriefSection:
+    """Facts a plugin contributes to the AI brief, most important first, as plain text lines."""
+
+    title: str
+    lines: list[str]
+
+
 class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they need)
     """Base class for Jarvis plugins.
 
@@ -139,3 +147,7 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     def panels(self) -> list[Panel]:
         """Return the sections this plugin adds to the side column or the header."""
         return []
+
+    async def brief(self, context: WidgetContext) -> BriefSection | None:
+        """Return facts for the AI brief, or None when the plugin has nothing to add."""
+        return None

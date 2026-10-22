@@ -39,6 +39,7 @@ src/jarvis_hud/
 ├── crypto.py         # Encryption of stored credentials
 ├── connections/      # Connected accounts: Google OAuth, integrations page
 ├── tasks/            # Built-in to-do list: parsing due dates, page, widget, panel
+├── brief/            # Daily AI brief: facts from plugins, Claude, schedule, report
 ├── cache.py          # Stale-while-revalidate cache for integration data
 ├── auth/             # Login: passwords, passkeys, sessions, access gate
 ├── migrations/       # Alembic database migrations
@@ -185,7 +186,8 @@ Times are shown in the user's time zone: `JARVIS_TIMEZONE` (e.g. `Europe/Bratisl
 
 ## AI and actions
 
-- **Morning brief:** rules first, AI second. Plugins rank their items with deterministic rules (e.g. a client or a real person ranks above a newsletter; items waiting for a reply carry over with the time they were first seen). Claude then writes the brief from this ranked list instead of from raw data, which makes the brief cheaper, faster and more predictable. The brief is generated on schedule and stored, so opening Jarvis does not call any API.
+- **Morning brief:** rules first, AI second. Each plugin's `brief(context)` returns a `BriefSection`: plain-text facts in the order the plugin ranks them (today's events with times, unread senders and subjects, overdue and due tasks). Claude writes the brief from these facts instead of from raw data, which makes it cheaper, faster and more predictable; ranking rules such as "a real person above a newsletter" go into the plugins over time. The brief is written once a day at the time the user sets (and on request), stored in the database, and shown as a headline in the orb's core and a full report dialog with "Read aloud" (browser speech synthesis), so opening Jarvis does not call any API.
+- **Claude request:** `claude-opus-5-5` with effort `medium` and a JSON schema (`output_config.format`) for the headline, summary paragraphs and up to five priorities; server-side refusal fallback (`fallbacks: "default"`). The system prompt forbids inventing facts. The user's own API key is stored encrypted like other credentials and checked with a free Models API call when saved. The code is in `src/jarvis_hud/brief/`; tests use a fake Anthropic API that checks the request.
 - **Chat context:** the chat receives a short summary of what is currently on screen, so questions like "what about this one?" work.
 - **Safe actions:** actions that change something outside Jarvis (send, create, pay) are disabled until the user enables them in settings. Every action needs explicit confirmation in the UI, and email replies are never sent directly: Jarvis creates a Gmail draft for the user to review and send.
 - **Testing without the API:** a stub AI provider returns deterministic responses and can trigger tools, so the brief, chat and actions are tested without calling Claude.

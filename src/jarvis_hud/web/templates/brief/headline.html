@@ -1,0 +1,4 @@
+{% if brief and brief.content.headline %}
+<span class="muted core-line brief-headline">{{ brief.content.headline }}</span>
+{% endif %}
+<button type="button" class="full-report label" data-open-report>{{ "Full report" if brief else "Daily brief" }} →</button>

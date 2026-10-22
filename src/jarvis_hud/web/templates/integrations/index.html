@@ -75,5 +75,17 @@
     <a class="btn btn-ghost" href="/integrations/google/setup">OAuth client settings</a>
   </div>
   {% endif %}
+
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">AI</span>
+    <div>
+      <div class="integration-name"><strong>Claude</strong><span class="label">Daily brief</span></div>
+      <div class="muted" style="font-size: 12.5px">{% if claude %}Writes your brief every day at {{ claude.brief_time }}.{% else %}Writes a short daily brief from your calendar, email and to-do list, with your own Anthropic API key.{% endif %}</div>
+    </div>
+    <div class="actions">
+      {% if claude %}<span class="badge badge-ok">✓ Connected</span><a class="btn" href="/integrations/claude">Settings</a>
+      {% else %}<span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/claude">Connect Claude</a>{% endif %}
+    </div>
+  </div>
 </section>
 {% endblock %}

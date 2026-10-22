@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from jarvis_hud.connections.google_accounts import GoogleAccount, GoogleAccounts
 from jarvis_hud.plugins.base import (
+    BriefSection,
     Link,
     Panel,
     Plugin,
@@ -213,6 +214,28 @@ class CalendarPlugin(Plugin):
             ),
         )
         return today_and_upcoming(events, now)
+
+    async def brief(self, context: WidgetContext) -> BriefSection | None:
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        if not loaded:
+            return None
+        now = context.now
+        day = self._merged(loaded, now)
+        lines = []
+        for event in day["today"]:
+            if event["kind"] == "now":
+                lines.append(f"-- now is {now:%H:%M} --")
+                continue
+            when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
+            done = " (already over)" if event["kind"] == "past" else ""
+            details = f" ({event['sub']})" if event["sub"] else ""
+            lines.append(f"Today {when}: {event['title']}{details}{done}")
+        if not day["today"]:
+            lines.append("Nothing on the calendar today.")
+        for event in day["upcoming"][:5]:
+            when = event["start"].strftime("%A" if event["all_day"] else "%A %H:%M")
+            lines.append(f"Upcoming {when}: {event['title']}")
+        return BriefSection("Calendar", lines)
 
     async def _widget(self, context: WidgetContext) -> WidgetData:
         accounts = await self._accounts(context)

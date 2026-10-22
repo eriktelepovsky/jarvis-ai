@@ -3,6 +3,7 @@ from typing import Any
 
 from jarvis_hud.plugins.base import (
     Action,
+    BriefSection,
     Input,
     Link,
     Panel,
@@ -71,6 +72,15 @@ class TasksPlugin(Plugin):
             input=Input("/tasks", PLACEHOLDER, "New task"),
             source="Jarvis",
         )
+
+    async def brief(self, context: WidgetContext) -> BriefSection | None:
+        async with context.sessionmaker() as db:
+            groups = group(await store.open_tasks(db), context.now)
+        lines = [f"Overdue ({due_label(t, context.now)}): {t.title}" for t in groups.overdue]
+        lines += [f"Due today {due_label(t, context.now)}: {t.title}" for t in groups.today]
+        lines += [f"Upcoming ({due_label(t, context.now)}): {t.title}" for t in groups.upcoming[:5]]
+        lines += [f"No due date: {t.title}" for t in groups.someday[:5]]
+        return BriefSection("To-do list", lines or ["No open tasks."])
 
     async def _today(self, context: WidgetContext) -> dict[str, Any]:
         async with context.sessionmaker() as db:

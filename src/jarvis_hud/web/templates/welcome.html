@@ -86,6 +86,7 @@
           <span class="label core-status"><span class="live-dot" aria-hidden="true"></span><span id="core-status">Starting…</span></span>
           <span class="core-name">J.A.R.V.I.S.</span>
           <span class="muted core-line" id="core-line"></span>
+          <div class="core-brief" hx-get="{{ url_for('headline') }}" hx-trigger="load, every 5m, jarvis:brief from:body"></div>
         </div>
 
         <div id="orb-widgets" class="orb-widgets" hx-get="{{ url_for('widgets') }}" hx-trigger="load, every 5m"></div>
@@ -95,6 +96,12 @@
     <div class="side side-right" aria-hidden="true"></div>
   </main>
   <footer class="label welcome-footer">Click a number to open its details</footer>
+
+  <dialog class="modal modal-report" id="report" aria-labelledby="report-title">
+    <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, jarvis:brief from:body">
+      <div class="modal-head"><h2 id="report-title">Daily brief</h2></div>
+    </div>
+  </dialog>
 </div>
 </body>
 </html>

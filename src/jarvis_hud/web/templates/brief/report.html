@@ -1,0 +1,56 @@
+{% from "icons.html" import icon %}
+<div class="modal-head">
+  <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7M9 8h2"/></svg></span>
+  <div style="min-width: 0; flex: 1">
+    <span class="label" style="color: var(--info)">{{ kicker or "Daily brief" }}</span>
+    <h2 id="report-title" class="report-title">{% if brief %}{{ brief.created_at | localtime("%A, %-d %B") }}{% else %}Daily brief{% endif %}</h2>
+    {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · Claude</span>{% endif %}
+  </div>
+  {% if brief %}
+  <button type="button" class="btn" data-read-aloud data-lang="{{ 'sk-SK' if brief.language == 'sk' else 'en-GB' }}" aria-pressed="false">▶ Read aloud</button>
+  {% endif %}
+  {% if configured %}
+  <button type="button" class="icon-btn" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" aria-label="Write a new brief" title="Write a new brief"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+  {% endif %}
+  <button type="button" class="icon-btn" data-close aria-label="Close report"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+</div>
+
+<div class="report-body">
+  {% if generating %}
+  <div class="alert alert-info report-wide" role="status"><span class="alert-tag">◌ WRITING</span><span>Jarvis is writing a new brief…</span></div>
+  {% endif %}
+  {% if error %}
+  <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
+  {% endif %}
+
+  {% if not configured %}
+  <div class="report-wide">
+    <p style="margin: 0 0 12px">Jarvis can write you a short brief every morning from your calendar, email and to-do list. It uses Claude, Anthropic's AI, with your own API key.{% if brief %} Below is the last brief it wrote.{% endif %}</p>
+    <a class="btn btn-primary" href="/integrations/claude">Connect Claude</a>
+  </div>
+  {% endif %}
+  {% if configured and not brief %}
+  <div class="report-wide">
+    <p style="margin: 0 0 12px">No brief yet. Jarvis writes one every morning; you can also ask for one now.</p>
+    <button type="button" class="btn btn-primary" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this">Write a brief now</button>
+  </div>
+  {% elif brief %}
+  <section class="report-section report-summary" aria-label="Summary">
+    <div class="report-head"><span class="label strong">Summary</span><span class="label">AI · {{ brief.sources | join(" · ") }}</span></div>
+    <div data-report-text>
+      {% for paragraph in brief.content.summary %}<p class="report-paragraph">{{ paragraph }}</p>{% endfor %}
+    </div>
+  </section>
+  <section class="report-section report-priorities" aria-label="Needs you">
+    <div class="report-head"><span class="label strong">Needs you</span><span class="label">{{ brief.content.priorities | length }} {{ "item" if brief.content.priorities | length == 1 else "items" }}</span></div>
+    {% for item in brief.content.priorities %}
+    <div class="report-item">
+      <span class="badge badge-{{ item.tone }}">{{ item.tag }}</span>
+      <span style="min-width: 0"><span class="t1">{{ item.title }}</span>{% if item.detail %}<span class="t2">{{ item.detail }}</span>{% endif %}</span>
+    </div>
+    {% else %}
+    <p class="muted" style="margin: 0">Nothing needs you right now.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+</div>

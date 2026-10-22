@@ -409,9 +409,15 @@
     } else if (event.target.closest("[data-step]")) {
       stepDialog(dialog, Number(event.target.closest("[data-step]").dataset.step));
       sound("click");
-    } else if (event.target.closest("[data-close]") || event.target === dialog) {
+    } else if (event.target.closest("[data-open-report]")) {
+      dialogs().forEach((other) => other.open && other.close());
+      document.getElementById("report").showModal();
+      sound("open");
+    } else if (event.target.closest("[data-read-aloud]")) {
+      readAloud(event.target.closest("[data-read-aloud]"));
+    } else if (event.target.closest("[data-close]") || event.target.matches("dialog")) {
       // A click on the dialog element itself is a click on its backdrop.
-      dialog.close();
+      event.target.closest("dialog").close();
     } else if (event.target.closest("a, button")) {
       sound("click");
     }
@@ -426,9 +432,37 @@
     }
   });
 
+  // Read aloud: the browser's own speech synthesis reads the brief's summary.
+
+  function readAloud(button) {
+    if (!("speechSynthesis" in window)) return;
+    if (speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+      return;
+    }
+    const text = document.querySelector("[data-report-text]")?.innerText;
+    if (!text) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = button.dataset.lang || "en-GB";
+    const reset = () => {
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = "▶ Read aloud";
+    };
+    utterance.onend = reset;
+    utterance.onerror = reset;
+    speechSynthesis.speak(utterance);
+    button.setAttribute("aria-pressed", "true");
+    button.textContent = "■ Stop reading";
+  }
+
   document.addEventListener(
     "close",
     (event) => {
+      if (event.target.id === "report") {
+        if ("speechSynthesis" in window) speechSynthesis.cancel();
+        sound("close");
+        return;
+      }
       if (!event.target.matches("dialog[data-detail]")) return;
       if (!document.querySelector("dialog[data-detail][open]")) {
         document.querySelectorAll(".node[aria-expanded]").forEach((node) => node.removeAttribute("aria-expanded"));

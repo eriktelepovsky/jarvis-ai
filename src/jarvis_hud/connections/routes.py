@@ -29,6 +29,8 @@ MESSAGES = {
     "tested": "The connection was tested.",
     "disconnected": "The Google account was disconnected.",
     "denied": "Access was not granted in Google.",
+    "claude-saved": "Claude is connected. Jarvis will write your brief every day.",
+    "claude-removed": "Claude was disconnected.",
 }
 
 
@@ -57,6 +59,7 @@ async def _integrations_page(
     context = {
         "client": await oauth_client(request, db),
         "connections": await store.list_connections(db, google.PROVIDER),
+        "claude": await request.app.state.brief.settings(),
         "message": message,
         "error": error,
     }

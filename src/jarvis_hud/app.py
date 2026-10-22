@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import tzinfo
@@ -15,6 +16,8 @@ from jarvis_hud.auth import passkeys
 from jarvis_hud.auth import routes as auth_routes
 from jarvis_hud.auth.middleware import auth_middleware
 from jarvis_hud.auth.store import load_auth_state
+from jarvis_hud.brief import routes as brief_routes
+from jarvis_hud.brief.service import BriefService
 from jarvis_hud.cache import Cache
 from jarvis_hud.config import Settings
 from jarvis_hud.connections import routes as connection_routes
@@ -25,7 +28,7 @@ from jarvis_hud.plugins import Plugin, discover_plugins
 from jarvis_hud.tasks import routes as task_routes
 from jarvis_hud.templating import register_filters
 from jarvis_hud.timezone import resolve_timezone
-from jarvis_hud.web.routes import router
+from jarvis_hud.web.routes import app_context, router
 
 WEB_DIR = Path(__file__).parent / "web"
 
@@ -70,6 +73,14 @@ def create_app(
         app.state.google = GoogleAccounts(
             app.state.sessionmaker, app.state.secret_box, app.state.http
         )
+        app.state.brief = BriefService(
+            app.state.sessionmaker,
+            app.state.secret_box,
+            plugins=lambda: list(app.state.plugins.values()),
+            context=lambda: app_context(app),
+            transport=http_transport,
+        )
+        scheduler = asyncio.create_task(app.state.brief.run_scheduler())
         async with app.state.sessionmaker() as db:
             app.state.auth = await load_auth_state(db)
         if not app.state.auth.password_set:
@@ -81,6 +92,7 @@ def create_app(
                 app.state.auth.setup_token,
             )
         yield
+        scheduler.cancel()
         await app.state.http.aclose()
         await engine.dispose()
 
@@ -96,6 +108,7 @@ def create_app(
     app.include_router(passkeys.router)
     app.include_router(connection_routes.router)
     app.include_router(task_routes.router)
+    app.include_router(brief_routes.router)
     app.include_router(router)
     return app
 
