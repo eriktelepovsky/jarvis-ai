@@ -963,6 +963,34 @@ code,
   font-weight: 500;
 }
 
+/* Integrations: each service in its own panel, its connected accounts below it */
+
+.services-title {
+  margin: 8px 0 -4px;
+}
+
+.services {
+  display: grid;
+  gap: 12px;
+}
+
+.service .integration:first-child {
+  border-top: 0;
+}
+
+.account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 10px 18px 10px 72px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.account .capabilities {
+  grid-column: 1 / -1;
+}
+
 .capabilities {
   display: grid;
   gap: 6px;
