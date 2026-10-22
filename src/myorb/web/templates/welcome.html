@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="{{ url_for('static', path='welcome.css') }}">
   {% include "scripts.html" %}
 </head>
-<body hx-boost="true">
+<body hx-boost="true" style="--orb-hue: {{ orb_hue }}deg">
 <div id="app" hx-history-elt>
 <div class="welcome" id="welcome">
   <div class="bgl halo" aria-hidden="true"></div>

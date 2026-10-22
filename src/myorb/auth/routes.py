@@ -1,6 +1,6 @@
 import hmac
 import time
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -11,7 +11,7 @@ from myorb.auth.gate import safe_next
 from myorb.auth.passwords import MIN_PASSWORD_LENGTH, password_problem
 from myorb.auth.sessions import client_id, end_session, is_loopback, start_session
 from myorb.db import get_db
-from myorb.profile import load_profile, save_profile_values, user_name
+from myorb.profile import COLORS, load_profile, save_profile_values
 
 router = APIRouter()
 
@@ -109,17 +109,23 @@ async def logout() -> Response:
     return response
 
 
+async def _security_context(request: Request, db: AsyncSession) -> dict[str, Any]:
+    """The profile and the passkeys, as the security page shows them."""
+    profile = await load_profile(db, request.app.state.secret_box)
+    return {
+        "passkeys": await store.list_passkeys(db),
+        "name": profile["name"],
+        "assistant_name": profile["assistant"],
+        "assistant_color": profile["color"],
+        "colors": COLORS,
+    }
+
+
 @router.get("/settings/security", response_class=HTMLResponse)
 async def security_page(
     request: Request, db: Db, changed: bool = False, saved: bool = False
 ) -> Response:
-    context = {
-        "passkeys": await store.list_passkeys(db),
-        "changed": changed,
-        "saved": saved,
-        "name": await user_name(request, db),
-        "assistant_name": (await load_profile(db, request.app.state.secret_box))["assistant"],
-    }
+    context = {**await _security_context(request, db), "changed": changed, "saved": saved}
     return _render(request, "auth/security.html", context)
 
 
@@ -138,7 +144,7 @@ async def change_password(
     else:
         error = password_problem(password, password_confirmation)
     if error:
-        context = {"passkeys": await store.list_passkeys(db), "error": error}
+        context = {**await _security_context(request, db), "error": error}
         return _render(request, "auth/security.html", context, status_code=400)
     await store.set_password(db, state, password)
     # The session key was rotated: every other device is signed out, this one gets a new cookie.

@@ -12,7 +12,7 @@
 <section class="panel panel-narrow" aria-labelledby="profile-title">
   <div class="panel-header"><h2 class="label" id="profile-title">Profile</h2></div>
   <form method="post" action="/settings/profile" class="panel-section form">
-    {% if saved %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The names were saved.</span></div>{% endif %}
+    {% if saved %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The profile was saved.</span></div>{% endif %}
     <div class="field">
       <label class="label" for="profile-name">Your name</label>
       <input class="input" id="profile-name" name="name" value="{{ name }}" autocomplete="given-name" maxlength="40" placeholder="Shown in the greeting, e.g. “Good morning, Tony”">
@@ -22,6 +22,19 @@
       <input class="input" id="profile-assistant" name="assistant" value="{{ assistant_name }}" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. J.A.R.V.I.S., Iris, HAL 9000">
       <span class="muted" style="font-size: 12.5px">Shown in the middle of the orb and in the header, and the brief is written as it. Write it as you want to see it, e.g. with dots.</span>
     </div>
+    <fieldset class="field color-field">
+      <legend class="label">Your assistant's color</legend>
+      <div class="color-swatches">
+        {% for key, (label, hue, swatch) in colors.items() %}
+        <label class="color-swatch" title="{{ label }}">
+          <input type="radio" name="color" value="{{ key }}" {% if key == assistant_color %}checked{% endif %}>
+          <span class="color-dot" style="--swatch: {{ swatch }}" aria-hidden="true"></span>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <span class="muted" style="font-size: 12.5px">The color of the orb on the welcome screen.</span>
+    </fieldset>
     <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
   </form>
 </section>

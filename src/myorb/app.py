@@ -32,7 +32,7 @@ from myorb.crypto import SecretBox, load_secret_key
 from myorb.db import create_engine, create_sessionmaker, run_migrations
 from myorb.plugins import Plugin, discover_plugins
 from myorb.plugins.install import add_to_path, plugins_dir
-from myorb.profile import DEFAULT_ASSISTANT, load_profile
+from myorb.profile import DEFAULT_ASSISTANT, DEFAULT_COLOR, load_profile, orb_hue
 from myorb.tasks import routes as task_routes
 from myorb.templating import register_filters
 from myorb.timezone import resolve_timezone
@@ -71,9 +71,13 @@ def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Temp
     env.globals["version"] = __version__
     register_filters(env, timezone)
 
-    def assistant(request: Request) -> dict[str, str]:
-        # The assistant's name, chosen by the user; loaded at startup, updated when saved.
-        return {"assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT)}
+    def assistant(request: Request) -> dict[str, Any]:
+        # The assistant's name and color, chosen by the user; loaded at startup, updated when saved.
+        color = getattr(request.app.state, "orb_color", DEFAULT_COLOR)
+        return {
+            "assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT),
+            "orb_hue": orb_hue(color),
+        }
 
     return Jinja2Templates(env=env, context_processors=[assistant])
 
@@ -116,7 +120,8 @@ def create_app(
         ]
         async with app.state.sessionmaker() as db:
             app.state.auth = await load_auth_state(db)
-            app.state.assistant = (await load_profile(db, app.state.secret_box))["assistant"]
+            profile = await load_profile(db, app.state.secret_box)
+            app.state.assistant, app.state.orb_color = profile["assistant"], profile["color"]
         if not app.state.auth.password_set:
             setup_url = f"{(settings.public_url or '').rstrip('/')}/setup"
             logger.warning(
