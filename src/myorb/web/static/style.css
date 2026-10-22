@@ -1645,6 +1645,27 @@ code,
   }
 }
 
+/* Profile and security: the profile on the left, passkeys and the password on the right */
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.settings-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* A button waiting for an answer: a spinner in front of its label (htmx requests as well) */
 
 .btn.is-loading,
@@ -1694,4 +1715,53 @@ form.htmx-request .btn[type="submit"]::before {
   width: 16px;
   height: 16px;
   accent-color: var(--accent);
+}
+
+/* The assistant's color in the profile: round swatches to pick from */
+
+.color-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.color-swatch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 10px -2px var(--swatch);
+}
+
+.color-swatch:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+}
+
+.color-swatch:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

@@ -18,7 +18,8 @@
 </head>
 <body hx-boost="true">
 <div id="app" hx-history-elt>
-<div class="welcome" id="welcome">
+{# The orb's color: inside #app, which links swap, so a color just chosen shows. #}
+<div class="welcome" id="welcome" style="--orb-hue: {{ orb_hue }}deg">
   <div class="bgl halo" aria-hidden="true"></div>
   <div class="bgl wall" aria-hidden="true"></div>
   <div class="bgl horizon" aria-hidden="true"></div>

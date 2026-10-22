@@ -187,7 +187,7 @@ def test_name_in_greeting(make_client: MakeClient):
     assert ', <span class="greeting-name">Tony</span>' in client.get("/").text
 
     response = client.post("/settings/profile", data={"name": "<Pepper>"})
-    assert "The names were saved." in response.text
+    assert "The profile was saved." in response.text
     assert 'value="&lt;Pepper&gt;"' in response.text
     assert '<span class="greeting-name">&lt;Pepper&gt;</span>' in client.get("/").text
 
@@ -214,6 +214,21 @@ def test_assistant_is_named_by_the_user(make_client: MakeClient):
     assert 'value="HAL 9000"' in client.get("/settings/security").text
     client.post("/settings/profile", data={"name": "Pepper", "assistant": ""})
     assert '<span class="core-name" style="--chars: 3">Orb</span>' in client.get("/").text
+
+
+def test_orb_color_is_chosen_by_the_user(make_client: MakeClient):
+    client = make_client()
+    complete_setup(client)
+    assert '--orb-hue: 0deg"' in client.get("/").text
+    assert 'value="cyan" checked' in client.get("/settings/security").text
+
+    client.post("/settings/profile", data={"name": "Tony", "color": "magenta"})
+    assert '--orb-hue: 120deg"' in client.get("/").text
+    assert 'value="magenta" checked' in client.get("/settings/security").text
+    # An unknown color or none (e.g. the name saved elsewhere) keeps the chosen one.
+    client.post("/settings/profile", data={"name": "Tony", "color": "plaid"})
+    client.post("/settings/profile", data={"name": "Tony"})
+    assert '--orb-hue: 120deg"' in client.get("/").text
 
 
 def test_static_files_are_revalidated(make_client: MakeClient):
