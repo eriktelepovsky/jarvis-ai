@@ -153,14 +153,32 @@ async def _youtube(request: Request, path: str, params: dict[str, Any]) -> Any:
     )
 
 
+async def _by_link(request: Request, link: str) -> list[dict[str, str]]:
+    """The video and/or playlist a pasted YouTube link points to (1 quota unit each)."""
+    try:
+        video, playlist = parse_youtube(link)
+    except ValueError:
+        return []
+    results = []
+    if video:
+        data = await _youtube(request, "videos", {"part": "snippet", "id": video})
+        results += [_item("video", i["id"], i.get("snippet", {})) for i in data.get("items", [])]
+    if playlist:
+        data = await _youtube(request, "playlists", {"part": "snippet", "id": playlist})
+        results += [_item("playlist", i["id"], i.get("snippet", {})) for i in data.get("items", [])]
+    return results
+
+
 @router.get("/music/search")
 async def search(request: Request, q: str) -> Response:
     """Videos, live streams and playlists for a search (each search uses YouTube API quota)."""
-    q = q.strip()[:100]
+    q = q.strip()[:500]
     if not q:
         return JSONResponse({"results": []})
-    params = {"part": "snippet", "q": q, "type": "video,playlist", "maxResults": 15}
     try:
+        if q.startswith(("http://", "https://")):
+            return JSONResponse({"results": await _by_link(request, q)})
+        params = {"part": "snippet", "q": q[:100], "type": "video,playlist", "maxResults": 15}
         data = await _youtube(request, "search", params)
     except LookupError as error:
         return JSONResponse({"error": str(error)}, status_code=409)

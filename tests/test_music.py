@@ -102,6 +102,12 @@ def google_client(make_client: MakeClient) -> tuple[TestClient, FakeGoogle]:
     fake.routes[f"{api}/playlists"] = lambda request: httpx2.Response(
         200, json={"items": [{"id": PLAYLIST, "snippet": {"title": "My focus mix"}}]}
     )
+    fake.routes[f"{api}/videos"] = lambda request: httpx2.Response(
+        200,
+        json={
+            "items": [{"id": request.url.params["id"], "snippet": {"title": "Rain &amp; piano"}}]
+        },
+    )
     client = make_client(transport=httpx2.MockTransport(fake))
     complete_setup(client)
     return client, fake
@@ -141,3 +147,17 @@ def test_search_play_and_recent(google_client):
     client.post("/integrations/music", data={"source": "ambient"})
     assert len(client.get("/music/library").json()["recent"]) == 2
     assert client.post("/music/play", data={"kind": "video", "id": "bad id"}).status_code == 400
+
+
+def test_search_finds_a_pasted_link(google_client):
+    client, fake = google_client
+    connect_google(client, fake)
+    link = f"https://www.youtube.com/watch?v={VIDEO}&list={PLAYLIST}"
+    results = client.get("/music/search", params={"q": link}).json()["results"]
+    assert [(r["kind"], r["id"], r["title"]) for r in results] == [
+        ("video", VIDEO, "Rain & piano"),
+        ("playlist", PLAYLIST, "My focus mix"),
+    ]
+    assert client.get("/music/search", params={"q": "https://vimeo.com/1"}).json() == {
+        "results": []
+    }
