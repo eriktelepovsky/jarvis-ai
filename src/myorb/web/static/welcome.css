@@ -1013,6 +1013,19 @@ button.modal-stat[aria-pressed="true"] {
   border-color: #2e5560;
 }
 
+/* The row's link ("Open", "Edit") is its main button; actions next to it stay quiet. */
+a.row-btn {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+a.row-btn:hover {
+  color: var(--accent-ink);
+  background: #7ddcef;
+  border-color: #7ddcef;
+}
+
 .modal-foot {
   display: flex;
   flex-wrap: wrap;
