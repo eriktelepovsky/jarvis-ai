@@ -192,6 +192,7 @@ class AsanaPlugin(Plugin):
                 title="Asana · assigned to you",
                 icon=ICON,
                 load=self._widget,
+                refresh=3 * 60,
             )
         ]
 

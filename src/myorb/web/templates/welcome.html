@@ -91,7 +91,7 @@
            spinner holds its place. Services that are not set up leave theirs empty. #}
         <div id="orb-widgets" class="orb-widgets" aria-busy="true">
           {% for plugin, widget in slots %}
-          <div class="slot" data-slot hx-get="/welcome/widget/{{ plugin.id }}/{{ widget.id }}" hx-trigger="load, every 5m, myorb:refresh from:body">
+          <div class="slot" data-slot hx-get="/welcome/widget/{{ plugin.id }}/{{ widget.id }}" hx-trigger="load, myorb:due, myorb:refresh from:body">
             <div class="place"><span class="node node-loading"><span class="spinner"></span></span></div>
           </div>
           {% endfor %}

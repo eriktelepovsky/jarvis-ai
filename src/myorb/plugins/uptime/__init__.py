@@ -88,6 +88,7 @@ class UptimePlugin(Plugin):
                 icon=ICON,
                 load=self._widget,
                 weight=1.1,
+                refresh=60,
             )
         ]
 

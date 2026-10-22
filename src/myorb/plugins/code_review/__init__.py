@@ -85,6 +85,7 @@ class CodeReviewPlugin(Plugin):
                 icon=ICON,
                 load=self._widget,
                 weight=1.3,
+                refresh=3 * 60,
             )
         ]
 

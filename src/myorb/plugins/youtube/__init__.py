@@ -127,6 +127,7 @@ class YouTubePlugin(Plugin):
                 icon=ICON,
                 load=self._widget,
                 weight=0.85,
+                refresh=30 * 60,
             )
         ]
 
