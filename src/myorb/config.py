@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,29 +25,9 @@ class Settings(BaseSettings):
     # Custom plugins to install at startup, as for pip: names, versions, URLs or local paths.
     plugins: str | None = None
 
-    def __init__(self, **values: object) -> None:
-        use_legacy_environment()
-        super().__init__(**values)
-
     @property
     def database_url(self) -> str:
         return f"sqlite+aiosqlite:///{self.data_dir / 'myorb.db'}"
-
-
-def use_legacy_environment() -> None:
-    """Keep installations from before the rename working: JARVIS_* variables count as MYORB_*,
-    and the database file jarvis.db becomes myorb.db."""
-    for key, value in list(os.environ.items()):
-        if key.startswith("JARVIS_"):
-            os.environ.setdefault("MYORB_" + key.removeprefix("JARVIS_"), value)
-    env_file = Path(".env")
-    if env_file.is_file():
-        for line in env_file.read_text().splitlines():
-            key, separator, value = line.strip().partition("=")
-            if separator and key.startswith("JARVIS_"):
-                os.environ.setdefault(
-                    "MYORB_" + key.removeprefix("JARVIS_"), value.strip().strip("'\"")
-                )
 
 
 def move_legacy_database(data_dir: Path) -> None:
