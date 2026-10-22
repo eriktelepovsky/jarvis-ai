@@ -1574,3 +1574,15 @@ code,
   width: 34px;
   padding: 0;
 }
+
+/* Uptime settings: a monitor's group, edited in the list */
+
+.monitor-group {
+  display: flex;
+  gap: 6px;
+}
+
+.monitor-group .input {
+  width: 160px;
+  height: 34px;
+}

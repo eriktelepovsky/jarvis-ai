@@ -18,7 +18,14 @@
       <div class="integration-name"><strong>{{ monitor.name }}</strong></div>
       <div class="mono muted trunc" style="font-size: 11.5px">{{ monitor.url }}{% if monitor.error %} · {{ monitor.error }}{% elif monitor.response_ms %} · {{ monitor.response_ms }} ms{% endif %}</div>
     </div>
-    <form method="post" action="/integrations/uptime/{{ monitor.id }}/delete" class="actions"><button type="submit" class="btn btn-danger">Remove</button></form>
+    <div class="actions">
+      <form method="post" action="/integrations/uptime/{{ monitor.id }}/group" class="monitor-group">
+        <label class="visually-hidden" for="group-{{ monitor.id }}">Group of {{ monitor.name }}</label>
+        <input class="input" id="group-{{ monitor.id }}" name="group" value="{{ monitor.group_name }}" list="monitor-groups" placeholder="No group" maxlength="60" autocomplete="off">
+        <button type="submit" class="btn">Save</button>
+      </form>
+      <form method="post" action="/integrations/uptime/{{ monitor.id }}/delete"><button type="submit" class="btn btn-danger">Remove</button></form>
+    </div>
   </div>
   {% else %}
   <div class="panel-section"><p class="muted" style="margin: 0">No websites are monitored yet.</p></div>
@@ -29,6 +36,10 @@
       <input class="input" id="monitor-name" name="name" value="{{ values.get('name', '') }}" placeholder="e.g. Production API" required>
     </div>
     <div class="field">
+      <label class="label" for="monitor-group">Group <span style="text-transform: none">(optional)</span></label>
+      <input class="input" id="monitor-group" name="group" value="{{ values.get('group', '') }}" list="monitor-groups" placeholder="e.g. a project or a customer" maxlength="60" autocomplete="off">
+    </div>
+    <div class="field">
       <label class="label" for="monitor-url">Address</label>
       <input class="input" id="monitor-url" name="url" type="url" value="{{ values.get('url', '') }}" placeholder="https://example.com/health" required {% if error %}aria-invalid="true" aria-describedby="monitor-error"{% endif %}>
       <span class="muted" style="font-size: 12.5px">Up means an answer below HTTP 400 within 10 seconds; a site counts as down after two failed checks in a row. For https addresses, myOrb also warns 14 days before the certificate expires.</span>
@@ -37,4 +48,5 @@
     <div class="actions"><button type="submit" class="btn btn-primary">Add monitor</button></div>
   </form>
 </section>
+<datalist id="monitor-groups">{% for group in groups %}<option value="{{ group }}">{% endfor %}</datalist>
 {% endblock %}

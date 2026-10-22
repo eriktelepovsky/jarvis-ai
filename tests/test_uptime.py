@@ -118,3 +118,20 @@ def test_duration():
     assert duration(timedelta(seconds=20)) == "1 min"
     assert duration(timedelta(minutes=95)) == "1 h 35 min"
     assert duration(timedelta(days=2, hours=3)) == "2 d"
+
+
+def test_monitors_in_groups(client: TestClient, apis: FakeApis):
+    Site(apis, "api.example.com")
+    Site(apis, "shop.example.com")
+    Site(apis, "blog.example.com")
+    data = {"name": "API", "url": "https://api.example.com/", "group": "  Transportly "}
+    client.post("/integrations/uptime", data=data)
+    client.post("/integrations/uptime", data={"name": "Shop", "url": "https://shop.example.com/"})
+    client.post("/integrations/uptime", data={"name": "Blog", "url": "https://blog.example.com/"})
+    client.post("/integrations/uptime/2/group", data={"group": "Transportly"})
+    page = client.get("/integrations/uptime").text
+    assert '<option value="Transportly">' in page  # offered when typing a group
+    assert "<title>Uptime · Orb</title>" in page
+    text = client.get("/welcome/widgets").text
+    assert '<span class="trunc">Transportly</span><span class="group-count">2</span>' in text
+    assert '<span class="trunc">No group</span><span class="group-count">1</span>' in text

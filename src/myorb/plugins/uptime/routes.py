@@ -19,11 +19,12 @@ PAGE = "/integrations/uptime"
 async def _page(
     request: Request, db: AsyncSession, error: str | None = None, values: dict | None = None
 ) -> Response:
-    monitors = list(await db.scalars(select(Monitor).order_by(Monitor.name)))
+    monitors = list(await db.scalars(select(Monitor).order_by(Monitor.group_name, Monitor.name)))
+    groups = sorted({m.group_name for m in monitors if m.group_name})
     return request.app.state.templates.TemplateResponse(
         request,
         "uptime/settings.html",
-        {"monitors": monitors, "error": error, "values": values or {}},
+        {"monitors": monitors, "groups": groups, "error": error, "values": values or {}},
         status_code=400 if error else 200,
     )
 
@@ -35,18 +36,27 @@ async def page(request: Request, db: Db) -> Response:
 
 @router.post(PAGE)
 async def add(
-    request: Request, db: Db, name: Annotated[str, Form()], url: Annotated[str, Form()]
+    request: Request,
+    db: Db,
+    name: Annotated[str, Form()],
+    url: Annotated[str, Form()],
+    group: Annotated[str, Form()] = "",
 ) -> Response:
-    name, url = name.strip(), url.strip()
+    name, url, group = name.strip(), url.strip(), _group(group)
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.netloc:
         return await _page(
             request,
             db,
             "Enter the full address, e.g. https://example.com.",
-            {"name": name, "url": url},
+            {"name": name, "url": url, "group": group},
         )
-    monitor = Monitor(name=name[:100] or parts.netloc, url=url[:500], created_at=datetime.now(UTC))
+    monitor = Monitor(
+        name=name[:100] or parts.netloc,
+        url=url[:500],
+        group_name=group,
+        created_at=datetime.now(UTC),
+    )
     db.add(monitor)
     await db.commit()
     # Check right away, so the result is there when the user returns to the welcome screen.
@@ -54,6 +64,20 @@ async def add(
     if plugin is not None:
         await plugin.checker.check(db, request.app.state.http, monitor)
         await db.commit()
+    return RedirectResponse(PAGE, 303)
+
+
+def _group(name: str) -> str:
+    return " ".join(name.split())[:60]
+
+
+@router.post(f"{PAGE}/{{monitor_id}}/group")
+async def set_group(db: Db, monitor_id: int, group: Annotated[str, Form()] = "") -> Response:
+    monitor = await db.get(Monitor, monitor_id)
+    if monitor is None:
+        raise HTTPException(status_code=404, detail="Monitor not found")
+    monitor.group_name = _group(group)
+    await db.commit()
     return RedirectResponse(PAGE, 303)
 
 

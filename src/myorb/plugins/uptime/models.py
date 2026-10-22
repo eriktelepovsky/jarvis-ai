@@ -14,6 +14,8 @@ class Monitor(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     url: Mapped[str] = mapped_column(String(500))
+    # The user's own grouping, e.g. a project or a customer; empty for none.
+    group_name: Mapped[str] = mapped_column(String(60), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     up: Mapped[bool | None] = mapped_column(Boolean())
     status_code: Mapped[int | None] = mapped_column(Integer())
