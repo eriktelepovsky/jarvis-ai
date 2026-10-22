@@ -100,6 +100,10 @@ Read the connected accounts with `context.connections.list("wallet")`, or use `l
 
 Tables of built-in plugins are created by Jarvis's migrations; a custom plugin that needs storage can keep its own SQLite file in the data directory or store small JSON values with `context.connections.settings()`.
 
+### Background work
+
+`background(context)` returns a coroutine Jarvis runs while it is up, e.g. a loop that checks something every minute; `context()` gives a fresh `WidgetContext`. Handle errors inside the loop and sleep between rounds; the task is cancelled at shutdown. The Uptime plugin uses it to check websites.
+
 ### Cache and HTTP
 
 `context.http` is a shared `httpx2.AsyncClient` (10-second timeout). `context.cache.get(key, fetch, fresh, max_age)` returns fresh data immediately, serves stale data while refreshing in the background, and keeps the last good value when a refresh fails. `context.now` is the current time in the user's time zone.

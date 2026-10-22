@@ -167,6 +167,14 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
         """Return the connections this plugin is set up with on the Integrations page."""
         return []
 
+    def background(self, context: Callable[[], WidgetContext]) -> Awaitable[None] | None:
+        """Return a coroutine Jarvis runs in the background while it is up, or None.
+
+        `context()` gives a fresh WidgetContext each time it is called. The coroutine should
+        loop, sleep between rounds and handle its own errors; it is cancelled at shutdown.
+        """
+        return None
+
     def router(self) -> "APIRouter | None":
         """Return the plugin's own pages and endpoints, e.g. an OAuth callback or a webhook.
 

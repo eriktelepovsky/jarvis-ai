@@ -53,6 +53,7 @@ src/jarvis_hud/
 │   ├── youtube/      # New videos from YouTube subscriptions
 │   ├── slack/        # Slack mentions (own Slack app with search:read)
 │   ├── health/       # Apple Health webhook, Strava OAuth
+│   ├── uptime/       # Own website checks every minute, outages, TLS expiry
 │   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Welcome screen, widget and panel endpoints
@@ -168,6 +169,10 @@ One plugin can declare several providers: the Pull requests plugin connects GitH
 ### Health
 
 Apple Health data never leaves the iPhone on its own, so a Shortcut automation sends sleep, steps and optionally resting heart rate and active energy every morning to `/hooks/health/<token>`, a webhook with a secret token Jarvis generates (new token = old address stops working). Values are stored per day; fields the iPhone did not send keep their earlier value. `/hooks/` paths skip the session and Origin checks; each webhook authenticates itself. Strava uses OAuth with the user's own Strava API application; Strava rotates refresh tokens, so the new one is stored after every refresh.
+
+### Uptime
+
+The Uptime plugin runs a background loop (`Plugin.background()`) that requests each monitored address every minute (up: an answer below HTTP 400 within 10 seconds) and reads https certificates once an hour. A monitor is down after two failed checks in a row; going down opens an incident and coming back closes it, and 30-day uptime is computed from the incidents. Network checks run in parallel, database updates one at a time.
 
 ### Stored credentials
 

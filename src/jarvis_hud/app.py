@@ -86,6 +86,11 @@ def create_app(
             transport=http_transport,
         )
         scheduler = asyncio.create_task(app.state.brief.run_scheduler())
+        background = [
+            asyncio.create_task(job)
+            for plugin in plugins.values()
+            if (job := plugin.background(lambda: app_context(app))) is not None
+        ]
         async with app.state.sessionmaker() as db:
             app.state.auth = await load_auth_state(db)
         if not app.state.auth.password_set:
@@ -98,6 +103,8 @@ def create_app(
             )
         yield
         scheduler.cancel()
+        for job in background:
+            job.cancel()
         await app.state.http.aclose()
         await engine.dispose()
 
