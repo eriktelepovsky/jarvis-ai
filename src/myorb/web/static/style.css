@@ -1725,6 +1725,12 @@ form.htmx-request .btn[type="submit"]::before {
   padding: 0;
 }
 
+/* A legend is not a flex item, so the field's gap misses it; its own browser padding goes. */
+.color-field > legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
 .color-swatches {
   display: flex;
   flex-wrap: wrap;
