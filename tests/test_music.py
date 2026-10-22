@@ -1,6 +1,9 @@
+import httpx2
 import pytest
 from conftest import MakeClient, complete_setup
+from fakegoogle import FakeGoogle
 from fastapi.testclient import TestClient
+from test_widgets import connect_google
 
 from jarvis_hud.music import parse_youtube
 
@@ -43,6 +46,7 @@ def test_music_defaults_to_ambient(client: TestClient):
         "source": "ambient",
         "video": None,
         "playlist": None,
+        "title": "",
     }
     assert 'id="media-dock"' in client.get("/").text
     assert 'id="media-dock"' in client.get("/integrations").text
@@ -53,7 +57,7 @@ def test_choose_youtube(client: TestClient):
     response = client.post("/integrations/music", data={"source": "youtube", "url": url})
     assert "The music settings were saved." in response.text
     config = client.get("/music/config").json()
-    assert config == {"source": "youtube", "video": VIDEO, "playlist": PLAYLIST}
+    assert config == {"source": "youtube", "video": VIDEO, "playlist": PLAYLIST, "title": ""}
     assert f'value="{url.replace("&", "&amp;")}"' in client.get("/integrations/music").text
 
     client.post("/integrations/music", data={"source": "ambient"})
@@ -66,3 +70,74 @@ def test_invalid_youtube_link(client: TestClient):
     )
     assert response.status_code == 400
     assert "Enter a link to a YouTube video" in response.text
+
+
+# Finding music in Jarvis
+
+
+@pytest.fixture
+def google_client(make_client: MakeClient) -> tuple[TestClient, FakeGoogle]:
+    fake = FakeGoogle()
+    api = "https://www.googleapis.com/youtube/v3"
+    fake.routes[f"{api}/search"] = lambda request: httpx2.Response(
+        200,
+        json={
+            "items": [
+                {
+                    "id": {"videoId": VIDEO},
+                    "snippet": {
+                        "title": "Lofi <radio>",
+                        "channelTitle": "Lofi Girl",
+                        "liveBroadcastContent": "live",
+                        "thumbnails": {"medium": {"url": "https://i.ytimg.com/vi/x/mq.jpg"}},
+                    },
+                },
+                {
+                    "id": {"playlistId": PLAYLIST},
+                    "snippet": {"title": "Focus", "channelTitle": "Me"},
+                },
+            ]
+        },
+    )
+    fake.routes[f"{api}/playlists"] = lambda request: httpx2.Response(
+        200, json={"items": [{"id": PLAYLIST, "snippet": {"title": "My focus mix"}}]}
+    )
+    client = make_client(transport=httpx2.MockTransport(fake))
+    complete_setup(client)
+    return client, fake
+
+
+def test_search_needs_youtube_access(client: TestClient):
+    response = client.get("/music/search", params={"q": "lofi"})
+    assert response.status_code == 409
+    assert "Connect a Google account" in response.json()["error"]
+    assert "Connect a Google account" in client.get("/music/library").json()["error"]
+
+
+def test_search_play_and_recent(google_client):
+    client, fake = google_client
+    connect_google(client, fake)
+    results = client.get("/music/search", params={"q": "lofi"}).json()["results"]
+    assert results == [
+        {
+            "kind": "live",
+            "id": VIDEO,
+            "title": "Lofi <radio>",
+            "channel": "Lofi Girl",
+            "thumbnail": "https://i.ytimg.com/vi/x/mq.jpg",
+        },
+        {"kind": "playlist", "id": PLAYLIST, "title": "Focus", "channel": "Me", "thumbnail": ""},
+    ]
+    assert client.get("/music/library").json()["playlists"][0]["title"] == "My focus mix"
+
+    played = client.post("/music/play", data={**results[1]}).json()
+    assert played == {"source": "youtube", "video": None, "playlist": PLAYLIST, "title": "Focus"}
+    client.post("/music/play", data={**results[0], "thumbnail": "https://evil.example/x.jpg"})
+    assert client.get("/music/config").json()["video"] == VIDEO
+    recent = client.get("/music/library").json()["recent"]
+    assert [r["id"] for r in recent] == [VIDEO, PLAYLIST]
+    assert recent[0]["thumbnail"] == ""
+    # Saving the settings page keeps the recent picks.
+    client.post("/integrations/music", data={"source": "ambient"})
+    assert len(client.get("/music/library").json()["recent"]) == 2
+    assert client.post("/music/play", data={"kind": "video", "id": "bad id"}).status_code == 400

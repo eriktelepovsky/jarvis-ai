@@ -1453,3 +1453,124 @@ code,
 .voice-note {
   font-size: 12.5px;
 }
+
+/* Media dock: finding music */
+
+.music-finder {
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 40px));
+  max-height: min(460px, calc(100vh - 140px));
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--r-card);
+  box-shadow: 0 20px 50px -20px rgb(0 0 0 / 80%), 0 0 40px -20px var(--accent-glow);
+}
+
+.music-finder[hidden] {
+  display: none;
+}
+
+.finder-search {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.finder-search .input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  font-size: 13px;
+}
+
+.finder-results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.finder-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finder-section > .label {
+  padding: 0 4px 4px;
+}
+
+.finder-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 6px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.finder-item:hover,
+.finder-item:focus-visible {
+  background: rgb(79 209 232 / 6%);
+  border-color: var(--line-accent);
+}
+
+.finder-thumb {
+  display: block;
+  width: 64px;
+  height: 36px;
+  overflow: hidden;
+  background: #121821;
+  border-radius: 4px;
+}
+
+.finder-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.finder-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.finder-title,
+.finder-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finder-title {
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.finder-meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.finder-message {
+  margin: 4px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.dock-controls [data-toggle="finder"] {
+  width: 34px;
+  padding: 0;
+}

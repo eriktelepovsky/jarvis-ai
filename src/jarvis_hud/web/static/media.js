@@ -228,26 +228,23 @@
     youtube.key = key;
     const YT = await loadYouTubeApi();
     const playerVars = { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 };
+    // After a reload, continue with the same video where it stopped. The video itself is
+    // remembered, not only its place in the playlist: mixes change their order every time.
+    const at = prefs.youtubeAt?.key === key ? prefs.youtubeAt : null;
     if (source.playlist) {
       playerVars.listType = "playlist";
       playerVars.list = source.playlist;
+      if (at?.index) playerVars.index = at.index;
     }
+    if (at?.time) playerVars.start = at.time;
     youtube.player = new YT.Player("youtube-player", {
       host: "https://www.youtube-nocookie.com",
-      videoId: source.video || undefined,
+      videoId: at?.video || source.video || undefined,
       playerVars,
       events: {
         onReady: (event) => {
-          const player = event.target;
-          player.setVolume(Math.round(prefs.volume * 100));
-          // After a reload, continue where the music was (live streams just play live).
-          const at = prefs.youtubeAt?.key === key ? prefs.youtubeAt : null;
-          if (at && source.playlist) {
-            player.loadPlaylist({ list: source.playlist, listType: "playlist", index: at.index, startSeconds: at.time });
-          } else if (at) {
-            player.seekTo(at.time, true);
-          }
-          player.playVideo();
+          event.target.setVolume(Math.round(prefs.volume * 100));
+          event.target.playVideo();
         },
       },
     });
@@ -266,6 +263,7 @@
     } else {
       prefs.youtubeAt = {
         key: youtube.key,
+        video: player.getVideoData?.().video_id || null,
         time: Math.floor(player.getCurrentTime()),
         index: Math.max(0, player.getPlaylistIndex?.() ?? 0),
       };
@@ -325,6 +323,8 @@
     if (name === "sounds") {
       prefs.sounds = !prefs.sounds;
       if (prefs.sounds) uiContext();
+    } else if (name === "finder") {
+      toggleFinder();
     } else if (name === "volume") {
       volumeOpen = !volumeOpen;
     } else if (name === "video") {
@@ -340,6 +340,141 @@
     const toggle = event.target.closest("#media-dock [data-toggle]");
     if (!toggle) return;
     onToggle(toggle.dataset.toggle).then(() => sound("click"));
+  });
+
+  // Finding music: search YouTube, your own playlists and the music picked lately. A pick plays
+  // right away and becomes the music, so no link needs to be set on Integrations → Music.
+
+  const finder = { open: false, library: null };
+
+  function finderElement() {
+    return document.getElementById("music-finder");
+  }
+
+  function finderItem(item) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "finder-item";
+    button.dataset.item = JSON.stringify(item);
+    const thumb = document.createElement("span");
+    thumb.className = "finder-thumb";
+    if (item.thumbnail) {
+      const image = document.createElement("img");
+      image.src = item.thumbnail;
+      image.alt = "";
+      image.loading = "lazy";
+      thumb.append(image);
+    }
+    const text = document.createElement("span");
+    text.className = "finder-text";
+    const title = document.createElement("span");
+    title.className = "finder-title";
+    title.textContent = item.title || "Untitled";
+    const meta = document.createElement("span");
+    meta.className = "finder-meta";
+    const kind = { live: "● Live", playlist: "Playlist" }[item.kind];
+    meta.textContent = [kind, item.channel].filter(Boolean).join(" · ");
+    text.append(title, meta);
+    button.append(thumb, text);
+    return button;
+  }
+
+  function finderSection(title, items) {
+    const section = document.createElement("div");
+    section.className = "finder-section";
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = title;
+    section.append(label, ...items.map(finderItem));
+    return section;
+  }
+
+  function finderMessage(text) {
+    const message = document.createElement("p");
+    message.className = "finder-message";
+    message.textContent = text;
+    return message;
+  }
+
+  function showFinder(...children) {
+    finderElement()?.querySelector("[data-finder-results]").replaceChildren(...children);
+  }
+
+  async function showLibrary() {
+    if (!finder.library) {
+      showFinder(finderMessage("Loading…"));
+      try {
+        finder.library = await fetch("/music/library").then((r) => r.json());
+      } catch {
+        return showFinder(finderMessage("Jarvis could not be reached."));
+      }
+    }
+    const { recent = [], playlists = [], error } = finder.library;
+    const sections = [];
+    if (recent.length) sections.push(finderSection("Recently played", recent));
+    if (playlists.length) sections.push(finderSection("Your playlists", playlists));
+    if (error) sections.push(finderMessage(error));
+    if (!sections.length) sections.push(finderMessage("Search for a song, an artist, a mood or a live radio."));
+    showFinder(...sections);
+  }
+
+  async function searchMusic(query) {
+    if (!query.trim()) return showLibrary();
+    showFinder(finderMessage("Searching…"));
+    try {
+      const response = await fetch(`/music/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      if (!response.ok) return showFinder(finderMessage(data.error || "The search did not work."));
+      showFinder(data.results.length ? finderSection("Results", data.results) : finderMessage("Nothing found."));
+    } catch {
+      showFinder(finderMessage("Jarvis could not be reached."));
+    }
+  }
+
+  function toggleFinder(open = !finder.open) {
+    finder.open = open;
+    const element = finderElement();
+    if (!element) return;
+    element.hidden = !open;
+    document.querySelector("#media-dock [data-toggle='finder']")?.setAttribute("aria-expanded", String(open));
+    if (open) {
+      finder.library = null; // recent picks may have changed
+      showLibrary();
+      element.querySelector("input")?.focus();
+    }
+  }
+
+  async function playItem(item) {
+    const body = new URLSearchParams(item);
+    const response = await fetch("/music/play", { method: "POST", body });
+    if (!response.ok) return;
+    const config = await response.json();
+    musicConfig = config;
+    if (music && !music.youtube) stopMusic();
+    prefs.musicOn = true;
+    savePrefs();
+    toggleFinder(false);
+    await startYouTube(config);
+    render();
+  }
+
+  document.addEventListener("submit", (event) => {
+    if (!event.target.matches("[data-finder-form]")) return;
+    event.preventDefault();
+    searchMusic(event.target.elements.q.value);
+  });
+
+  document.addEventListener("click", (event) => {
+    const item = event.target.closest(".finder-item");
+    if (item) {
+      playItem(JSON.parse(item.dataset.item));
+      return;
+    }
+    if (finder.open && !event.target.closest("#music-finder, [data-toggle='finder']")) toggleFinder(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && finder.open) toggleFinder(false);
   });
 
   // A click elsewhere closes the volume slider.
