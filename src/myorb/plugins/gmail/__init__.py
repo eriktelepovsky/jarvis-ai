@@ -7,13 +7,13 @@ from urllib.parse import quote
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
     BriefSection,
-    Link,
     Plugin,
     Row,
     Stat,
     Widget,
     WidgetContext,
     WidgetData,
+    open_buttons,
 )
 from myorb.plugins.google_data import account_status, load_accounts
 
@@ -168,6 +168,6 @@ class GmailPlugin(Plugin):
                 )
                 for email, message in messages
             ],
-            action=Link("Open inbox", loaded[0].data["url"]),
+            **open_buttons("Open inbox", [(a.email, a.data["url"]) for a in loaded]),
             **status,
         )
