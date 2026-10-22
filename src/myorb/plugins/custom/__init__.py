@@ -79,7 +79,17 @@ class CustomSource(Provider):
     fields = [
         Field("name", "Name", placeholder="e.g. Invoices"),
         Field("url", "Address", "url", "https://invoices.example.com/myorb/"),
-        Field("token", "Token", "password", help="Sent as “Authorization: Bearer <token>”."),
+        Field(
+            "token",
+            "Token",
+            "password",
+            help=(
+                "A long random secret that your app checks, so only myOrb can read it. "
+                "Generate one, copy it and set the same in your app (e.g. MYORB_TOKEN); "
+                "myOrb sends it as “Authorization: Bearer <token>”."
+            ),
+            generate=True,
+        ),
         Field(
             "circle",
             "Circle",
