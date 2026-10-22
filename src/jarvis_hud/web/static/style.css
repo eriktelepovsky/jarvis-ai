@@ -1426,3 +1426,30 @@ code,
     animation: none;
   }
 }
+
+/* Integrations → Voice */
+
+.voice-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.voice-section[hidden] {
+  display: none;
+}
+
+.voice-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.voice-row[hidden] {
+  display: none;
+}
+
+.voice-note {
+  font-size: 12.5px;
+}

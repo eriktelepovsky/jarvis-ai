@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from granian.utils.proxies import wrap_asgi_with_proxy_headers
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
 
-from jarvis_hud import __version__, music, profile
+from jarvis_hud import __version__, music, profile, voice
 from jarvis_hud.auth import passkeys
 from jarvis_hud.auth import routes as auth_routes
 from jarvis_hud.auth.middleware import auth_middleware
@@ -123,6 +123,7 @@ def create_app(
     app.include_router(brief_routes.router)
     app.include_router(music.router)
     app.include_router(profile.router)
+    app.include_router(voice.router)
     for plugin in plugins.values():
         if (plugin_router := plugin.router()) is not None:
             app.include_router(plugin_router)

@@ -13,6 +13,7 @@ from jarvis_hud.connections import google, store
 from jarvis_hud.connections.form_routes import providers as form_providers
 from jarvis_hud.connections.models import Connection
 from jarvis_hud.db import get_db
+from jarvis_hud.voice import load_voice
 
 router = APIRouter()
 
@@ -63,6 +64,7 @@ async def _integrations_page(
         "client": await oauth_client(request, db),
         "connections": await store.list_connections(db, google.PROVIDER),
         "claude": await request.app.state.brief.settings(),
+        "voice": await load_voice(request, db),
         "plugin_settings": [
             (plugin.name, plugin.settings)
             for plugin in sorted(

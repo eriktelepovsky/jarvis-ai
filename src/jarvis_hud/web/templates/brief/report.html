@@ -7,11 +7,10 @@
     {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · {{ model_name(brief.model) }}</span>{% endif %}
   </div>
   {% if brief %}
-  <button type="button" class="btn" data-read-aloud data-brief="{{ brief.id }}" data-brief-language="{{ brief.language }}" aria-pressed="false">▶ Read aloud</button>
+  <button type="button" class="btn" data-read-aloud data-brief="{{ brief.id }}" data-brief-language="{{ brief.language }}" data-voice="{{ 'azure' if voice.azure else 'browser' }}" aria-pressed="false" title="Voices are set on Integrations → Voice">▶ Read aloud</button>
   <label class="label voice-picker">In <select class="input" data-read-language aria-label="Language to read in">
     {% for code, (name, tag) in read_languages.items() %}<option value="{{ code }}" data-tag="{{ tag }}" {% if code == brief.language %}selected{% endif %}>{{ name }}</option>{% endfor %}
   </select></label>
-  <label class="label voice-picker" hidden>Voice <select class="input" data-voice aria-label="Reading voice"></select></label>
   <span class="label read-error" data-read-error role="alert"></span>
   {% endif %}
   {% if configured %}
@@ -28,7 +27,7 @@
   <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
   {% endif %}
 
-  <section class="report-section report-wide" aria-labelledby="glance-title">
+  <section class="report-section report-wide report-glance" aria-labelledby="glance-title">
     <div class="report-head">
       <span class="label strong" id="glance-title">Day at a glance</span>
       <span class="label"><span class="glance-now-label">● Now {{ now.strftime("%H:%M") }}</span> · {{ glance.count }} {{ "event" if glance.count == 1 else "events" }} · {{ duration(glance.free_minutes) }} free until 18:00</span>
@@ -38,12 +37,12 @@
       <div class="glance-track">
         {% for placed in glance.items %}
         <div class="glance-item{% if placed.past %} past{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%">
-          <span class="glance-label"><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span> {{ placed.item.title }}</span>
+          <span class="glance-label"><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span>{{ placed.item.title }}</span>
         </div>
         {% endfor %}
         {% if glance.now is not none %}<span class="glance-now" style="left: {{ '%.2f' % glance.now }}%"></span>{% endif %}
       </div>
-      <div class="glance-hours">{% for hour, position in glance.hours %}<span class="label" style="left: {{ '%.2f' % position }}%">{{ "%02d:00" % hour }}</span>{% endfor %}</div>
+      <div class="glance-hours">{% for hour, position in glance.hours %}<span style="left: {{ '%.2f' % position }}%">{{ "%02d:00" % hour }}</span>{% endfor %}</div>
     </div>
   </section>
 

@@ -10,6 +10,7 @@ from jarvis_hud.brief.service import DEFAULT_TIME, KICKERS, BriefService, Claude
 from jarvis_hud.brief.writer import DEFAULT_MODEL, LANGUAGES, MODELS, READ_LANGUAGES, BriefError
 from jarvis_hud.overview.glance import Glance, duration, glance
 from jarvis_hud.plugins import Plugin, TimelineItem
+from jarvis_hud.voice import load_voice
 from jarvis_hud.web.routes import load_widgets, ordered_plugins, widget_context
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,8 @@ async def report(request: Request) -> Response:
         _timeline(request), load_widgets(request)
     )
     context["now"] = widget_context(request).now
+    async with request.app.state.sessionmaker() as db:
+        context["voice"] = await load_voice(request, db)
     context["duration"] = duration
     return _render(request, "brief/report.html", context)
 

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Voice · Jarvis{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Voice</h1></div>
+</div>
+
+{% if message %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
+
+<section class="panel panel-narrow" aria-labelledby="voice-title">
+  <div class="panel-header"><h2 class="label" id="voice-title">Reading the brief aloud</h2></div>
+  <form method="post" action="/integrations/voice" class="panel-section form">
+    <fieldset class="choices">
+      <legend class="visually-hidden">Voice</legend>
+      <label class="choice"><input type="radio" name="provider" value="browser" {% if settings.provider != "azure" %}checked{% endif %}><span><strong>The browser's voices</strong><span class="muted">Free and private; how natural they sound depends on the device. Each device keeps its own choice.</span></span></label>
+      <label class="choice"><input type="radio" name="provider" value="azure" {% if settings.provider == "azure" %}checked{% endif %}><span><strong>Microsoft Azure Speech</strong><span class="muted">Natural voices in every language, the same on every device. The brief's text is sent to Microsoft; the free tier (500,000 characters a month) covers a daily brief many times over.</span></span></label>
+    </fieldset>
+
+    <div class="voice-section" data-voice-section="browser">
+      <span class="label">Voice per language · this device</span>
+      {% for code, name, tag in languages %}
+      <div class="voice-row" data-browser-voice="{{ code }}" data-tag="{{ tag }}" data-sample="{{ samples[code] }}" hidden>
+        <label for="browser-voice-{{ code }}">{{ name }}</label>
+        <select class="input" id="browser-voice-{{ code }}"></select>
+        <button type="button" class="btn" data-try-browser>▶ Try</button>
+      </div>
+      {% endfor %}
+      <p class="muted voice-note" style="margin: 0">Only languages this device has a voice for are listed. On a Mac, better voices can be downloaded in System Settings → Accessibility → Spoken Content → System voice → Manage voices; restart the browser afterwards.</p>
+    </div>
+
+    <div class="voice-section" data-voice-section="azure">
+      <ol class="steps">
+        <li><div><p>In the <a href="https://portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices" target="_blank" rel="noopener">Azure portal</a>, create a <strong>Speech</strong> resource; the free pricing tier (F0) is enough.</p></div></li>
+        <li><div><p>Open the resource, go to <strong>Keys and Endpoint</strong> and copy <strong>Key 1</strong> and the <strong>Location/Region</strong> (e.g. westeurope).</p></div></li>
+      </ol>
+      <div class="field">
+        <label class="label" for="azure-key">Key</label>
+        <input class="input" id="azure-key" type="password" name="azure_key" autocomplete="off" placeholder="{{ 'Saved; leave empty to keep it' if settings.azure_key else '' }}">
+      </div>
+      <div class="field">
+        <label class="label" for="azure-region">Region</label>
+        <input class="input" id="azure-region" name="azure_region" value="{{ settings.azure_region }}" placeholder="westeurope" autocomplete="off" spellcheck="false">
+      </div>
+      {% if azure_voices %}
+      <span class="label">Voice per language</span>
+      {% for code, name, tag in languages %}
+      {% if azure_voices.get(code) %}
+      <div class="voice-row">
+        <label for="azure-voice-{{ code }}">{{ name }}</label>
+        <select class="input" id="azure-voice-{{ code }}" name="voice_{{ code }}" data-azure-voice="{{ code }}">
+          {% for voice in azure_voices[code] | sort(attribute="ShortName") %}<option value="{{ voice.ShortName }}" {% if voice.ShortName == settings.voice(code) %}selected{% endif %}>{{ voice.LocalName }} · {{ voice.Gender }} · {{ voice.Locale }}</option>{% endfor %}
+        </select>
+        <button type="button" class="btn" data-try-azure="{{ code }}">▶ Try</button>
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% elif settings.azure %}
+      {% else %}
+      <p class="muted voice-note" style="margin: 0">After saving the key, choose a voice for each language here.</p>
+      {% endif %}
+    </div>
+
+    {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+</section>
+{% endblock %}

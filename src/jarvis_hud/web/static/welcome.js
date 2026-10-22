@@ -258,46 +258,8 @@
     }
   });
 
-  // Read aloud: the browser's own speech synthesis reads the brief's summary, with the most
-  // natural voice the device has for the brief's language (or the one the user picked).
-
-  const VOICE_KEY = "jarvis.voice";
-
-  function voiceScore(voice) {
-    const name = voice.name || "";
-    let score = 0;
-    if (/premium/i.test(name)) score += 50;
-    if (/enhanced/i.test(name)) score += 40;
-    if (/natural|neural|online/i.test(name)) score += 45;
-    if (/google|compact|eloquence/i.test(name)) score -= 30;
-    // macOS novelty voices
-    if (/^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|kathy)\b/i.test(name)) score -= 100;
-    if (voice.localService) score += 3;
-    return score;
-  }
-
-  function voicesFor(lang) {
-    if (!("speechSynthesis" in window)) return [];
-    const prefix = lang.slice(0, 2).toLowerCase();
-    return speechSynthesis
-      .getVoices()
-      .filter((voice) => voice.lang.toLowerCase().startsWith(prefix))
-      .sort((a, b) => voiceScore(b) - voiceScore(a) || a.name.localeCompare(b.name));
-  }
-
-  function savedVoices() {
-    try {
-      return JSON.parse(localStorage.getItem(VOICE_KEY)) || {};
-    } catch {
-      return {};
-    }
-  }
-
-  function chosenVoice(lang) {
-    const voices = voicesFor(lang);
-    const saved = savedVoices()[lang.slice(0, 2)];
-    return voices.find((voice) => voice.name === saved) || voices[0] || null;
-  }
+  // Read aloud: Azure Speech's recording of the summary when it is set up on Integrations →
+  // Voice, otherwise the browser's own voices (see speech.js), in the language chosen.
 
   // The language chosen to read in, as a speech tag ("sk-SK").
   function readingLanguage() {
@@ -305,40 +267,28 @@
     return { code: option?.value || "en", tag: option?.dataset.tag || "en-GB" };
   }
 
-  function fillVoicePicker() {
+  // With the browser's voices, offer only languages this device has a voice for.
+  function filterLanguages() {
     const button = document.querySelector("[data-read-aloud]");
-    const select = document.querySelector("[data-voice]");
-    if (!button || !select) return;
-    // Offer only languages this device has a voice for (and always the brief's own).
+    if (!button || button.dataset.voice === "azure" || !window.jarvisSpeech) return;
     document.querySelectorAll("[data-read-language] option").forEach((option) => {
-      option.hidden = option.value !== button.dataset.briefLanguage && !voicesFor(option.dataset.tag).length;
+      option.hidden =
+        option.value !== button.dataset.briefLanguage && !window.jarvisSpeech.voicesFor(option.dataset.tag).length;
     });
-    const lang = readingLanguage().tag;
-    const voices = voicesFor(lang);
-    const current = chosenVoice(lang);
-    select.replaceChildren(
-      ...voices.map((voice) => new Option(`${voice.name} · ${voice.lang}`, voice.name, false, voice === current)),
-    );
-    select.closest(".voice-picker").hidden = voices.length < 2;
   }
 
-  if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", fillVoicePicker);
-  document.addEventListener("htmx:load", fillVoicePicker);
+  if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", filterLanguages);
+  document.addEventListener("htmx:load", filterLanguages);
+
+  let reading = null; // { stop() } while reading
+
+  function stopReading() {
+    reading?.stop();
+    reading = null;
+  }
 
   document.addEventListener("change", (event) => {
-    if (event.target.matches("[data-read-language]")) {
-      if (speechSynthesis.speaking) speechSynthesis.cancel();
-      fillVoicePicker();
-      return;
-    }
-    if (!event.target.matches("[data-voice]")) return;
-    const lang = readingLanguage().code;
-    try {
-      localStorage.setItem(VOICE_KEY, JSON.stringify({ ...savedVoices(), [lang]: event.target.value }));
-    } catch {
-      // Without storage the choice lasts until the page is reloaded.
-    }
-    if (speechSynthesis.speaking) speechSynthesis.cancel();
+    if (event.target.matches("[data-read-language]")) stopReading();
   });
 
   // The summary in the chosen language: from the page, or translated by Claude (once per
@@ -347,7 +297,6 @@
     if (language.code === button.dataset.briefLanguage) {
       return document.querySelector("[data-report-text]")?.innerText;
     }
-    button.textContent = "… Translating";
     const body = new URLSearchParams({ language: language.code });
     const response = await fetch(`/brief/${button.dataset.brief}/translation`, { method: "POST", body });
     const data = await response.json().catch(() => ({}));
@@ -356,49 +305,56 @@
   }
 
   async function readAloud(button) {
-    if (!("speechSynthesis" in window)) return;
-    const reset = (label = "▶ Read aloud") => {
+    const reset = () => {
       button.setAttribute("aria-pressed", "false");
-      button.textContent = label;
+      button.textContent = "▶ Read aloud";
+      reading = null;
     };
-    if (speechSynthesis.speaking || button.getAttribute("aria-pressed") === "true") {
-      speechSynthesis.cancel();
+    const showError = (message) => {
       reset();
-      return;
+      document.querySelector("[data-read-error]")?.replaceChildren(message);
+    };
+    if (reading) {
+      stopReading();
+      return reset();
     }
+    document.querySelector("[data-read-error]")?.replaceChildren();
     const language = readingLanguage();
     button.setAttribute("aria-pressed", "true");
+    button.textContent = "… Preparing";
+
+    if (button.dataset.voice === "azure") {
+      const audio = new Audio(`/brief/${button.dataset.brief}/audio?language=${language.code}`);
+      reading = { stop: () => audio.pause() };
+      audio.addEventListener("playing", () => {
+        button.textContent = "■ Stop reading";
+      });
+      audio.addEventListener("ended", reset);
+      audio.addEventListener("error", () => showError("Azure Speech could not read the brief. Check Integrations → Voice."));
+      audio.play().catch(() => {});
+      return;
+    }
+
+    reading = { stop: () => speechSynthesis.cancel() };
     let text;
     try {
       text = await textToRead(button, language);
     } catch (error) {
-      reset("▶ Read aloud");
-      button.title = error.message;
-      document.querySelector("[data-read-error]")?.replaceChildren(error.message);
-      return;
+      return showError(error.message);
     }
-    document.querySelector("[data-read-error]")?.replaceChildren();
-    if (!text || button.getAttribute("aria-pressed") !== "true") return reset();
-    const voice = chosenVoice(language.tag);
-    // Sentence by sentence: some voices (Google's in Chrome) stop after about 15 seconds.
-    const sentences = text.match(/[^.!?\n]+[.!?]*/g)?.map((part) => part.trim()).filter(Boolean) || [text];
-    sentences.forEach((sentence, index) => {
-      const utterance = new SpeechSynthesisUtterance(sentence);
-      utterance.lang = voice?.lang || language.tag;
-      if (voice) utterance.voice = voice;
-      if (index === sentences.length - 1) utterance.onend = () => reset();
-      utterance.onerror = () => reset();
-      speechSynthesis.speak(utterance);
-    });
+    if (!reading || !text) return reset();
     button.textContent = "■ Stop reading";
+    await window.jarvisSpeech.speak(text, language.tag);
+    if (reading) reset();
   }
+
 
 
   document.addEventListener(
     "close",
     (event) => {
       if (event.target.id === "report") {
-        if ("speechSynthesis" in window) speechSynthesis.cancel();
+        stopReading();
         sound("close");
         return;
       }
