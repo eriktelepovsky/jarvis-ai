@@ -9,7 +9,8 @@
   <div><div class="label">Settings</div><h1>Profile and security</h1></div>
 </div>
 
-<section class="panel panel-narrow" aria-labelledby="profile-title">
+<div class="settings-layout">
+<section class="panel" aria-labelledby="profile-title">
   <div class="panel-header"><h2 class="label" id="profile-title">Profile</h2></div>
   <form method="post" action="/settings/profile" class="panel-section form">
     {% if saved %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The profile was saved.</span></div>{% endif %}
@@ -39,7 +40,8 @@
   </form>
 </section>
 
-<section class="panel panel-narrow" aria-labelledby="passkeys-title">
+<div class="settings-column">
+<section class="panel" aria-labelledby="passkeys-title">
   <div class="panel-header"><h2 class="label" id="passkeys-title">Passkeys</h2></div>
   <div class="panel-section">
     <p class="muted" style="margin: 0">Sign in with Face ID, Touch ID, Windows Hello or a security key instead of your password.</p>
@@ -71,7 +73,7 @@
   </form>
 </section>
 
-<section class="panel panel-narrow" aria-labelledby="password-title">
+<section class="panel" aria-labelledby="password-title">
   <div class="panel-header"><h2 class="label" id="password-title">Password</h2></div>
   <form method="post" action="/settings/security/password" class="panel-section form">
     <p class="muted" style="margin: 0">Changing the password signs you out on all other devices.</p>
@@ -92,4 +94,6 @@
     <div class="actions"><button type="submit" class="btn btn-primary">Change password</button></div>
   </form>
 </section>
+</div>
+</div>
 {% endblock %}
