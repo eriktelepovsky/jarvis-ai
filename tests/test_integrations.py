@@ -273,6 +273,7 @@ def issue(key: str, category: str, due: date | None = None, priority: str = "Med
     return {
         "key": key,
         "fields": {
+            "project": {"key": key.split("-")[0], "name": f"Project {key.split('-')[0]}"},
             "summary": f"Summary of {key}",
             "status": {"name": category.title(), "statusCategory": {"key": category}},
             "priority": {"name": priority},
@@ -296,6 +297,9 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     text = client.get("/welcome/widgets").text
     assert '<span class="trunc">All workspaces</span><span class="group-count">3</span>' in text
     assert 'data-group-value="dev"' in text and '<span class="group-count">2</span>' in text
+    # Within a workspace, its projects narrow further (dev has TRP only, so none are listed).
+    assert 'data-subgroup="Project TRP"' in text
+    assert "data-subgroup-value" not in text
     assert 'data-group="support"' in text
 
     text = client.get("/welcome/widgets").text
@@ -366,3 +370,13 @@ def test_next_step(fields: dict[str, Any], yours: bool, label: str):
     pr = PullRequest("#1", "t", "r", "u", ci=None, draft=False, updated="")
     pr = PullRequest(**{**pr.__dict__, **fields})
     assert next_step(pr, yours).label == label
+
+
+def test_jira_projects_within_a_workspace(client: TestClient, apis: FakeApis):
+    jira_site(apis, "acme", [issue("WEB-1", "new"), issue("WEB-2", "new"), issue("API-7", "new")])
+    connect_jira(client, "acme")
+    text = client.get("/welcome/widgets").text
+    assert (
+        'data-subgroup-value="Project WEB"' in text and 'data-subgroup-value="Project API"' in text
+    )
+    assert '<span class="trunc">All workspaces</span>' in text  # shown for one workspace too

@@ -29,7 +29,7 @@ from myorb.plugins.connection_data import AccountResult, connected_status, load_
 
 ICON = "M4 4h16v16H4zM9 4v16M15 4v16M11 8h2M5.5 8h2"
 JQL = "assignee = currentUser() AND statusCategory != Done ORDER BY priority DESC, updated DESC"
-FIELDS = "summary,status,priority,duedate,updated"
+FIELDS = "summary,status,priority,duedate,updated,project"
 # Issues read per workspace (in pages of PAGE); the details list all of them.
 MAX_ISSUES = 200
 PAGE = 100
@@ -47,6 +47,8 @@ class Issue:
     due: date | None
     url: str
     workspace: str
+    # The project's name, e.g. "Transportly"; its key when Jira does not say.
+    project: str = ""
 
 
 def site_url(value: str) -> str:
@@ -124,6 +126,7 @@ class Jira(Provider):
                     due=date.fromisoformat(due) if due else None,
                     url=f"{site}/browse/{item['key']}",
                     workspace=workspace_name(site),
+                    project=(fields.get("project") or {}).get("name") or item["key"].split("-")[0],
                 )
             )
         return issues
@@ -210,6 +213,7 @@ class JiraPlugin(Plugin):
                     issue.url,
                     tags=tags,
                     group=issue.workspace,
+                    subgroup=issue.project,
                 )
             )
         return WidgetData(
