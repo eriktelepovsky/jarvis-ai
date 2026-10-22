@@ -1,5 +1,5 @@
 from abc import ABC
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +28,8 @@ class WidgetContext:
     sessionmaker: "async_sessionmaker[AsyncSession]"
     http: "httpx2.AsyncClient"
     connections: "Connections"
+    # The panel request's query parameters, e.g. which day a calendar panel shows.
+    params: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

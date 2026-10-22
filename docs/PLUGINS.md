@@ -70,7 +70,7 @@ def panels(self) -> list[Panel]:
     return [Panel(id="today", title="Accounts", template="today.html", load=self.load_panel)]
 ```
 
-`load` returns the template's context; the template is relative to `templates_dir` and autoescaped. `placement="header"` puts it under the clock in the top-right corner instead of the side column; keep it to one short line.
+`load` returns the template's context (`context.params` holds the panel request's query parameters, e.g. which day the calendar panel shows); the template is relative to `templates_dir` and autoescaped. `placement="header"` puts it under the clock in the top-right corner instead of the side column; keep it to one short line.
 
 ### Connections
 

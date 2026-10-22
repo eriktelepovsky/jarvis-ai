@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -159,7 +160,8 @@ async def panel(request: Request, plugin_id: str, panel_id: str) -> HTMLResponse
         raise HTTPException(status_code=404, detail="Panel not found")
     templates = request.app.state.templates
     try:
-        context = await found.load(widget_context(request))
+        params = dict(request.query_params)
+        context = await found.load(replace(widget_context(request), params=params))
         return templates.TemplateResponse(request, f"{plugin_id}/{found.template}", context)
     except Exception:
         logger.exception("Panel %s/%s failed", plugin_id, panel_id)

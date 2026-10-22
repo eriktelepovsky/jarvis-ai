@@ -31,7 +31,8 @@ HIDDEN_EVENT_TYPES = {"workingLocation"}
 
 
 def calendar_url(email: str) -> str:
-    return f"https://calendar.google.com/calendar/u/?authuser={quote(email)}"
+    # "/calendar/u/?authuser=" is a 404; "/calendar/r" picks the account from authuser.
+    return f"https://calendar.google.com/calendar/r?authuser={quote(email)}"
 
 
 def parse_event(
@@ -107,6 +108,21 @@ def today_and_upcoming(events: list[dict[str, Any]], now: datetime) -> dict[str,
     }
 
 
+def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
+    """A whole other day's events (all-day ones first), for looking ahead in the side panel."""
+    tz = events[0]["start"].tzinfo if events else None
+    start = datetime.combine(date, datetime.min.time(), tz)
+    end = start + timedelta(days=1)
+    seen: set[tuple[str, datetime]] = set()
+    day = []
+    for event in sorted(events, key=lambda e: (not e["all_day"], e["start"])):
+        key = (event["title"], event["start"])
+        if event["start"] < end and event["end"] > start and key not in seen:
+            seen.add(key)
+            day.append({**event, "kind": "event", "sub": describe(event)})
+    return day
+
+
 def until(start: datetime, now: datetime) -> str:
     """How long until an event starts, e.g. "in 1 h 18 m", or "now" when it has started."""
     minutes = int((start - now).total_seconds() // 60)
@@ -177,7 +193,7 @@ class CalendarPlugin(Plugin):
 
     def panels(self) -> list[Panel]:
         return [
-            Panel(id="today", title="Today", template="today.html", load=self._today),
+            Panel(id="today", title="Schedule", template="today.html", load=self._today),
             Panel(
                 id="next", title="Next", template="next.html", load=self._next, placement="header"
             ),
@@ -283,12 +299,27 @@ class CalendarPlugin(Plugin):
         )
 
     async def _today(self, context: WidgetContext) -> dict[str, Any]:
+        """The side panel: today with a "now" marker, or another day of the week ahead."""
         accounts = await self._accounts(context)
         loaded = [account for account in accounts if account.data is not None]
+        try:
+            offset = min(max(int(context.params.get("day", 0)), 0), DAYS_AHEAD - 1)
+        except ValueError:
+            offset = 0
+        now = context.now
+        date = (now + timedelta(days=offset)).date()
+        if offset == 0:
+            day = self._merged(loaded, now) if loaded else None
+        else:
+            day = {"today": events_on([e for a in loaded for e in a.data["events"]], date)}
+        label = "Today" if offset == 0 else "Tomorrow" if offset == 1 else f"{date:%a %-d %b}"
         return {
             "connected": bool(accounts),
             "loaded": bool(loaded),
-            "day": self._merged(loaded, context.now) if loaded else None,
+            "day": day,
+            "offset": offset,
+            "last": DAYS_AHEAD - 1,
+            "label": label,
         }
 
     async def _next(self, context: WidgetContext) -> dict[str, Any]:

@@ -1360,3 +1360,23 @@ button.row-btn {
   font-size: 18px;
   color: var(--text-3);
 }
+
+/* Calendar side panel: moving between days */
+
+.day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.day-nav .icon-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.day-nav .icon-btn:disabled {
+  visibility: hidden;
+}

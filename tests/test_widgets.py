@@ -376,3 +376,48 @@ def test_resolve_timezone(monkeypatch: pytest.MonkeyPatch):
     assert resolve_timezone("Not/AZone") == ZoneInfo("America/New_York")
     monkeypatch.setenv("TZ", "")
     assert resolve_timezone(None) is not None
+
+
+def test_calendar_panel_moves_between_days(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    today = client.get("/panels/calendar/today").text
+    assert '<span class="label strong">Today</span>' in today
+    assert 'aria-label="Previous day" disabled' in today
+    tomorrow = client.get("/panels/calendar/today", params={"day": 1}).text
+    assert '<span class="label strong">Tomorrow</span>' in tomorrow
+    assert "Nothing on the calendar tomorrow." in tomorrow
+    assert 'hx-get="/panels/calendar/today?day=2"' in tomorrow
+    last = client.get("/panels/calendar/today", params={"day": 99}).text
+    assert 'aria-label="Next day" disabled' in last
+    assert "Today" in client.get("/panels/calendar/today", params={"day": "x"}).text
+
+
+def test_events_on_another_day():
+    from datetime import UTC, datetime, timedelta
+
+    from jarvis_hud.plugins.calendar import events_on
+
+    day = datetime(2026, 10, 23, tzinfo=UTC)
+    event = {"title": "Standup", "all_day": False, "video_url": None, "location": None}
+    events = [
+        {**event, "start": day + timedelta(hours=9), "end": day + timedelta(hours=9, minutes=15)},
+        {**event, "start": day + timedelta(hours=9), "end": day + timedelta(hours=9, minutes=15)},
+        {
+            **event,
+            "title": "Trip",
+            "all_day": True,
+            "start": day - timedelta(days=1),
+            "end": day + timedelta(days=2),
+            "calendar": None,
+        },
+        {
+            **event,
+            "title": "Later",
+            "start": day + timedelta(days=1),
+            "end": day + timedelta(days=1, hours=1),
+        },
+    ]
+    for e in events:
+        e.setdefault("calendar", None)
+    titles = [e["title"] for e in events_on(events, day.date())]
+    assert titles == ["Trip", "Standup"]  # all-day first, the duplicate (two accounts) once
