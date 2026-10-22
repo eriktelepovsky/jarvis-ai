@@ -618,9 +618,11 @@ a.ti:hover .t1 {
 .core-name {
   padding-left: 0.3em;
   font-family: var(--font-mono);
-  font-size: calc(var(--d) * 0.046);
+  /* The name is the user's: as large as "J.A.R.V.I.S.", smaller for longer names, one line. */
+  font-size: min(calc(var(--d) * 0.046), calc(var(--d) * 0.55 / var(--chars, 12)));
   font-weight: 600;
   letter-spacing: 0.3em;
+  white-space: nowrap;
   color: #fff;
   text-shadow: 0 0 2px #05090c, 0 0 8px #05090c, 0 0 18px rgb(79 209 232 / 75%);
 }

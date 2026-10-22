@@ -23,6 +23,7 @@ from jarvis_hud.brief.writer import (
 from jarvis_hud.connections import store
 from jarvis_hud.crypto import SecretBox
 from jarvis_hud.plugins import BriefSection, Plugin, WidgetContext
+from jarvis_hud.profile import load_profile
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,10 @@ class BriefService:
             await db.commit()
             return paragraphs
 
+    async def _assistant(self) -> str:
+        async with self._sessionmaker() as db:
+            return (await load_profile(db, self._box))["assistant"]
+
     async def latest(self) -> Brief | None:
         async with self._sessionmaker() as db:
             return await db.scalar(select(Brief).order_by(Brief.created_at.desc()).limit(1))
@@ -182,6 +187,7 @@ class BriefService:
                     context.now,
                     settings.language,
                     settings.model,
+                    await self._assistant(),
                 )
             except BriefError as error:
                 self.error = str(error)

@@ -184,9 +184,36 @@ def test_name_in_greeting(make_client: MakeClient):
     assert ', <span class="greeting-name">Tony</span>' in client.get("/").text
 
     response = client.post("/settings/profile", data={"name": "<Pepper>"})
-    assert "Your name was saved." in response.text
+    assert "The names were saved." in response.text
     assert 'value="&lt;Pepper&gt;"' in response.text
     assert '<span class="greeting-name">&lt;Pepper&gt;</span>' in client.get("/").text
 
     client.post("/settings/profile", data={"name": ""})
     assert "greeting-name" not in client.get("/").text
+
+
+def test_assistant_is_named_by_the_user(make_client: MakeClient):
+    client = make_client()
+    token = client.app.state.auth.setup_token
+    data = {"password": "correct horse battery", "password_confirmation": "correct horse battery"}
+    assert 'value="J.A.R.V.I.S."' in client.get("/setup", params={"token": token}).text
+    client.post("/setup", data={**data, "token": token, "assistant": "Iris"})
+    page = client.get("/").text
+    assert '<span class="core-name" style="--chars: 4">Iris</span>' in page
+    assert "<title>Iris</title>" in page
+    assert client.get("/manifest.webmanifest").json()["name"] == "Iris"
+    assert "<title>To-do · Iris</title>" in client.get("/tasks").text
+
+    client.post("/settings/profile", data={"name": "Tony", "assistant": "  HAL   9000 "})
+    assert '<span class="core-name" style="--chars: 8">HAL 9000</span>' in client.get("/").text
+    # Saving only the user's name keeps the assistant's; an empty name falls back to the default.
+    client.post("/settings/profile", data={"name": "Pepper"})
+    assert 'value="HAL 9000"' in client.get("/settings/security").text
+    client.post("/settings/profile", data={"name": "Pepper", "assistant": ""})
+    assert '<span class="core-name" style="--chars: 12">J.A.R.V.I.S.</span>' in client.get("/").text
+
+
+def test_static_files_are_revalidated(make_client: MakeClient):
+    response = make_client().get("/static/style.css")
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers.get("etag")
