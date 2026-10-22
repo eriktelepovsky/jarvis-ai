@@ -18,7 +18,7 @@
     {% for field in provider.fields %}
     <div class="field">
       <label class="label" for="field-{{ field.name }}">{{ field.label }}</label>
-      <input class="input" id="field-{{ field.name }}" name="{{ field.name }}" type="{{ field.type }}" value="{{ values.get(field.name, '') }}" placeholder="{{ field.placeholder }}" autocomplete="off" required {% if error %}aria-describedby="connect-error"{% endif %}>
+      <input class="input" id="field-{{ field.name }}" name="{{ field.name }}" type="{{ field.type }}" value="{{ values.get(field.name, '') }}" placeholder="{{ field.placeholder }}" autocomplete="off"{% if field.required %} required{% endif %} {% if error %}aria-describedby="connect-error"{% endif %}>
       {% if field.help %}<span class="muted" style="font-size: 12.5px">{{ field.help }}</span>{% endif %}
     </div>
     {% endfor %}

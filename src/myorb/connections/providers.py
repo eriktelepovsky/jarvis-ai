@@ -16,9 +16,11 @@ import httpx2
 class Field:
     name: str
     label: str
-    type: Literal["text", "password", "url", "email"] = "text"
+    type: Literal["text", "password", "url", "email", "number"] = "text"
     placeholder: str = ""
     help: str = ""
+    # An optional field may be left empty; the provider then uses its default.
+    required: bool = True
 
     @property
     def secret(self) -> bool:
