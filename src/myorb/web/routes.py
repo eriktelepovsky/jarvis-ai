@@ -125,7 +125,8 @@ def node_size(weight: float, data: WidgetData) -> float:
     """How big a widget's circle is around the orb: by what needs the user, as in the design.
 
     Something that needs attention is large, a source with nothing to show (0 or no data) is
-    small; the plugin's weight only adjusts it a little.
+    small; the plugin's weight only adjusts it a little. On the welcome screen, welcome.js
+    then makes the circles with larger numbers than the others a little larger still.
     """
     needs = data.attention or data.message_tone in ("fail", "warn")
     empty = data.value in (None, 0, "")
