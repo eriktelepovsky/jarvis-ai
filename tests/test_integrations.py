@@ -92,6 +92,8 @@ GITHUB_MINE = {
     "title": "chore: bump Django",
     "url": "https://github.com/acme/api/pull/321",
     "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "SUCCESS"}}}]},
+    "reviewDecision": "APPROVED",
+    "mergeable": "MERGEABLE",
 }
 
 
@@ -161,15 +163,15 @@ def test_pull_requests_widget_from_github(client: TestClient, apis: FakeApis):
     github(apis)
     client.post("/integrations/github/connect", data={"token": "ghp_good"})
     text = client.get("/welcome/widgets").text
-    assert "waiting for your review · 1 failing" in text
+    assert "waiting for your review · 1 ready to merge" in text
     assert "#318 feat: auth token refresh" in text
-    assert "✕ Failed" in text and "✓ Passed" in text
-    assert "Yours · acme/api" in text
-    assert "node warn" in text
+    # Each pull request says what is expected next; CI is a detail under the title.
+    assert ">Review</span>" in text and ">Ready to merge</span>" in text
+    assert "✕ CI failing · acme/api" in text and "Yours · ✓ CI · acme/api" in text
     # The numbers filter the list: rows are tagged by what they are.
-    assert 'data-filter="review"' in text and 'data-filter="failing"' in text
-    assert 'data-filter="mine"' in text
-    assert 'data-tags="review failing"' in text and 'data-tags="mine"' in text
+    for tag in ("todo", "mine", "fix", "ready"):
+        assert f'data-filter="{tag}"' in text
+    assert 'data-tags="review todo"' in text and 'data-tags="mine ready"' in text
 
 
 # GitLab
@@ -199,7 +201,7 @@ def test_gitlab_merge_requests(client: TestClient, apis: FakeApis):
     assert "pepper · gitlab.example.com" in response.text
     text = client.get("/welcome/widgets").text
     assert "!12 Fix pipeline" in text
-    assert "◌ Running" in text
+    assert "◌ CI running" in text
 
 
 # Bitbucket
@@ -242,7 +244,7 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     assert "Tony · acme" in response.text
     text = client.get("/welcome/widgets").text
     assert "#54 fix: redis healthcheck" in text
-    assert "✕ Failed" in text
+    assert "✕ CI failing" in text
     assert "merged long ago" not in text
 
 
@@ -315,8 +317,33 @@ def test_brief_facts_from_jira_and_pull_requests(client: TestClient, apis: FakeA
 
     result = client.portal.call(facts)
     assert (
-        "Waiting for your review: #318 feat: auth token refresh (acme/api) — checks failing"
+        "Review requested: #318 feat: auth token refresh (acme/api) — checks failing"
         in result["Pull requests"]
     )
     assert any("TRP-412" in line and "Highest" in line for line in result["Jira (assigned to you)"])
     assert json.dumps(result)
+
+
+@pytest.mark.parametrize(
+    ("fields", "yours", "label"),
+    [
+        ({"draft": True}, True, "Draft"),
+        ({"ci": "failure", "decision": "approved"}, True, "Fix CI"),
+        ({"decision": "changes_requested"}, True, "Address changes"),
+        ({"conflicts": True, "decision": "approved"}, True, "Resolve conflicts"),
+        ({"decision": "approved", "ci": "success"}, True, "Ready to merge"),
+        ({"decision": "approved", "ci": "pending"}, True, "CI running"),
+        ({}, True, "Waiting for review"),
+        ({}, False, "Review"),
+        ({"your_review": "outdated"}, False, "Re-review"),
+        ({"your_review": "approved"}, False, "You approved"),
+        ({"your_review": "reviewed"}, False, "Waiting on author"),
+    ],
+)
+def test_next_step(fields: dict[str, Any], yours: bool, label: str):
+    from myorb.plugins.code_review import next_step
+    from myorb.plugins.code_review.providers import PullRequest
+
+    pr = PullRequest("#1", "t", "r", "u", ci=None, draft=False, updated="")
+    pr = PullRequest(**{**pr.__dict__, **fields})
+    assert next_step(pr, yours).label == label

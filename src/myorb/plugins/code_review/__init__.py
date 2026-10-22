@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 from myorb.connections.providers import ConnectedAccount
@@ -24,17 +25,41 @@ ICON = (
     "M4 5a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 19a2 2 0 1 0 4 0a2 2 0 1 0-4 0M16 19a2 2 0 1 0 4 0"
     "a2 2 0 1 0-4 0M6 7v10M18 17V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"
 )
-CI_BADGES = {
-    "success": ("✓ Passed", "ok"),
-    "failure": ("✕ Failed", "fail"),
-    "pending": ("◌ Running", "info"),
-}
+CI_TEXT = {"success": "✓ CI", "failure": "✕ CI failing", "pending": "◌ CI running"}
 
 
-def ci_badge(pr: PullRequest) -> tuple[str, str]:
+@dataclass(frozen=True)
+class Step:
+    """What is expected next for a pull request, shown as its badge; rank sorts by urgency."""
+
+    label: str
+    tone: str
+    tag: str
+    rank: int
+
+
+def next_step(pr: PullRequest, yours: bool) -> Step:
     if pr.draft:
-        return "Draft", "neutral"
-    return CI_BADGES.get(pr.ci or "", ("", "neutral"))
+        return Step("Draft", "neutral", "draft", 9)
+    if yours:
+        if pr.ci == "failure":
+            return Step("Fix CI", "fail", "fix", 0)
+        if pr.decision == "changes_requested":
+            return Step("Address changes", "warn", "fix", 1)
+        if pr.conflicts:
+            return Step("Resolve conflicts", "warn", "fix", 2)
+        if pr.decision == "approved" and pr.ci != "pending":
+            return Step("Ready to merge", "ok", "ready", 5)
+        if pr.ci == "pending":
+            return Step("CI running", "info", "waiting", 6)
+        return Step("Waiting for review", "neutral", "waiting", 7)
+    if pr.your_review == "outdated":
+        return Step("Re-review", "warn", "todo", 3)
+    if pr.your_review == "approved":
+        return Step("You approved", "neutral", "done", 8)
+    if pr.your_review == "reviewed":
+        return Step("Waiting on author", "neutral", "done", 8)
+    return Step("Review", "info", "todo", 4)
 
 
 class CodeReviewPlugin(Plugin):
@@ -92,29 +117,42 @@ class CodeReviewPlugin(Plugin):
         if not any(r.data is not None for r in results):
             return WidgetData(value=None, **status)
         review, mine = self._merged(results)
-        failing = [pr for pr in [*review, *mine] if pr.ci == "failure"]
-        rows = []
-        for pr, yours in [*((pr, False) for pr in review), *((pr, True) for pr in mine)]:
-            badge, tone = ci_badge(pr)
-            tags = ("mine" if yours else "review",) + (("failing",) if pr.ci == "failure" else ())
-            rows.append(
-                Row(
-                    title=f"{pr.ref} {pr.title}",
-                    subtitle=("Yours · " if yours else "") + pr.repo,
-                    badge=badge,
-                    tone=tone,
-                    url=pr.url,
-                    tags=tags,
-                )
+        entries = [(pr, False, next_step(pr, False)) for pr in review]
+        entries += [(pr, True, next_step(pr, True)) for pr in mine]
+        # Waiting for your review first, then yours; within each, what is most urgent first.
+        entries.sort(key=lambda e: (e[1], e[2].rank))
+        rows = [
+            Row(
+                title=f"{pr.ref} {pr.title}",
+                subtitle=" · ".join(
+                    p
+                    for p in ("Yours" if yours else "", CI_TEXT.get(pr.ci or "", ""), pr.repo)
+                    if p
+                ),
+                badge=step.label,
+                tone=step.tone,
+                url=pr.url,
+                tags=("mine" if yours else "review", step.tag),
             )
+            for pr, yours, step in entries
+        ]
+        to_review = [e for e in entries if e[2].tag == "todo"]
+        to_fix = [e for e in entries if e[2].tag == "fix"]
+        ready = [e for e in entries if e[2].tag == "ready"]
+        failing = [pr for pr in [*review, *mine] if pr.ci == "failure"]
+        parts = [
+            f"{len(to_fix)} to fix" if to_fix else "",
+            f"{len(ready)} ready to merge" if ready else "",
+        ]
         return WidgetData(
-            value=len(review),
-            summary="waiting for your review" + (f" · {len(failing)} failing" if failing else ""),
-            attention=bool(failing),
+            value=len(to_review),
+            summary=" · ".join(["waiting for your review", *(p for p in parts if p)]),
+            attention=bool(to_fix or failing),
             stats=[
-                Stat(len(review), "To review", filter="review"),
-                Stat(len(failing), "CI failing", filter="failing"),
+                Stat(len(to_review), "To review", filter="todo"),
                 Stat(len(mine), "Yours open", filter="mine"),
+                Stat(len(to_fix), "Needs fixing", filter="fix"),
+                Stat(len(ready), "Ready to merge", filter="ready"),
             ],
             list_title="Waiting for your review, then yours",
             rows=rows,
@@ -126,15 +164,14 @@ class CodeReviewPlugin(Plugin):
         if not any(r.data is not None for r in results):
             return None
         review, mine = self._merged(results)
-        failing = " — checks failing"
-        lines = [
-            f"Waiting for your review: {pr.ref} {pr.title} ({pr.repo})"
-            + (failing if pr.ci == "failure" else "")
-            for pr in review
-        ]
-        lines += [
-            f"Your pull request with failing checks: {pr.ref} {pr.title} ({pr.repo})"
-            for pr in mine
-            if pr.ci == "failure"
-        ]
+        lines = []
+        for pr in review:
+            step = next_step(pr, False)
+            if step.tag == "todo":
+                failing = " — checks failing" if pr.ci == "failure" else ""
+                lines.append(f"{step.label} requested: {pr.ref} {pr.title} ({pr.repo}){failing}")
+        for pr in mine:
+            step = next_step(pr, True)
+            if step.tag in ("fix", "ready"):
+                lines.append(f"Your pull request — {step.label}: {pr.ref} {pr.title} ({pr.repo})")
         return BriefSection("Pull requests", lines or ["No pull requests are waiting for you."])

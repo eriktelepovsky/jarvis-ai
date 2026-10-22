@@ -877,7 +877,9 @@ a.ti:hover .t1 {
 
 .modal-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Three or four numbers side by side. */
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: 8px;
 }
 
