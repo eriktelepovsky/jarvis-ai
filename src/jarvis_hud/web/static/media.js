@@ -238,14 +238,46 @@
       playerVars,
       events: {
         onReady: (event) => {
-          event.target.setVolume(Math.round(prefs.volume * 100));
-          event.target.playVideo();
+          const player = event.target;
+          player.setVolume(Math.round(prefs.volume * 100));
+          // After a reload, continue where the music was (live streams just play live).
+          const at = prefs.youtubeAt?.key === key ? prefs.youtubeAt : null;
+          if (at && source.playlist) {
+            player.loadPlaylist({ list: source.playlist, listType: "playlist", index: at.index, startSeconds: at.time });
+          } else if (at) {
+            player.seekTo(at.time, true);
+          }
+          player.playVideo();
         },
       },
     });
   }
 
+  // Where the YouTube music is, saved every few seconds and when the page is left.
+  function saveYouTubePosition() {
+    const player = youtube.player;
+    if (!music?.youtube || !player?.getCurrentTime) return;
+    // Only while playing or paused: a player still waiting to start (e.g. blocked until the
+    // first click after a reload) is at 0 and would overwrite the saved position.
+    const state = player.getPlayerState?.();
+    if (state !== 1 && state !== 2) return;
+    if (player.getVideoData?.().isLive) {
+      prefs.youtubeAt = null;
+    } else {
+      prefs.youtubeAt = {
+        key: youtube.key,
+        time: Math.floor(player.getCurrentTime()),
+        index: Math.max(0, player.getPlaylistIndex?.() ?? 0),
+      };
+    }
+    savePrefs();
+  }
+
+  setInterval(saveYouTubePosition, 5000);
+  window.addEventListener("pagehide", saveYouTubePosition);
+
   function stopYouTube() {
+    saveYouTubePosition();
     youtube.player?.pauseVideo();
     document.querySelector(".music-player").hidden = true;
     music = null;
@@ -280,6 +312,8 @@
   let volumeOpen = false;
 
   async function toggleMusic() {
+    prefs.musicOn = !music;
+    savePrefs();
     if (music?.youtube) return stopYouTube();
     if (music) return stopMusic();
     const config = await loadMusicConfig();
@@ -323,7 +357,23 @@
     else if (music) music.master.gain.setTargetAtTime(prefs.volume * 0.5, music.ctx.currentTime, 0.1);
   });
 
-  document.addEventListener("DOMContentLoaded", () => loadMusicConfig());
+  // Music that was playing before a reload starts again. Browsers allow sound only after the
+  // user has interacted with the page, so if it is blocked, it starts with the first click or key.
+  async function resumeMusic() {
+    const config = await loadMusicConfig();
+    if (!prefs.musicOn || music) return;
+    if (config.source === "youtube" && (config.video || config.playlist)) startYouTube(config);
+    else startMusic();
+    render();
+    const unblock = () => {
+      if (music?.youtube) youtube.player?.playVideo?.();
+      else music?.ctx?.resume();
+    };
+    document.addEventListener("pointerdown", unblock, { once: true, capture: true });
+    document.addEventListener("keydown", unblock, { once: true, capture: true });
+  }
+
+  document.addEventListener("DOMContentLoaded", resumeMusic);
   // After moving to another page, the dock is the same element; show the page's state.
   document.addEventListener("htmx:load", () => render());
 

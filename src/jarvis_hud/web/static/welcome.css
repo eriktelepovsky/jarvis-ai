@@ -112,6 +112,18 @@ body:has(#welcome) {
   align-items: center;
 }
 
+.header-nav form,
+.header-line > span {
+  display: flex;
+}
+
+/* One line height for links, the Sign out button and the panels, so their text lines up. */
+.header-nav a,
+.header-nav button,
+.header-item {
+  line-height: 1;
+}
+
 .header-nav a,
 .header-nav button {
   padding: 0;
