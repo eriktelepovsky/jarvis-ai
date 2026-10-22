@@ -107,7 +107,8 @@ def test_connect_account(client: TestClient, fake_google: FakeGoogle):
     response = connect(client, fake_google)
     assert "The Google account was connected" in response.text
     assert EMAIL in response.text
-    assert response.text.count("Works") == 4
+    # Everything works: one badge, the details only when something does not.
+    assert "✓ Connected" in response.text and "Not working" not in response.text
 
     [connection] = rows(client, Connection)
     assert b"refresh-1" not in connection.credentials
@@ -156,7 +157,8 @@ def test_disabled_api_is_reported_with_link(client: TestClient, fake_google: Fak
     response = connect(client, fake_google)
     assert "The Gmail API is not enabled in your Google project" in response.text
     assert "https://console.cloud.google.com/apis/library/gmail.googleapis.com" in response.text
-    assert response.text.count("Works") == 3
+    assert "✕ 1 problem" in response.text
+    assert response.text.count("✕ Not working") == 1
 
 
 def test_missing_permission_is_reported(client: TestClient, fake_google: FakeGoogle):

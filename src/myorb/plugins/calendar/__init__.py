@@ -7,7 +7,6 @@ from urllib.parse import quote
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
     BriefSection,
-    Link,
     Panel,
     Plugin,
     Row,
@@ -16,6 +15,7 @@ from myorb.plugins.base import (
     Widget,
     WidgetContext,
     WidgetData,
+    open_buttons,
 )
 from myorb.plugins.google_data import AccountData, account_status, load_accounts
 
@@ -24,7 +24,6 @@ API_NAME = "Google Calendar API"
 SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
 DAYS_AHEAD = 7
 EVENTS_PER_CALENDAR = 25
-UPCOMING_SHOWN = 6
 ICON = "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"
 # Event types that are not meetings and would only clutter the list.
 HIDDEN_EVENT_TYPES = {"workingLocation"}
@@ -296,6 +295,7 @@ class CalendarPlugin(Plugin):
                 Stat(len(week), "Next 7 days"),
             ],
             list_title="Schedule",
+            # The rest of today and the week ahead, by calendar ("Povinnosti", "Slovenské mená").
             rows=[
                 Row(
                     title=event["title"],
@@ -303,10 +303,12 @@ class CalendarPlugin(Plugin):
                     badge=event_badge(event, now),
                     tone="info",
                     url=event["url"],
+                    group=event["calendar"] or event.get("account") or "Primary",
                 )
-                for event in [*remaining, *week][: UPCOMING_SHOWN + len(remaining)]
+                for event in [*remaining, *week]
             ],
-            action=Link("Open calendar", calendar_url(loaded[0].email)),
+            group_label="calendars",
+            **open_buttons("Open calendar", [(a.email, calendar_url(a.email)) for a in loaded]),
             **status,
         )
 

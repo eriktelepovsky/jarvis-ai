@@ -744,8 +744,12 @@ a.ti:hover .t1 {
 /* Every dialog has the same size, so the previous/next buttons stay in place when switching;
    long lists scroll inside the body. */
 .modal {
-  width: min(940px, calc(100% - 48px));
-  height: min(680px, calc(100vh - 48px));
+  /* All details dialogs share one size, so moving between them (← →) does not jump; tall
+     enough that most lists need no scrolling. */
+  --modal-height: min(1040px, calc(100vh - 64px));
+
+  width: min(1040px, calc(100% - 48px));
+  height: var(--modal-height);
   max-height: none;
   padding: 0;
   overflow: hidden;
@@ -857,9 +861,23 @@ a.ti:hover .t1 {
   .modal-body {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  /* One column on a phone: the summary scrolls away rather than covering the list. */
+  .modal-summary {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 .modal-summary {
+  /* Stays in view while the list next to it scrolls, so its numbers can filter the list. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  /* No taller than the dialog's body, so a long list of repositories scrolls on its own. */
+  max-height: calc(var(--modal-height) - 190px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -868,7 +886,9 @@ a.ti:hover .t1 {
 
 .modal-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Three or four numbers side by side. */
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: 8px;
 }
 
@@ -877,6 +897,81 @@ a.ti:hover .t1 {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+button.modal-stat {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.modal-stat:hover {
+  border-color: var(--line-accent);
+}
+
+button.modal-stat[aria-pressed="true"] {
+  background: rgb(79 209 232 / 8%);
+  border-color: var(--accent);
+}
+
+.modal-row[hidden] {
+  display: none;
+}
+
+.list-search {
+  width: 100%;
+  height: 34px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.list-empty {
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group-list > .label {
+  margin-bottom: 6px;
+}
+
+.group-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.group-item:hover {
+  background: rgb(255 255 255 / 3%);
+}
+
+.group-item[aria-pressed="true"] {
+  background: rgb(79 209 232 / 8%);
+  border-color: var(--line-accent);
+}
+
+.group-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .list-head {
@@ -1438,7 +1533,8 @@ button.row-btn {
   gap: 8px;
 }
 
-.icon-btn.brief-generate.htmx-request svg {
+.icon-btn.brief-generate.htmx-request svg,
+.refresh-btn.htmx-request svg {
   animation: spin 1s linear infinite;
 }
 

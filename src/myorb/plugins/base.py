@@ -42,6 +42,8 @@ class Link:
 class Stat:
     value: str | int
     label: str
+    # Clicking the number shows only the rows tagged with this (Row.tags); again shows all.
+    filter: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,10 @@ class Row:
     actions: list[Action] = field(default_factory=list)
     # The label of the `url` link. Links within myOrb ("/…") open in the same tab.
     url_label: str = "Open"
+    # What the row is, for the numbers that filter the list (Stat.filter), e.g. ("review",).
+    tags: tuple[str, ...] = ()
+    # Where it belongs, e.g. a Jira workspace or a repository; see WidgetData.group_label.
+    group: str = ""
 
 
 @dataclass(frozen=True)
@@ -98,6 +104,14 @@ class WidgetData:
     message_action: Link | None = None
     # False when the service behind the widget is not set up yet: the widget is not shown
     # around the orb until it is (problems with a set-up service are shown instead).
+    # Names the number around the orb instead of the widget's label, when what it shows
+    # varies, e.g. sleep or, without sleep data, kilometres run this week.
+    label: str | None = None
+    # Names the rows' groups (Row.group) in the plural, e.g. "workspaces": with more than one
+    # group, the list can be narrowed to one of them ("All workspaces", "archivis (64)", …).
+    group_label: str | None = None
+    # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".
+    links: list[Link] = field(default_factory=list)
     connected: bool = True
 
 
@@ -206,3 +220,13 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         """Return facts for the AI brief, or None when the plugin has nothing to add."""
         return None
+
+
+def open_buttons(label: str, places: list[tuple[str, str]]) -> dict[str, Any]:
+    """The WidgetData fields that open a service: one button, or one per account when there are
+    several ("Open archivis", "Open me@example.com"), so none of them is left out."""
+    if not places:
+        return {}
+    if len(places) == 1:
+        return {"action": Link(label, places[0][1])}
+    return {"links": [Link(f"Open {name}", url) for name, url in places]}

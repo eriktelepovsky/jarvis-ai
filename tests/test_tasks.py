@@ -188,6 +188,7 @@ def test_widget_shows_open_tasks_with_actions(client: TestClient):
     assert 'hx-post="/tasks/1/done"' in text
     assert 'hx-post="/tasks"' in text
     assert "All tasks" in text
+    assert '<span class="node-label">Tasks</span>' in text
     assert '<a class="row-btn" href="/tasks?edit=1">Edit</a>' in text
 
 
@@ -216,7 +217,14 @@ def test_command_line_adds_a_task(client: TestClient):
     assert 'id="command-input"' in client.get("/").text
     response = client.post("/command", data={"text": "Call <the> accountant tomorrow 10:00"})
     assert response.headers["HX-Trigger"] == "myorb:refresh"
-    assert "✓ Added to To-do" in response.text
+    assert "✓ Added to Tasks" in response.text
     assert "Call &lt;the&gt; accountant</span> · Tomorrow 10:00" in response.text
     assert "Call &lt;the&gt; accountant" in client.get("/tasks").text
     assert client.post("/command", data={"text": "  "}).status_code == 400
+
+
+def test_tasks_are_not_in_the_menu(client: TestClient):
+    page = client.get("/").text
+    assert '<span class="label strong">Tasks</span>' in page  # the side panel
+    assert 'class="label" href="/tasks"' not in page
+    assert "<h1>Tasks</h1>" in client.get("/tasks").text

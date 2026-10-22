@@ -23,14 +23,16 @@ from myorb.plugins.base import (
     Widget,
     WidgetContext,
     WidgetData,
+    open_buttons,
 )
 from myorb.plugins.connection_data import AccountResult, connected_status, load_connected
 
 ICON = "M4 4h16v16H4zM9 4v16M15 4v16M11 8h2M5.5 8h2"
 JQL = "assignee = currentUser() AND statusCategory != Done ORDER BY priority DESC, updated DESC"
 FIELDS = "summary,status,priority,duedate,updated"
-MAX_ISSUES = 50
-ROWS_SHOWN = 12
+# Issues read per workspace (in pages of PAGE); the details list all of them.
+MAX_ISSUES = 200
+PAGE = 100
 URGENT_PRIORITIES = {"Highest", "Blocker", "Critical"}
 
 
@@ -89,16 +91,26 @@ class Jira(Provider):
 
     async def issues(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Issue]:
         site = credentials["site"]
-        data = await request_json(
-            http,
-            "GET",
-            f"{site}/rest/api/3/search/jql",
-            "Jira",
-            auth=httpx2.BasicAuth(credentials["email"], credentials["token"]),
-            params={"jql": JQL, "fields": FIELDS, "maxResults": MAX_ISSUES},
-        )
+        items: list[dict[str, Any]] = []
+        token = None
+        while len(items) < MAX_ISSUES:
+            params = {"jql": JQL, "fields": FIELDS, "maxResults": PAGE}
+            if token:
+                params["nextPageToken"] = token
+            data = await request_json(
+                http,
+                "GET",
+                f"{site}/rest/api/3/search/jql",
+                "Jira",
+                auth=httpx2.BasicAuth(credentials["email"], credentials["token"]),
+                params=params,
+            )
+            items += data.get("issues", [])
+            token = data.get("nextPageToken")
+            if data.get("isLast", True) or not token:
+                break
         issues = []
-        for item in data.get("issues", []):
+        for item in items[:MAX_ISSUES]:
             fields = item.get("fields", {})
             status = fields.get("status") or {}
             due = fields.get("duedate")
@@ -172,7 +184,7 @@ class JiraPlugin(Plugin):
             issues, key=lambda i: (not is_overdue(i, today), i.category != "indeterminate")
         )
         rows = []
-        for issue in ordered[:ROWS_SHOWN]:
+        for issue in ordered:
             if is_overdue(issue, today):
                 badge, tone = f"▲ Due {issue.due:%-d %b}", "fail"
             else:
@@ -181,21 +193,45 @@ class JiraPlugin(Plugin):
             subtitle = " · ".join(
                 p for p in (issue.workspace if len(loaded) > 1 else "", issue.priority) if p
             )
-            rows.append(Row(f"{issue.key} {issue.summary}", subtitle, badge, tone, issue.url))
+            tags = tuple(
+                tag
+                for tag, applies in (
+                    ("overdue", is_overdue(issue, today)),
+                    ("progress", issue.category == "indeterminate"),
+                )
+                if applies
+            )
+            rows.append(
+                Row(
+                    f"{issue.key} {issue.summary}",
+                    subtitle,
+                    badge,
+                    tone,
+                    issue.url,
+                    tags=tags,
+                    group=issue.workspace,
+                )
+            )
         return WidgetData(
             value=len(issues),
             summary="assigned to you" + (f" · {len(overdue)} overdue" if overdue else ""),
             attention=bool(overdue or urgent),
             stats=[
                 Stat(len(issues), "Assigned"),
-                Stat(len(in_progress), "In progress"),
+                Stat(len(in_progress), "In progress", filter="progress"),
                 Stat(len(loaded), "Workspaces"),
             ],
             list_title="Assigned to you",
+            group_label="workspaces",
             rows=rows,
-            action=Link("Open Jira", f"{loaded[0].data[0].url.split('/browse/')[0]}/jira/your-work")
-            if loaded[0].data
-            else None,
+            **open_buttons(
+                "Open Jira",
+                [
+                    (r.data[0].workspace, f"{r.data[0].url.split('/browse/')[0]}/jira/your-work")
+                    for r in loaded
+                    if r.data
+                ],
+            ),
             **status,
         )
 

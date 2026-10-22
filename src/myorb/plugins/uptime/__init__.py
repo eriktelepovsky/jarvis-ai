@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from sqlalchemy import select
 
+from myorb.cache import refreshing
 from myorb.plugins.base import (
     BriefSection,
     Link,
@@ -109,6 +110,9 @@ class UptimePlugin(Plugin):
         return monitors, by_monitor
 
     async def _widget(self, context: WidgetContext) -> WidgetData:
+        if refreshing.get():
+            # Refresh: check every website now instead of waiting for the next minute.
+            await self.checker.check_all(context.sessionmaker, context.http)
         monitors, incidents = await self._state(context)
         if not monitors:
             return WidgetData(
@@ -124,6 +128,7 @@ class UptimePlugin(Plugin):
             m for m in monitors if m.tls_expires_at and _utc(m.tls_expires_at) - now < TLS_WARNING
         ]
         rows = []
+        grouped = any(m.group_name for m in monitors)
         for m in sorted(monitors, key=lambda m: (m.up is not False, m.name.lower())):
             open_incident = next((i for i in incidents.get(m.id, []) if i.ended_at is None), None)
             percent = uptime_percent(m, incidents.get(m.id, []), now)
@@ -142,7 +147,17 @@ class UptimePlugin(Plugin):
                 badge, tone = "✓ Up", "ok"
             else:
                 badge, tone = "◌ Checking", "info"
-            rows.append(Row(m.name, " · ".join(d for d in details if d), badge, tone, m.url))
+            rows.append(
+                Row(
+                    m.name,
+                    " · ".join(d for d in details if d),
+                    badge,
+                    tone,
+                    m.url,
+                    # The user's own groups; "No group" only once some monitors have one.
+                    group=m.group_name or ("No group" if grouped else ""),
+                )
+            )
         checked = [m.checked_at for m in monitors if m.checked_at]
         last_30 = sum(len(v) for v in incidents.values())
         average = sum(uptime_percent(m, incidents.get(m.id, []), now) for m in monitors) / len(
@@ -159,6 +174,7 @@ class UptimePlugin(Plugin):
                 Stat(f"{average:.2f}%", "30-day uptime"),
             ],
             list_title="Monitors",
+            group_label="groups",
             rows=rows,
             action=Link("Manage monitors", "/integrations/uptime"),
             source="myOrb checks every minute",

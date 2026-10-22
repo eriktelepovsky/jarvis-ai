@@ -202,7 +202,7 @@ def test_assistant_is_named_by_the_user(make_client: MakeClient):
     assert '<span class="core-name" style="--chars: 4">Iris</span>' in page
     assert "<title>Iris</title>" in page
     assert client.get("/manifest.webmanifest").json()["name"] == "Iris"
-    assert "<title>To-do · Iris</title>" in client.get("/tasks").text
+    assert "<title>Tasks · Iris</title>" in client.get("/tasks").text
 
     client.post("/settings/profile", data={"name": "Tony", "assistant": "  HAL   9000 "})
     assert '<span class="core-name" style="--chars: 8">HAL 9000</span>' in client.get("/").text

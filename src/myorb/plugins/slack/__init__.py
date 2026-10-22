@@ -31,7 +31,6 @@ from myorb.plugins.connection_data import AccountResult, connected_status, load_
 
 API = "https://slack.com/api"
 ICON = "M16 12a4 4 0 1 1-8 0a4 4 0 1 1 8 0M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"
-ROWS_SHOWN = 12
 MANIFEST = {
     "display_information": {
         "name": "myOrb",
@@ -227,9 +226,11 @@ class SlackPlugin(Plugin):
                     " · ".join(p for p in (team if several else "", m.channel, m.author) if p),
                     ago(m.sent, context.now),
                     url=m.url,
+                    group=team,
                 )
-                for team, m in mentions[:ROWS_SHOWN]
+                for team, m in mentions
             ],
+            group_label="workspaces",
             **status,
         )
 

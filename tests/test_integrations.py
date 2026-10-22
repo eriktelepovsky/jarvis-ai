@@ -92,6 +92,8 @@ GITHUB_MINE = {
     "title": "chore: bump Django",
     "url": "https://github.com/acme/api/pull/321",
     "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "SUCCESS"}}}]},
+    "reviewDecision": "APPROVED",
+    "mergeable": "MERGEABLE",
 }
 
 
@@ -161,11 +163,15 @@ def test_pull_requests_widget_from_github(client: TestClient, apis: FakeApis):
     github(apis)
     client.post("/integrations/github/connect", data={"token": "ghp_good"})
     text = client.get("/welcome/widgets").text
-    assert "waiting for your review · 1 failing" in text
+    assert "waiting for your review · 1 ready to merge" in text
     assert "#318 feat: auth token refresh" in text
-    assert "✕ Failed" in text and "✓ Passed" in text
-    assert "Yours · acme/api" in text
-    assert "node warn" in text
+    # Each pull request says what is expected next; CI is a detail under the title.
+    assert ">Review</span>" in text and ">Ready to merge</span>" in text
+    assert "✕ CI failing · acme/api" in text and "Yours · ✓ CI · acme/api" in text
+    # The numbers filter the list: rows are tagged by what they are.
+    for tag in ("todo", "mine", "fix", "ready"):
+        assert f'data-filter="{tag}"' in text
+    assert 'data-tags="review todo"' in text and 'data-tags="mine ready"' in text
 
 
 # GitLab
@@ -195,7 +201,7 @@ def test_gitlab_merge_requests(client: TestClient, apis: FakeApis):
     assert "pepper · gitlab.example.com" in response.text
     text = client.get("/welcome/widgets").text
     assert "!12 Fix pipeline" in text
-    assert "◌ Running" in text
+    assert "◌ CI running" in text
 
 
 # Bitbucket
@@ -222,9 +228,12 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     apis.routes[(host, "/2.0/workspaces/acme/pullrequests/{abc}")] = basic(*auth, {"values": []})
     apis.routes[(host, "/2.0/repositories/acme")] = basic(*auth, {"values": [{"slug": "infra"}]})
 
+    merged = {**pr, "id": 50, "title": "chore: merged long ago", "state": "MERGED"}
+
     def review(request: httpx2.Request) -> httpx2.Response:
-        assert 'reviewers.uuid="{abc}"' in request.url.params["q"]
-        return httpx2.Response(200, json={"values": [pr]})
+        # As Bitbucket does: with `q`, the `state` parameter is ignored and must be in `q`.
+        assert request.url.params["q"] == 'state="OPEN" AND reviewers.uuid="{abc}"'
+        return httpx2.Response(200, json={"values": [{**pr, "state": "OPEN"}, merged]})
 
     apis.routes[(host, "/2.0/repositories/acme/infra/pullrequests")] = review
     apis.routes[(host, "/2.0/repositories/acme/infra/pullrequests/54/statuses")] = basic(
@@ -235,7 +244,8 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     assert "Tony · acme" in response.text
     text = client.get("/welcome/widgets").text
     assert "#54 fix: redis healthcheck" in text
-    assert "✕ Failed" in text
+    assert "✕ CI failing" in text
+    assert "merged long ago" not in text
 
 
 # Jira
@@ -247,8 +257,14 @@ def jira_site(apis: FakeApis, name: str, issues: list[dict[str, Any]]) -> None:
     apis.routes[(host, "/rest/api/3/myself")] = basic(*auth, {"displayName": "Tony"})
 
     def search(request: httpx2.Request) -> httpx2.Response:
+        # Pages as Jira's /search/jql does: maxResults per page, then nextPageToken.
         assert "assignee = currentUser()" in request.url.params["jql"]
-        return httpx2.Response(200, json={"issues": issues})
+        start = int(request.url.params.get("nextPageToken", 0))
+        end = start + int(request.url.params["maxResults"])
+        page = {"issues": issues[start:end], "isLast": end >= len(issues)}
+        if end < len(issues):
+            page["nextPageToken"] = str(end)
+        return httpx2.Response(200, json=page)
 
     apis.routes[(host, "/rest/api/3/search/jql")] = search
 
@@ -277,6 +293,10 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     assert "dev" in connect_jira(client, "dev").text
     assert "support" in connect_jira(client, "support").text
     assert [c.account for c in connections(client)] == ["dev", "support"]
+    text = client.get("/welcome/widgets").text
+    assert '<span class="trunc">All workspaces</span><span class="group-count">3</span>' in text
+    assert 'data-group-value="dev"' in text and '<span class="group-count">2</span>' in text
+    assert 'data-group="support"' in text
 
     text = client.get("/welcome/widgets").text
     assert "assigned to you · 1 overdue" in text
@@ -284,6 +304,15 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     assert workspaces and workspaces.group(1) == "2"
     assert text.index("SUP-88") < text.index("TRP-412") < text.index("TRP-409")
     assert "https://support.atlassian.net/browse/SUP-88" in text
+
+
+def test_jira_lists_every_issue(client: TestClient, apis: FakeApis):
+    jira_site(apis, "acme", [issue(f"AC-{n}", "new") for n in range(1, 151)])
+    connect_jira(client, "acme")
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">150</span>' in text
+    assert "AC-150 Summary of AC-150" in text  # all of them, read over two pages
+    assert 'placeholder="Search 150 items…  ( / )"' in text
 
 
 def test_jira_rejects_non_https_address(client: TestClient):
@@ -307,8 +336,33 @@ def test_brief_facts_from_jira_and_pull_requests(client: TestClient, apis: FakeA
 
     result = client.portal.call(facts)
     assert (
-        "Waiting for your review: #318 feat: auth token refresh (acme/api) — checks failing"
+        "Review requested: #318 feat: auth token refresh (acme/api) — checks failing"
         in result["Pull requests"]
     )
     assert any("TRP-412" in line and "Highest" in line for line in result["Jira (assigned to you)"])
     assert json.dumps(result)
+
+
+@pytest.mark.parametrize(
+    ("fields", "yours", "label"),
+    [
+        ({"draft": True}, True, "Draft"),
+        ({"ci": "failure", "decision": "approved"}, True, "Fix CI"),
+        ({"decision": "changes_requested"}, True, "Address changes"),
+        ({"conflicts": True, "decision": "approved"}, True, "Resolve conflicts"),
+        ({"decision": "approved", "ci": "success"}, True, "Ready to merge"),
+        ({"decision": "approved", "ci": "pending"}, True, "CI running"),
+        ({}, True, "Waiting for review"),
+        ({}, False, "Review"),
+        ({"your_review": "outdated"}, False, "Re-review"),
+        ({"your_review": "approved"}, False, "You approved"),
+        ({"your_review": "reviewed"}, False, "Waiting on author"),
+    ],
+)
+def test_next_step(fields: dict[str, Any], yours: bool, label: str):
+    from myorb.plugins.code_review import next_step
+    from myorb.plugins.code_review.providers import PullRequest
+
+    pr = PullRequest("#1", "t", "r", "u", ci=None, draft=False, updated="")
+    pr = PullRequest(**{**pr.__dict__, **fields})
+    assert next_step(pr, yours).label == label

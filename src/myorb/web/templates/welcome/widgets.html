@@ -6,10 +6,10 @@
 <div class="place" style="--angle: {{ (360 / count * loop.index0) | round(2) }}deg">
   <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.size }}"
           data-open="detail-{{ item.key }}" data-sfx
-          aria-label="{{ data.value if data.value is not none else 'No data' }} {{ item.widget.label }}. Show details">
+          aria-label="{{ data.value if data.value is not none else 'No data' }} {{ data.label or item.widget.label }}. Show details">
     <svg class="node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ item.widget.icon }}"/></svg>
     <span class="node-value">{{ data.value if data.value is not none else "—" }}</span>
-    <span class="node-label">{{ item.widget.label }}</span>
+    <span class="node-label">{{ data.label or item.widget.label }}</span>
     {% if warn %}<span class="node-warn" aria-hidden="true">▲</span>{% endif %}
   </button>
 </div>
@@ -24,6 +24,7 @@
       <h2 id="detail-{{ item.key }}-title">{{ item.widget.title }}</h2>
       <span class="label">{% if data.updated_at %}<span style="color: var(--live)">●</span> {% endif %}{{ data.source }}{% if data.updated_at %} · {{ data.updated_at | ago }}{% endif %}</span>
     </div>
+    <button type="button" class="icon-btn refresh-btn" hx-post="/welcome/widgets/{{ item.plugin.id }}/{{ item.widget.id }}/refresh" hx-swap="none" hx-disabled-elt="this" hx-indicator="this" aria-label="Refresh" title="Load new data now"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
     <span class="label">{{ loop.index }} / {{ items | length }}</span>
     <button type="button" class="icon-btn" data-step="-1" aria-label="Previous"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
     <button type="button" class="icon-btn" data-step="1" aria-label="Next"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
@@ -35,7 +36,22 @@
       {% if data.stats %}
       <div class="modal-stats">
         {% for stat in data.stats %}
+        {% if stat.filter %}
+        <button type="button" class="modal-stat is-filter" data-filter="{{ stat.filter }}" aria-pressed="false" title="Show only these"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></button>
+        {% else %}
         <div class="modal-stat"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% set groups = data.rows | map(attribute="group") | select | list %}
+      {% if data.group_label and groups | unique | list | length > 1 %}
+      {# One button per workspace or repository: narrows the list next to it. #}
+      <div class="group-list" role="group" aria-label="Filter by {{ data.group_label }}">
+        <span class="label">{{ data.group_label }}</span>
+        <button type="button" class="group-item" data-group-value="" aria-pressed="true"><span class="trunc">All {{ data.group_label }}</span><span class="group-count">{{ data.rows | length }}</span></button>
+        {% for name in groups | unique | sort %}
+        <button type="button" class="group-item" data-group-value="{{ name }}" aria-pressed="false"><span class="trunc">{{ name }}</span><span class="group-count">{{ groups | select("equalto", name) | list | length }}</span></button>
         {% endfor %}
       </div>
       {% endif %}
@@ -55,9 +71,13 @@
         <button type="submit" class="btn btn-primary" aria-label="{{ data.input.label }}">Add</button>
       </form>
       {% endif %}
-      {% if data.list_title %}<div class="label list-head">{{ data.list_title }}</div>{% endif %}
+      {% if data.list_title %}<div class="label list-head" data-list-title="{{ data.list_title }}">{{ data.list_title }}</div>{% endif %}
+      {% if data.rows | length > 6 %}
+      <input class="input list-search" type="search" data-list-search placeholder="Search {{ data.rows | length }} items…  ( / )" aria-label="Search the list" autocomplete="off" spellcheck="false">
+      <p class="muted list-empty" data-list-empty hidden>Nothing matches.</p>
+      {% endif %}
       {% for row in data.rows %}
-      <div class="modal-row">
+      <div class="modal-row" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}">
         <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>
         {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
         <span class="row-actions">
@@ -72,6 +92,7 @@
   </div>
   <div class="modal-foot">
     {% if data.action %}<a class="btn btn-primary" href="{{ data.action.url }}"{% if not data.action.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ data.action.label }}</a>{% endif %}
+    {% for link in data.links %}<a class="btn{% if not data.action and loop.first %} btn-primary{% endif %}" href="{{ link.url }}"{% if not link.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endfor %}
     {% if data.message_action and data.value is none %}<a class="btn btn-primary" href="{{ data.message_action.url }}">{{ data.message_action.label }}</a>{% endif %}
     <span class="label" style="margin-left: auto">Esc closes · ← → switch</span>
   </div>

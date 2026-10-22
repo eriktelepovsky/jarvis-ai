@@ -9,24 +9,17 @@
   <div><div class="label">Integrations</div><h1>Uptime</h1></div>
 </div>
 
-<section class="panel panel-narrow" aria-labelledby="monitors-title">
-  <div class="panel-header"><h2 class="label" id="monitors-title">Monitors · checked every minute</h2></div>
-  {% for monitor in monitors %}
-  <div class="integration">
-    <span class="integration-logo" aria-hidden="true">{{ "✓" if monitor.up else ("✕" if monitor.up == false else "◌") }}</span>
-    <div style="min-width: 0">
-      <div class="integration-name"><strong>{{ monitor.name }}</strong></div>
-      <div class="mono muted trunc" style="font-size: 11.5px">{{ monitor.url }}{% if monitor.error %} · {{ monitor.error }}{% elif monitor.response_ms %} · {{ monitor.response_ms }} ms{% endif %}</div>
-    </div>
-    <form method="post" action="/integrations/uptime/{{ monitor.id }}/delete" class="actions"><button type="submit" class="btn btn-danger">Remove</button></form>
-  </div>
-  {% else %}
-  <div class="panel-section"><p class="muted" style="margin: 0">No websites are monitored yet.</p></div>
-  {% endfor %}
+<div class="uptime-layout">
+<section class="panel" aria-labelledby="add-title">
+  <div class="panel-header"><h2 class="label" id="add-title">Add a monitor</h2></div>
   <form method="post" action="/integrations/uptime" class="panel-section form">
     <div class="field">
       <label class="label" for="monitor-name">Name</label>
       <input class="input" id="monitor-name" name="name" value="{{ values.get('name', '') }}" placeholder="e.g. Production API" required>
+    </div>
+    <div class="field">
+      <label class="label" for="monitor-group">Group <span style="text-transform: none">(optional)</span></label>
+      <input class="input" id="monitor-group" name="group" value="{{ values.get('group', '') }}" list="monitor-groups" placeholder="e.g. a project or a customer" maxlength="60" autocomplete="off">
     </div>
     <div class="field">
       <label class="label" for="monitor-url">Address</label>
@@ -37,4 +30,44 @@
     <div class="actions"><button type="submit" class="btn btn-primary">Add monitor</button></div>
   </form>
 </section>
+
+<section class="panel" aria-labelledby="monitors-title">
+  <div class="panel-header"><h2 class="label" id="monitors-title">Monitors · checked every minute</h2></div>
+  {% for monitor in monitors %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">{{ "✓" if monitor.up else ("✕" if monitor.up == false else "◌") }}</span>
+    <div style="min-width: 0">
+      <div class="integration-name"><strong>{{ monitor.name }}</strong></div>
+      <div class="mono muted trunc" style="font-size: 11.5px">{{ monitor.url }}{% if monitor.error %} · {{ monitor.error }}{% elif monitor.response_ms %} · {{ monitor.response_ms }} ms{% endif %}</div>
+    </div>
+    <div class="actions">
+      {# Saved on its own when the field is left or Enter is pressed, without reloading the page,
+         so groups typed into several fields are all kept. #}
+      <form method="post" action="/integrations/uptime/{{ monitor.id }}/group" class="monitor-group"
+            hx-post="/integrations/uptime/{{ monitor.id }}/group" hx-trigger="change, submit" hx-swap="none"
+            hx-on::after-request="if (event.detail.successful) groupSaved(this)">
+        <label class="visually-hidden" for="group-{{ monitor.id }}">Group of {{ monitor.name }}</label>
+        <input class="input" id="group-{{ monitor.id }}" name="group" value="{{ monitor.group_name }}" list="monitor-groups" placeholder="No group" maxlength="60" autocomplete="off">
+        <span class="label saved-note" aria-live="polite">✓ Saved</span>
+      </form>
+      <form method="post" action="/integrations/uptime/{{ monitor.id }}/delete"><button type="submit" class="btn btn-danger">Remove</button></form>
+    </div>
+  </div>
+  {% else %}
+  <div class="panel-section"><p class="muted" style="margin: 0">No websites are monitored yet.</p></div>
+  {% endfor %}
+
+</section>
+</div>
+<script>
+  // After a group is saved: a short "✓ Saved", and a new group is offered in the other fields.
+  function groupSaved(form) {
+    form.classList.add("saved");
+    setTimeout(() => form.classList.remove("saved"), 1600);
+    const name = form.elements.group.value.trim().replace(/\s+/g, " ");
+    const list = document.getElementById("monitor-groups");
+    if (name && ![...list.options].some((option) => option.value === name)) list.append(new Option(name));
+  }
+</script>
+<datalist id="monitor-groups">{% for group in groups %}<option value="{{ group }}">{% endfor %}</datalist>
 {% endblock %}

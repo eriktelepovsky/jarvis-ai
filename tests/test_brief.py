@@ -192,12 +192,12 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert "Never invent" in request["system"]
     assert request["system"].startswith("You are Orb, a personal assistant.")
     facts = request["messages"][0]["content"]
-    assert "## To-do list" in facts
+    assert "## Tasks" in facts
     assert "Water plants" in facts
     assert "Write the brief in English." in facts
 
     [brief] = briefs(client)
-    assert brief.sources == ["To-do list"]
+    assert brief.sources == ["Tasks"]
     assert brief.content["priorities"][1]["tone"] == "neutral"
 
     headline = client.get("/brief/headline").text

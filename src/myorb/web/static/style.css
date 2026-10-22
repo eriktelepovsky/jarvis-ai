@@ -963,6 +963,34 @@ code,
   font-weight: 500;
 }
 
+/* Integrations: each service in its own panel, its connected accounts below it */
+
+.services-title {
+  margin: 8px 0 -4px;
+}
+
+.services {
+  display: grid;
+  gap: 12px;
+}
+
+.service .integration:first-child {
+  border-top: 0;
+}
+
+.account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 10px 18px 10px 72px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.account .capabilities {
+  grid-column: 1 / -1;
+}
+
 .capabilities {
   display: grid;
   gap: 6px;
@@ -1121,7 +1149,7 @@ code,
   background: var(--fail);
 }
 
-/* To-do page */
+/* Tasks page */
 
 .task-add {
   gap: var(--s-2);
@@ -1573,4 +1601,46 @@ code,
 .dock-controls [data-toggle="finder"] {
   width: 34px;
   padding: 0;
+}
+
+/* Uptime settings: a monitor's group, edited in the list */
+
+.monitor-group {
+  display: flex;
+  gap: 6px;
+}
+
+.monitor-group {
+  align-items: center;
+}
+
+.monitor-group .input {
+  width: 180px;
+  height: 34px;
+}
+
+.monitor-group .saved-note {
+  width: 64px;
+  color: var(--ok);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.monitor-group.saved .saved-note {
+  opacity: 1;
+}
+
+/* Uptime settings: adding a monitor on the left, the monitors on the right */
+
+.uptime-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .uptime-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

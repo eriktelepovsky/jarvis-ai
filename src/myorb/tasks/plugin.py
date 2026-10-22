@@ -31,10 +31,10 @@ class TasksPlugin(Plugin):
     position = 30
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="open", label="To-do", title="To-do", icon=ICON, load=self._widget)]
+        return [Widget(id="open", label="Tasks", title="Tasks", icon=ICON, load=self._widget)]
 
     def panels(self) -> list[Panel]:
-        return [Panel(id="today", title="To-do", template="today.html", load=self._today)]
+        return [Panel(id="today", title="Tasks", template="today.html", load=self._today)]
 
     async def _widget(self, context: WidgetContext) -> WidgetData:
         now = context.now
@@ -93,7 +93,7 @@ class TasksPlugin(Plugin):
         lines += [f"Due today {due_label(t, context.now)}: {t.title}" for t in groups.today]
         lines += [f"Upcoming ({due_label(t, context.now)}): {t.title}" for t in groups.upcoming[:5]]
         lines += [f"No due date: {t.title}" for t in groups.someday[:5]]
-        return BriefSection("To-do list", lines or ["No open tasks."])
+        return BriefSection("Tasks", lines or ["No open tasks."])
 
     async def _today(self, context: WidgetContext) -> dict[str, Any]:
         async with context.sessionmaker() as db:

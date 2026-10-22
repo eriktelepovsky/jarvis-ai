@@ -28,6 +28,13 @@ class PullRequest:
     ci: str | None
     draft: bool
     updated: str
+    # The reviews so far: "approved", "changes_requested" or None (no decision yet).
+    decision: str | None = None
+    # Whether it conflicts with its target branch; None when the host does not say.
+    conflicts: bool | None = None
+    # The user's own review of someone else's pull request: None (not reviewed), "approved",
+    # "reviewed" (commented or asked for changes) or "outdated" (new commits since).
+    your_review: str | None = None
 
 
 class CodeHost(Provider):
@@ -52,9 +59,10 @@ query($n: Int!) {
   }
 }
 fragment pr on PullRequest {
-  number title url isDraft updatedAt
+  number title url isDraft updatedAt reviewDecision mergeable
   repository { nameWithOwner }
-  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+  viewerLatestReview { state submittedAt }
+  commits(last: 1) { nodes { commit { committedDate statusCheckRollup { state } } } }
 }
 """
 
@@ -104,8 +112,17 @@ class GitHub(CodeHost):
 
         def convert(node: dict[str, Any]) -> PullRequest:
             commits = node.get("commits", {}).get("nodes") or [{}]
-            rollup = (commits[0].get("commit") or {}).get("statusCheckRollup") or {}
+            commit = commits[0].get("commit") or {}
+            rollup = commit.get("statusCheckRollup") or {}
             state = rollup.get("state")
+            mine = node.get("viewerLatestReview") or {}
+            your_review = None
+            if mine.get("state") == "APPROVED":
+                your_review = "approved"
+            elif mine.get("state"):
+                # Asked for changes or commented: outdated once new commits came after it.
+                newer = (commit.get("committedDate") or "") > (mine.get("submittedAt") or "")
+                your_review = "outdated" if newer else "reviewed"
             return PullRequest(
                 ref=f"#{node['number']}",
                 title=node["title"],
@@ -114,6 +131,11 @@ class GitHub(CodeHost):
                 ci=GITHUB_STATES.get(state, "pending" if state else None),
                 draft=node.get("isDraft", False),
                 updated=node.get("updatedAt", ""),
+                decision={"APPROVED": "approved", "CHANGES_REQUESTED": "changes_requested"}.get(
+                    node.get("reviewDecision") or ""
+                ),
+                conflicts={"CONFLICTING": True, "MERGEABLE": False}.get(node.get("mergeable")),
+                your_review=your_review,
             )
 
         return {
@@ -127,14 +149,16 @@ GITLAB_STATES = {"SUCCESS": "success", "FAILED": "failure", "CANCELED": "failure
 GITLAB_QUERY = """
 query($n: Int!) {
   currentUser {
+    username
     review: reviewRequestedMergeRequests(state: opened, first: $n) { nodes { ...mr } }
     mine: authoredMergeRequests(state: opened, first: $n) { nodes { ...mr } }
   }
 }
 fragment mr on MergeRequest {
-  iid title webUrl draft updatedAt
+  iid title webUrl draft updatedAt approved conflicts detailedMergeStatus
   project { fullPath }
   headPipeline { status }
+  reviewers { nodes { username mergeRequestInteraction { reviewState } } }
 }
 """
 
@@ -194,6 +218,17 @@ class GitLab(CodeHost):
 
         def convert(node: dict[str, Any]) -> PullRequest:
             status = (node.get("headPipeline") or {}).get("status")
+            reviewers = (node.get("reviewers") or {}).get("nodes") or []
+            mine = next((r for r in reviewers if r.get("username") == user.get("username")), {})
+            state = (mine.get("mergeRequestInteraction") or {}).get("reviewState")
+            decision = None
+            if node.get("detailedMergeStatus") == "REQUESTED_CHANGES" or any(
+                (r.get("mergeRequestInteraction") or {}).get("reviewState") == "REQUESTED_CHANGES"
+                for r in reviewers
+            ):
+                decision = "changes_requested"
+            elif node.get("approved"):
+                decision = "approved"
             return PullRequest(
                 ref=f"!{node['iid']}",
                 title=node["title"],
@@ -202,6 +237,14 @@ class GitLab(CodeHost):
                 ci=GITLAB_STATES.get(status, "pending" if status else None),
                 draft=node.get("draft", False),
                 updated=node.get("updatedAt", ""),
+                decision=decision,
+                conflicts=node.get("conflicts"),
+                # GitLab marks a review as unreviewed again when the author asks for one.
+                your_review={
+                    "APPROVED": "approved",
+                    "REVIEWED": "reviewed",
+                    "REQUESTED_CHANGES": "reviewed",
+                }.get(state or ""),
             )
 
         return {key: [convert(n) for n in user[key]["nodes"] if n] for key in ("review", "mine")}
@@ -283,15 +326,23 @@ class Bitbucket(CodeHost):
             *(
                 get(
                     f"{BITBUCKET_API}/repositories/{workspace}/{quote(repo['slug'])}/pullrequests",
-                    state="OPEN",
-                    q=f'reviewers.uuid="{uuid}"',
+                    # With `q`, Bitbucket ignores the `state` parameter: the state goes in `q`.
+                    q=f'state="OPEN" AND reviewers.uuid="{uuid}"',
                     pagelen=10,
                 )
                 for repo in repos.get("values", [])
             )
         )
-        review = [pr for page in review_pages for pr in page.get("values", [])][:ITEMS]
-        mine = mine_page.get("values", [])[:ITEMS]
+        # Only open pull requests, even if Bitbucket returns merged or declined ones.
+        review = [
+            pr
+            for page in review_pages
+            for pr in page.get("values", [])
+            if pr.get("state", "OPEN") == "OPEN"
+        ][:ITEMS]
+        mine = [pr for pr in mine_page.get("values", []) if pr.get("state", "OPEN") == "OPEN"][
+            :ITEMS
+        ]
 
         async def ci(pr: dict[str, Any]) -> str | None:
             url = pr.get("links", {}).get("statuses", {}).get("href")
@@ -304,15 +355,33 @@ class Bitbucket(CodeHost):
                 return "pending"
             return "success" if states else None
 
+        async def details(pr: dict[str, Any]) -> dict[str, Any]:
+            # The lists leave out the reviewers' decisions; the pull request itself has them.
+            url = pr.get("links", {}).get("self", {}).get("href")
+            return (await get(url)) if url else pr
+
         async def convert(pr: dict[str, Any]) -> PullRequest:
+            full, status = await asyncio.gather(details(pr), ci(pr))
+            participants = full.get("participants") or []
+            states = [p.get("state") for p in participants if p.get("role") == "REVIEWER"]
+            mine = next((p for p in participants if (p.get("user") or {}).get("uuid") == uuid), {})
+            decision = None
+            if "changes_requested" in states:
+                decision = "changes_requested"
+            elif states and all(state == "approved" for state in states):
+                decision = "approved"
             return PullRequest(
                 ref=f"#{pr['id']}",
                 title=pr["title"],
                 repo=pr.get("destination", {}).get("repository", {}).get("full_name", ""),
                 url=pr.get("links", {}).get("html", {}).get("href", ""),
-                ci=await ci(pr),
+                ci=status,
                 draft=pr.get("draft", False),
                 updated=pr.get("updated_on", ""),
+                decision=decision,
+                your_review={"approved": "approved", "changes_requested": "reviewed"}.get(
+                    mine.get("state") or ""
+                ),
             )
 
         return {

@@ -482,3 +482,15 @@ def test_node_size_follows_attention():
     assert node_size(1.3, WidgetData(value=0)) == 0.92  # empty, even for a heavy widget
     assert node_size(1.0, WidgetData(value=None, message="Failed", message_tone="fail")) == 1.25
     assert node_size(2.0, WidgetData(value=1, attention=True)) == 1.4  # capped
+
+
+def test_open_buttons_cover_every_account():
+    from myorb.plugins import Link, open_buttons
+
+    assert open_buttons("Open Jira", []) == {}
+    assert open_buttons("Open Jira", [("archivis", "https://a/")]) == {
+        "action": Link("Open Jira", "https://a/")
+    }
+    assert open_buttons("Open Jira", [("archivis", "https://a/"), ("swida", "https://s/")]) == {
+        "links": [Link("Open archivis", "https://a/"), Link("Open swida", "https://s/")]
+    }

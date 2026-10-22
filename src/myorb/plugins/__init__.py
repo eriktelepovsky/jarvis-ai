@@ -12,6 +12,7 @@ from myorb.plugins.base import (
     Widget,
     WidgetContext,
     WidgetData,
+    open_buttons,
 )
 from myorb.plugins.registry import ENTRY_POINT_GROUP, discover_plugins
 
@@ -31,4 +32,5 @@ __all__ = [
     "WidgetContext",
     "WidgetData",
     "discover_plugins",
+    "open_buttons",
 ]
