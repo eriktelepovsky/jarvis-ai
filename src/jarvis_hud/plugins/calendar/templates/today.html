@@ -1,0 +1,20 @@
+{% if not connected %}
+<p class="t2">Connect Google to see today's schedule. <a href="/integrations">Integrations</a></p>
+{% elif not loaded %}
+<p class="t2">The calendar could not be loaded. <a href="/integrations">Check the connection</a></p>
+{% elif not day.today %}
+<p class="t2">Nothing on the calendar today.</p>
+{% else %}
+<div>
+  {% for event in day.today %}
+  {% if event.kind == "now" %}
+  <div class="ti now"><span class="tt">{{ event.time | localtime("%H:%M") }}</span><span class="tx" aria-label="Now"></span></div>
+  {% else %}
+  <a class="ti{% if event.kind == 'past' %} past{% endif %}" href="{{ event.url }}" target="_blank" rel="noopener">
+    <span class="tt">{{ "All day" if event.all_day else event.start | localtime("%H:%M") }}</span>
+    <span class="tx"><span class="t1">{{ event.title }}</span>{% if event.sub %}<span class="t2">{{ event.sub }}</span>{% endif %}</span>
+  </a>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}

@@ -8,8 +8,8 @@ The smallest useful version for a daily morning routine.
 
 ### Platform
 
-- [ ] Web dashboard
-- [ ] Responsive layout and PWA, so the dashboard works on a phone
+- [x] Welcome screen: orb with numbers and details, today's schedule, clock, ambient music and interface sounds
+- [ ] Responsive layout and PWA, so Jarvis works on a phone
 - [x] Self-hosted deployment as a Docker image (VPS, NAS)
 - [x] Built-in login with password and passkeys
 - [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
@@ -57,6 +57,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [ ] **Slack:** unread messages and mentions
 - [ ] **GitHub:** pull requests waiting for your review, your open pull requests, issues and CI status
 - [ ] **Jira:** tasks assigned to you across multiple workspaces (e.g. development, support)
+- [ ] **Uptime:** incidents from monitored websites and services (own checks or Uptime Kuma, UptimeRobot, Better Stack)
 - [ ] **Focus time:** free blocks between meetings available for deep work
 - [ ] **Time tracking:** built-in time tracker, time worked today and this week (low priority)
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from jarvis_hud.connections.google import GoogleError
 from jarvis_hud.connections.google_accounts import GoogleAccount
-from jarvis_hud.plugins.base import WidgetContext
+from jarvis_hud.plugins.base import Link, WidgetContext
 
 
 @dataclass(frozen=True)
@@ -53,20 +53,23 @@ async def load_accounts(
     }
 
 
-def card_for(
-    accounts: list[AccountData], source: str, action: dict[str, str] | None
-) -> dict[str, Any]:
-    """Describe the card around a Google widget from the state of its accounts."""
+INTEGRATIONS = Link("Check the connection", "/integrations")
+
+
+def account_status(accounts: list[AccountData], source: str) -> dict[str, Any]:
+    """WidgetData fields describing the accounts' state: source, age and any problem."""
     if not accounts:
-        return {"state": "empty", "source": source}
+        return {
+            "source": source,
+            "message": "Google is not connected.",
+            "message_action": Link("Connect Google", "/integrations"),
+        }
     loaded = [account for account in accounts if account.data is not None]
-    if not loaded:
-        return {"state": "error", "source": source}
     times = [account.updated_at for account in loaded if account.updated_at]
-    stale = any(account.error for account in loaded)
-    return {
-        "state": "stale" if stale else None,
-        "updated_at": min(times) if times else None,
-        "source": source,
-        "action": action,
-    }
+    status: dict[str, Any] = {"source": source, "updated_at": min(times) if times else None}
+    if problem := next((account for account in accounts if account.error), None):
+        prefix = f"{problem.email}: " if len(accounts) > 1 else ""
+        status["message"] = prefix + problem.error
+        status["message_tone"] = "warn" if problem.data is not None else "fail"
+        status["message_action"] = INTEGRATIONS
+    return status

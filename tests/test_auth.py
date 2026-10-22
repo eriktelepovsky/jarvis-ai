@@ -110,7 +110,7 @@ def test_access_decision(request_: AccessRequest, decision: Decision):
     ("target", "expected"),
     [
         (None, "/"),
-        ("/widgets/core/today?x=1", "/widgets/core/today?x=1"),
+        ("/welcome/widgets?x=1", "/welcome/widgets?x=1"),
         ("https://evil.example", "/"),
         ("//evil.example", "/"),
         ("/\\evil.example", "/"),
@@ -182,11 +182,11 @@ def test_setup_signs_in_and_cannot_run_again(client: TestClient):
 
 def test_anonymous_requests_are_sent_to_login(client: TestClient):
     client.cookies.clear()
-    response = client.get("/widgets/core/today?x=1", follow_redirects=False)
+    response = client.get("/welcome/widgets?x=1", follow_redirects=False)
     assert response.status_code == 303
-    assert response.headers["location"] == "/login?next=/widgets/core/today%3Fx%3D1"
+    assert response.headers["location"] == "/login?next=/welcome/widgets%3Fx%3D1"
 
-    response = client.get("/widgets/core/today", headers={"HX-Request": "true"})
+    response = client.get("/welcome/widgets", headers={"HX-Request": "true"})
     assert response.status_code == 401
     assert response.headers["HX-Redirect"].startswith("/login")
 
@@ -199,7 +199,7 @@ def test_login_with_password(client: TestClient):
 
     response = client.post("/login", data={"password": PASSWORD, "next": "//evil.example"})
     assert response.url.path == "/"
-    assert "widget-core-today" in response.text
+    assert 'id="orb-widgets"' in response.text
 
 
 def test_login_is_throttled_after_repeated_failures(client: TestClient):

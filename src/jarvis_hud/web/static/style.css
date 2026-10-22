@@ -706,6 +706,16 @@ code,
   border-color: var(--ok-line);
 }
 
+.alert-info {
+  color: var(--text-body);
+  background: var(--accent-surface);
+  border-color: var(--info-line);
+}
+
+.alert-info .alert-tag {
+  color: var(--info);
+}
+
 .alert-warn {
   color: var(--warn);
   background: var(--warn-surface);
@@ -784,34 +794,34 @@ code,
   max-width: 400px;
 }
 
-.orb {
+.login-orb {
   position: relative;
   width: 112px;
   height: 112px;
 }
 
-.orb span {
+.login-orb span {
   position: absolute;
   border-style: solid;
   border-radius: 50%;
 }
 
 /* Rings turn at different speeds and directions; the core pulses. */
-.orb span:nth-child(1) {
+.login-orb span:nth-child(1) {
   inset: 0;
   border-width: 1px;
   border-color: var(--accent) var(--line-accent) var(--line-accent);
   animation: orb-spin 40s linear infinite;
 }
 
-.orb span:nth-child(2) {
+.login-orb span:nth-child(2) {
   inset: 8px;
   border-width: 2px;
   border-color: var(--accent) transparent;
   animation: orb-spin 6s linear infinite;
 }
 
-.orb span:nth-child(3) {
+.login-orb span:nth-child(3) {
   inset: 14px;
   border-width: 1px;
   border-color: transparent #f2b84b transparent transparent;
@@ -819,7 +829,7 @@ code,
   animation: orb-spin-reverse 9s linear infinite;
 }
 
-.orb span:nth-child(4) {
+.login-orb span:nth-child(4) {
   inset: 22px;
   border-width: 1px;
   border-style: dashed;
@@ -827,7 +837,7 @@ code,
   animation: orb-spin-reverse 18s linear infinite;
 }
 
-.orb span:nth-child(5) {
+.login-orb span:nth-child(5) {
   inset: 36px;
   border-width: 2px;
   border-color: var(--accent);
@@ -858,7 +868,7 @@ code,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .orb span {
+  .login-orb span {
     animation: none;
   }
 }

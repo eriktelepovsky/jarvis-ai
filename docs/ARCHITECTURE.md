@@ -4,11 +4,12 @@ This document describes how Jarvis is built and why. It covers the decisions mad
 
 ## Overview
 
-Jarvis is a single Python application that serves a web dashboard. Each data source is a plugin that contributes widgets. The browser loads the dashboard page, then fetches every widget separately, so a slow or failing integration never blocks the rest of the page.
+Jarvis is a single Python application that serves a web app. After signing in, the user sees the **welcome screen**: an animated orb with numbers around it (unread emails, today's events…), today's schedule in a side column and the next event in the header. Each data source is a plugin that contributes these numbers (widgets) and side or header sections (panels). The browser loads the page, then fetches the widgets and each panel separately, so a slow or failing integration never blocks the rest of the page.
 
 ```
-Browser ── GET / ───────────────────────────▶ dashboard page with empty widget slots
-        ── GET /widgets/<plugin>/<widget> ──▶ plugin loads data, renders its template
+Browser ── GET / ─────────────────────────▶ welcome screen with empty slots
+        ── GET /welcome/widgets ──────────▶ every widget's number and details dialog
+        ── GET /panels/<plugin>/<panel> ──▶ plugin loads data, renders its template
                                               (HTMX swaps the HTML into the slot)
 ```
 
@@ -20,7 +21,7 @@ Browser ── GET / ───────────────────�
 | Web server | Granian | Fast ASGI server written in Rust, with HTTP/2 and WebSockets (voice). It also handles `X-Forwarded-*` headers from trusted reverse proxies. |
 | Web framework | FastAPI | Async I/O for many parallel third-party API calls; built-in support for streaming responses (chat) and WebSockets (voice). |
 | Frontend | Server-rendered Jinja2 templates with HTMX | One codebase without a Node.js build. Plugins ship their widgets as plain templates. Small JavaScript islands are added only where needed (e.g. voice). |
-| Visual design | Dark HUD theme from the "Jarvis Dashboard Design" canvas in Claude Design | Tokens (colors, type, spacing, radii) are CSS custom properties in `web/static/style.css`; components never use raw colors. Fonts (IBM Plex Sans, JetBrains Mono, Barlow Condensed, OFL) are bundled, so the dashboard makes no requests to Google Fonts. |
+| Visual design | Dark HUD theme from the "Jarvis Dashboard Design" canvas in Claude Design | Tokens (colors, type, spacing, radii) are CSS custom properties in `web/static/style.css`; components never use raw colors. Fonts (IBM Plex Sans, JetBrains Mono, Barlow Condensed, Chakra Petch, OFL) are bundled, so Jarvis makes no requests to Google Fonts. The welcome screen's orb, clock, sounds and ambient music are one JavaScript file (`welcome.js`) without libraries; sounds and music are synthesized with Web Audio. |
 | Database | SQLite through SQLAlchemy 2 (async) and Alembic | A single file in the data volume: no extra container and trivial backups. SQLAlchemy keeps PostgreSQL possible later. |
 | Users | Single user per installation | Simpler data model, login and security. Each person runs their own Jarvis. |
 | Plugins | Python entry points (`jarvis_hud.plugins`) | Standard packaging mechanism: built-in and third-party plugins are installed with `pip` and registered the same way. |
@@ -41,32 +42,35 @@ src/jarvis_hud/
 ├── auth/             # Login: passwords, passkeys, sessions, access gate
 ├── migrations/       # Alembic database migrations
 ├── plugins/
-│   ├── base.py       # Plugin and Widget interfaces
+│   ├── base.py       # Plugin, Widget and Panel interfaces
 │   ├── registry.py   # Entry point discovery
-│   ├── core/         # Built-in plugin (greeting and date)
 │   ├── gmail/        # Unread and today's emails
 │   └── calendar/     # Today's and upcoming events
 └── web/
-    ├── routes.py     # Dashboard and widget endpoints
-    ├── templates/    # Base layout and dashboard
+    ├── routes.py     # Welcome screen, widget and panel endpoints
+    ├── templates/    # Layouts, welcome screen, settings pages
     └── static/       # CSS and vendored htmx
 ```
 
 ## Plugins
 
-A plugin subclasses `Plugin` and returns a list of `Widget`s. Each widget has a template (relative to the plugin's `templates_dir`) and an async `load(context)` function that returns the template context. The `WidgetContext` carries the current time in the user's time zone and the services a widget may use: the cache and the connected Google accounts. `position` orders plugins on the dashboard.
+A plugin subclasses `Plugin` and adds two kinds of content to the welcome screen:
+
+- **Widgets** are the numbers around the orb. `load(context)` returns structured `WidgetData`: the number, a summary, three stats, a list of rows (title, subtitle, badge, link) and the main action. Jarvis renders the node and its details dialog from it, so every widget looks the same and plugins ship no HTML. When there is no data, `value` is `None` and `message` explains why (not connected, failed, stale) with an action to fix it.
+- **Panels** are sections in the side column or the header line, rendered from the plugin's own template (relative to its `templates_dir`). The Calendar plugin uses them for today's schedule and the next event.
+
+The `WidgetContext` carries the current time in the user's time zone and the services a plugin may use: the cache and the connected Google accounts. `position` orders plugins on the screen and `weight` makes a widget's node bigger.
 
 ```python
 class WeatherPlugin(Plugin):
     id = "weather"
     name = "Weather"
-    templates_dir = Path(__file__).parent / "templates"
 
     def widgets(self) -> list[Widget]:
-        return [Widget(id="today", title="Weather", template="today.html", load=self.load_today)]
+        return [Widget(id="now", label="°C", title="Weather", icon="M3 12h18", load=self.load_now)]
 
-    async def load_today(self, context: WidgetContext) -> dict[str, Any]:
-        return {"temperature": 21}
+    async def load_now(self, context: WidgetContext) -> WidgetData:
+        return WidgetData(value=21, summary="°C · overcast", source="Open-Meteo")
 ```
 
 The plugin is registered in its package's `pyproject.toml`:
@@ -76,7 +80,7 @@ The plugin is registered in its package's `pyproject.toml`:
 weather = "jarvis_weather:WeatherPlugin"
 ```
 
-Plugin templates are available under the plugin id prefix (`weather/today.html`), so plugins cannot override each other's or the app's templates. A plugin that fails to load is logged and skipped.
+Panel templates are available under the plugin id prefix (`calendar/today.html`), so plugins cannot override each other's or the app's templates. A plugin that fails to load is logged and skipped.
 
 The interface will grow during the MVP with what the first real integrations need: connections (see below), background refresh and data for the AI brief.
 
@@ -93,9 +97,9 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 
 Users find out what to do in three places:
 
-1. **Onboarding** after the first login asks what the user wants on the dashboard (email, calendar, tasks…) and walks them through connecting it. It then becomes a **setup checklist**: each step's state (done, to do, blocked, skipped) is detected from the actual state of Jarvis, never ticked by hand, and links to the place where the step is completed.
+1. **Onboarding** after the first login asks what the user wants to see (email, calendar, tasks…) and walks them through connecting it. It then becomes a **setup checklist**: each step's state (done, to do, blocked, skipped) is detected from the actual state of Jarvis, never ticked by hand, and links to the place where the step is completed.
 2. **Integrations page** lists available integrations with a description, status per capability (see below), last sync and a **Connect** button.
-3. **Empty widgets** show a call to action (e.g. "Connect Gmail") that opens the setup wizard directly.
+3. **Widgets without data** show "—" around the orb, and their details explain why with a call to action (e.g. "Connect Google").
 
 Every setup wizard follows the same structure:
 
@@ -164,15 +168,15 @@ Data from integrations is cached with **stale-while-revalidate**:
 - Concurrent requests for the same data share one call to the provider (single flight).
 - Failed calls are not cached; the widget shows the error together with the last good data and its age.
 - Saving or changing a connection invalidates its cache.
-- Planned: caches are warmed at startup, and an in-process scheduler refreshes them in the background so the dashboard stays fast and API rate limits are respected.
+- Planned: caches are warmed at startup, and an in-process scheduler refreshes them in the background so the welcome screen stays fast and API rate limits are respected.
 
-The cache is `jarvis_hud/cache.py`, kept in memory. The Gmail widget uses a 1-minute freshness window and the Calendar widget 5 minutes. Google access tokens are cached until shortly before they expire, so a dashboard load costs no token refresh.
+The cache is `jarvis_hud/cache.py`, kept in memory. The Gmail widget uses a 1-minute freshness window and the Calendar widget 5 minutes. Google access tokens are cached until shortly before they expire, so loading the welcome screen costs no token refresh. The browser refreshes the widgets every 5 minutes, but not while a details dialog is open.
 
 Times are shown in the user's time zone: `JARVIS_TIMEZONE` (e.g. `Europe/Bratislava`), else the system time zone. Docker containers usually run in UTC, so set it there.
 
 ## AI and actions
 
-- **Morning brief:** rules first, AI second. Plugins rank their items with deterministic rules (e.g. a client or a real person ranks above a newsletter; items waiting for a reply carry over with the time they were first seen). Claude then writes the brief from this ranked list instead of from raw data, which makes the brief cheaper, faster and more predictable. The brief is generated on schedule and stored, so opening the dashboard does not call any API.
+- **Morning brief:** rules first, AI second. Plugins rank their items with deterministic rules (e.g. a client or a real person ranks above a newsletter; items waiting for a reply carry over with the time they were first seen). Claude then writes the brief from this ranked list instead of from raw data, which makes the brief cheaper, faster and more predictable. The brief is generated on schedule and stored, so opening Jarvis does not call any API.
 - **Chat context:** the chat receives a short summary of what is currently on screen, so questions like "what about this one?" work.
 - **Safe actions:** actions that change something outside Jarvis (send, create, pay) are disabled until the user enables them in settings. Every action needs explicit confirmation in the UI, and email replies are never sent directly: Jarvis creates a Gmail draft for the user to review and send.
 - **Testing without the API:** a stub AI provider returns deterministic responses and can trigger tools, so the brief, chat and actions are tested without calling Claude.

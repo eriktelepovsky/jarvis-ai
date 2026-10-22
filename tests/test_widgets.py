@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from jarvis_hud.cache import Cache
 from jarvis_hud.connections import google
 from jarvis_hud.plugins.calendar import CalendarPlugin, parse_event, today_and_upcoming
-from jarvis_hud.plugins.core import CorePlugin
 from jarvis_hud.plugins.gmail import GmailPlugin
 from jarvis_hud.timezone import resolve_timezone
 
@@ -91,7 +90,7 @@ def fake_google() -> FakeGoogle:
 
 @pytest.fixture
 def client(make_client: MakeClient, fake_google: FakeGoogle) -> TestClient:
-    plugins = {"core": CorePlugin(), "gmail": GmailPlugin(), "calendar": CalendarPlugin()}
+    plugins = {"gmail": GmailPlugin(), "calendar": CalendarPlugin()}
     client = make_client(transport=httpx2.MockTransport(fake_google), plugins=plugins)
     complete_setup(client)
     return client
@@ -108,88 +107,80 @@ def connect_google(client: TestClient, fake_google: FakeGoogle) -> None:
 # Widgets
 
 
-def test_dashboard_orders_widgets_by_plugin_position(client: TestClient):
-    text = client.get("/").text
-    assert text.index("widget-core-today") < text.index("widget-calendar-upcoming")
-    assert text.index("widget-calendar-upcoming") < text.index("widget-gmail-inbox")
+def test_widgets_are_ordered_by_plugin_position(client: TestClient):
+    text = client.get("/welcome/widgets").text
+    assert text.index('data-open="detail-gmail-inbox"') < text.index(
+        'data-open="detail-calendar-today"'
+    )
 
 
-@pytest.mark.parametrize("path", ["/widgets/gmail/inbox", "/widgets/calendar/upcoming"])
-def test_widgets_without_google_ask_to_connect(client: TestClient, path: str):
-    response = client.get(path)
-    assert "Connect Google" in response.text
-    assert 'class="num"' not in response.text
-    assert "is-empty" in response.text
+def test_widgets_without_google_ask_to_connect(client: TestClient):
+    text = client.get("/welcome/widgets").text
+    assert text.count('<span class="node-value">—</span>') == 2
+    assert text.count("Google is not connected.") == 2
+    assert "Connect Google" in text
+    assert "Connect a service to get started" in text
+    assert "Connect Google to see today" in client.get("/panels/calendar/today").text
 
 
 def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
-    text = client.get("/widgets/gmail/inbox").text
-    assert '<div class="num" style="font-size: 32px">7</div>' in text
-    assert '<div class="num" style="font-size: 32px">3</div>' in text
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">7</span>' in text
+    assert "unread · 3 new today" in text
     assert "Board meeting &lt;today&gt;" in text
     assert "Pepper Potts" in text
     assert "#inbox/t1" in text
-    assert "now" in text
     assert "Open inbox" in text
+    assert "Online · 2/2 sources" in text
+    assert "All systems nominal" in text
 
 
-def test_calendar_widget(client: TestClient, fake_google: FakeGoogle):
+def test_calendar_widget_and_panels(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
-    text = client.get("/widgets/calendar/upcoming").text
-    # 2099 is outside the 7-day window in reality, but the fake ignores the time range.
-    assert "Suit fitting" in text
-    assert "Holiday" in text
-    assert "Not selected" not in text
-    assert text.index("Holiday") < text.index("Suit fitting")
+    text = client.get("/welcome/widgets").text
+    # The fake returns events in 2099: none today, but they would be upcoming. Only the
+    # next 7 days are listed in the details.
+    assert '<span class="node-value">0</span>' in text
+    assert "Suit fitting" not in text
+    assert "Nothing on the calendar today." in client.get("/panels/calendar/today").text
+    assert "Suit fitting" in client.get("/panels/calendar/next").text
 
 
 def test_widget_data_is_cached(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
     calls: list[str] = []
     fake_google.routes[GMAIL] = lambda request: calls.append(request.url.path) or gmail_api(request)
-    client.get("/widgets/gmail/inbox")
+    client.get("/welcome/widgets")
     count = len(calls)
-    client.get("/widgets/gmail/inbox")
+    client.get("/welcome/widgets")
     assert len(calls) == count
-    # The access token is reused too: one refresh when connecting, one for the widget.
+    # The access token is reused too: one refresh when connecting, one for the widgets.
     assert fake_google.refreshes == 2
 
 
-def test_disabled_api_is_shown_in_widget(client: TestClient, fake_google: FakeGoogle):
+def test_disabled_api_is_shown(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
     fake_google.routes[GMAIL] = lambda request: httpx2.Response(
         403, json={"error": {"details": [{"reason": "SERVICE_DISABLED"}]}}
     )
-    text = client.get("/widgets/gmail/inbox").text
+    text = client.get("/welcome/widgets").text
     assert "The Gmail API is not enabled in your Google project." in text
     assert "Check the connection" in text
+    assert "1 source needs attention" in text
 
 
-def test_missing_permission_is_shown_in_widget(client: TestClient, fake_google: FakeGoogle):
+def test_missing_permission_is_shown(client: TestClient, fake_google: FakeGoogle):
     fake_google.granted_scopes = " ".join(google.BASE_SCOPES)
     connect_google(client, fake_google)
-    assert "no permission" in client.get("/widgets/calendar/upcoming").text
-
-
-def test_failing_widget_shows_error(client: TestClient):
-    class BrokenPlugin(CorePlugin):
-        id = "broken"
-
-        async def _load_today(self, context: Any) -> dict[str, Any]:
-            raise RuntimeError("boom")
-
-    client.app.state.plugins = {"broken": BrokenPlugin()}
-    response = client.get("/widgets/broken/today")
-    assert response.status_code == 200
-    assert "could not be loaded" in response.text
+    assert "no permission" in client.get("/welcome/widgets").text
 
 
 def test_disconnect_clears_cached_data(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
-    assert "7" in client.get("/widgets/gmail/inbox").text
+    assert '<span class="node-value">7</span>' in client.get("/welcome/widgets").text
     client.post("/integrations/google/1/disconnect")
-    assert "Connect Google" in client.get("/widgets/gmail/inbox").text
+    assert "Google is not connected." in client.get("/welcome/widgets").text
 
 
 # Calendar parsing

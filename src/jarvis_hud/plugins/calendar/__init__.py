@@ -5,15 +5,25 @@ from typing import Any
 from urllib.parse import quote
 
 from jarvis_hud.connections.google_accounts import GoogleAccount, GoogleAccounts
-from jarvis_hud.plugins.base import Plugin, Widget, WidgetContext
-from jarvis_hud.plugins.google_data import card_for, load_accounts
+from jarvis_hud.plugins.base import (
+    Link,
+    Panel,
+    Plugin,
+    Row,
+    Stat,
+    Widget,
+    WidgetContext,
+    WidgetData,
+)
+from jarvis_hud.plugins.google_data import AccountData, account_status, load_accounts
 
 API = "https://www.googleapis.com/calendar/v3"
 API_NAME = "Google Calendar API"
 SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
 DAYS_AHEAD = 7
 EVENTS_PER_CALENDAR = 25
-UPCOMING_SHOWN = 4
+UPCOMING_SHOWN = 6
+ICON = "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"
 # Event types that are not meetings and would only clutter the list.
 HIDDEN_EVENT_TYPES = {"workingLocation"}
 
@@ -87,12 +97,27 @@ def today_and_upcoming(events: list[dict[str, Any]], now: datetime) -> dict[str,
         today.append({**event, "kind": kind, "sub": describe(event)})
     if today and not marked and not all(e.get("all_day") for e in today):
         today.append({"kind": "now", "time": now})
-    upcoming = [e for e in events if e["start"] >= tomorrow][:UPCOMING_SHOWN]
+    upcoming = [e for e in events if e["start"] >= tomorrow]
     return {
         "today": today,
         "today_count": sum(1 for e in today if e["kind"] != "now"),
         "upcoming": upcoming,
     }
+
+
+def until(start: datetime, now: datetime) -> str:
+    """How long until an event starts, e.g. "in 1 h 18 m", or "now" when it has started."""
+    minutes = int((start - now).total_seconds() // 60)
+    if minutes <= 0:
+        return "now"
+    hours, rest = divmod(minutes, 60)
+    return "in " + (f"{hours} h " if hours else "") + f"{rest} m"
+
+
+def event_badge(event: dict[str, Any], now: datetime) -> str:
+    if event["start"].date() <= now.date():
+        return "All day" if event["all_day"] else event["start"].strftime("%H:%M")
+    return event["start"].strftime("%a" if event["all_day"] else "%a %H:%M")
 
 
 async def fetch_events(
@@ -143,21 +168,20 @@ class CalendarPlugin(Plugin):
     id = "calendar"
     name = "Calendar"
     templates_dir = Path(__file__).parent / "templates"
-    position = 10
+    position = 20
 
     def widgets(self) -> list[Widget]:
+        return [Widget(id="today", label="Events", title="Calendar", icon=ICON, load=self._widget)]
+
+    def panels(self) -> list[Panel]:
         return [
-            Widget(
-                id="upcoming",
-                title="Calendar",
-                template="upcoming.html",
-                load=self._load,
-                icon="calendar",
-                rows=2,
-            )
+            Panel(id="today", title="Today", template="today.html", load=self._today),
+            Panel(
+                id="next", title="Next", template="next.html", load=self._next, placement="header"
+            ),
         ]
 
-    async def _load(self, context: WidgetContext) -> dict[str, Any]:
+    async def _accounts(self, context: WidgetContext) -> list[AccountData]:
         async def fetch(account: GoogleAccount) -> dict[str, Any]:
             return await fetch_events(context.google, account, context.now)
 
@@ -169,16 +193,90 @@ class CalendarPlugin(Plugin):
             fresh=5 * 60,
             max_age=2 * 60 * 60,
         )
-        accounts = result["accounts"]
-        result["days"] = {
-            account.email: today_and_upcoming(account.data["events"], context.now)
-            for account in accounts
-            if account.data is not None
-        }
-        calendars = sum(account.data["calendars"] for account in accounts if account.data)
-        source = "Google Calendar" + (f" · {calendars} calendars" if calendars > 1 else "")
-        action = (
-            {"label": "Open calendar", "url": calendar_url(accounts[0].email)} if accounts else None
+        return result["accounts"]
+
+    @staticmethod
+    def _merged(accounts: list[AccountData], now: datetime) -> dict[str, Any]:
+        """Today's and upcoming events of all accounts together; ended events dropped."""
+        events = sorted(
+            (
+                e
+                for a in accounts
+                if a.data
+                for e in a.data["events"]
+                if e["end"] > now or e["start"].date() == now.date()
+            ),
+            key=lambda e: (
+                max(e["start"], now.replace(hour=0, minute=0)).date(),
+                not e["all_day"],
+                e["start"],
+            ),
         )
-        result["card"] = card_for(accounts, source, action)
-        return result
+        return today_and_upcoming(events, now)
+
+    async def _widget(self, context: WidgetContext) -> WidgetData:
+        accounts = await self._accounts(context)
+        status = account_status(accounts, "Google Calendar")
+        loaded = [account for account in accounts if account.data is not None]
+        if not loaded:
+            return WidgetData(value=None, **status)
+        now = context.now
+        day = self._merged(loaded, now)
+        remaining = [e for e in day["today"] if e["kind"] == "event"]
+        week = [e for e in day["upcoming"] if e["start"] < now + timedelta(days=DAYS_AHEAD)]
+        timed = [e for e in remaining if not e["all_day"] and e["start"] > now]
+        nxt = timed[0] if timed else None
+        return WidgetData(
+            value=day["today_count"],
+            summary="events today" + (f" · next {nxt['start']:%H:%M}" if nxt else ""),
+            stats=[
+                Stat(day["today_count"], "Today"),
+                Stat(f"{nxt['start']:%H:%M}" if nxt else "—", "Next"),
+                Stat(len(week), "Next 7 days"),
+            ],
+            list_title="Schedule",
+            rows=[
+                Row(
+                    title=event["title"],
+                    subtitle=describe(event),
+                    badge=event_badge(event, now),
+                    tone="info",
+                    url=event["url"],
+                )
+                for event in [*remaining, *week][: UPCOMING_SHOWN + len(remaining)]
+            ],
+            action=Link("Open calendar", calendar_url(loaded[0].email)),
+            **status,
+        )
+
+    async def _today(self, context: WidgetContext) -> dict[str, Any]:
+        accounts = await self._accounts(context)
+        loaded = [account for account in accounts if account.data is not None]
+        return {
+            "connected": bool(accounts),
+            "loaded": bool(loaded),
+            "day": self._merged(loaded, context.now) if loaded else None,
+        }
+
+    async def _next(self, context: WidgetContext) -> dict[str, Any]:
+        accounts = await self._accounts(context)
+        loaded = [account for account in accounts if account.data is not None]
+        if not loaded:
+            return {"event": None}
+        day = self._merged(loaded, context.now)
+        upcoming = [
+            e
+            for e in [*day["today"], *day["upcoming"]]
+            if e.get("kind") != "now" and not e["all_day"] and e["start"] > context.now
+        ]
+        event = upcoming[0] if upcoming else None
+        return {
+            "event": event,
+            "when": (
+                until(event["start"], context.now)
+                if event["start"].date() == context.now.date()
+                else event_badge(event, context.now)
+            )
+            if event
+            else None,
+        }

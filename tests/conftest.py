@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from jarvis_hud.app import create_app
 from jarvis_hud.config import Settings
 from jarvis_hud.plugins import Plugin
-from jarvis_hud.plugins.core import CorePlugin
 
 PASSWORD = "correct horse battery"
 ORIGIN = "http://testserver"
@@ -30,7 +29,7 @@ def make_client(tmp_path: Path) -> Iterator[MakeClient]:
         **kwargs,
     ) -> TestClient:
         settings = Settings(data_dir=tmp_path / "data")
-        plugins = {"core": CorePlugin()} if plugins is None else plugins
+        plugins = {} if plugins is None else plugins
         app = create_app(settings, plugins=plugins, http_transport=transport)
         client = TestClient(app, headers={"Origin": ORIGIN}, **kwargs)
         client.__enter__()

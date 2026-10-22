@@ -39,7 +39,6 @@ Issues = "https://github.com/eriktelepovsky/jarvis-hud/issues"
 jarvis = "jarvis_hud.cli:main"
 
 [project.entry-points."jarvis_hud.plugins"]
-core = "jarvis_hud.plugins.core:CorePlugin"
 calendar = "jarvis_hud.plugins.calendar:CalendarPlugin"
 gmail = "jarvis_hud.plugins.gmail:GmailPlugin"
 
