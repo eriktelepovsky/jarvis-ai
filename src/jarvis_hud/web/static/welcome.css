@@ -225,7 +225,8 @@ body:has(#welcome) {
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 340px);
   gap: 28px;
   align-items: center;
-  padding: 0 28px 6px;
+  /* As much room below as the header takes above, so the orb sits in the middle of the screen. */
+  padding: 0 28px 90px;
 }
 
 .side {
@@ -343,20 +344,21 @@ a.ti:hover .t1 {
 
 /* The orb */
 
+/* The orb is centered on its own; the greeting sits just above it without pushing it down. */
 .stage {
-  --d: clamp(320px, min(calc((100vh - 190px) * 0.9), calc(100vw - 780px)), 860px);
+  --d: clamp(320px, min(calc((100vh - 260px) * 0.9), calc(100vw - 780px)), 860px);
   --r: calc(var(--d) * 0.41);
   --n: calc(var(--d) * 0.15);
 
   display: flex;
   flex-direction: column;
-  gap: calc(var(--d) * 0.03);
   align-items: center;
+  position: relative;
   min-width: 0;
 }
 
 @media (max-width: 1279px) {
-  .stage { --d: min(calc((100vh - 190px) * 0.9), 88vw, 760px); }
+  .stage { --d: min(calc((100vh - 260px) * 0.9), 88vw, 760px); }
 }
 
 @media (max-width: 720px) {
@@ -369,6 +371,12 @@ a.ti:hover .t1 {
   .header-controls {
     flex-wrap: wrap;
     margin-left: 0;
+  }
+
+  /* On a phone there is little room: the greeting goes back in the flow above the orb. */
+  .greeting {
+    position: static;
+    margin-bottom: 12px;
   }
 
   /* On a phone the header stacks anyway; keep the chip in the flow so it cannot overlap. */
@@ -391,7 +399,10 @@ a.ti:hover .t1 {
   letter-spacing: 0.05em;
   color: var(--text);
   text-align: center;
-  transform: translateY(calc(var(--d) * -0.065));
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--d) * 0.02);
+  left: 0;
 }
 
 .greeting-name {
