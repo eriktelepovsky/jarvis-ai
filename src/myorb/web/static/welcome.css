@@ -1064,7 +1064,8 @@ a.row-btn:hover {
   margin-bottom: 14px;
 }
 
-.widget-input .input {
+.widget-input .input,
+.widget-input .btn {
   height: 40px;
   font-size: 14px;
 }

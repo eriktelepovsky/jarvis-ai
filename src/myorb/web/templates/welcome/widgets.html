@@ -101,7 +101,7 @@
   <div class="modal-foot">
     {% if data.action %}<a class="btn btn-primary" href="{{ data.action.url }}"{% if not data.action.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ data.action.label }}</a>{% endif %}
     {% for action in data.actions %}<button type="button" class="btn" hx-post="{{ action.url }}" hx-swap="none" hx-disabled-elt="this"{% if action.values %} hx-vals='{{ action.values | tojson }}'{% endif %}>{{ action.label }}</button>{% endfor %}
-    {% for link in data.links %}<a class="btn{% if not data.action and loop.first %} btn-primary{% endif %}" href="{{ link.url }}"{% if not link.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endfor %}
+    {% for link in data.links %}<a class="btn" href="{{ link.url }}"{% if not link.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ link.label }}</a>{% endfor %}
     {% if data.message_action and data.value is none %}<a class="btn btn-primary" href="{{ data.message_action.url }}">{{ data.message_action.label }}</a>{% endif %}
     <span class="label" style="margin-left: auto">Esc closes · ← → switch</span>
   </div>
