@@ -744,8 +744,12 @@ a.ti:hover .t1 {
 /* Every dialog has the same size, so the previous/next buttons stay in place when switching;
    long lists scroll inside the body. */
 .modal {
-  width: min(940px, calc(100% - 48px));
-  height: min(680px, calc(100vh - 48px));
+  /* All details dialogs share one size, so moving between them (← →) does not jump; tall
+     enough that most lists need no scrolling. */
+  --modal-height: min(1040px, calc(100vh - 64px));
+
+  width: min(1040px, calc(100% - 48px));
+  height: var(--modal-height);
   max-height: none;
   padding: 0;
   overflow: hidden;
@@ -872,7 +876,7 @@ a.ti:hover .t1 {
   top: 0;
   align-self: start;
   /* No taller than the dialog's body, so a long list of repositories scrolls on its own. */
-  max-height: calc(min(680px, 100vh - 48px) - 190px);
+  max-height: calc(var(--modal-height) - 190px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
