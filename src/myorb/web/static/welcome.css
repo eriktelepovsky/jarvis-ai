@@ -1632,3 +1632,9 @@ dialog.is-refreshing .modal-head::after {
 .modal-head {
   position: relative;
 }
+
+/* A group with nothing left after the other filters */
+
+.group-item.is-empty {
+  opacity: 0.45;
+}
