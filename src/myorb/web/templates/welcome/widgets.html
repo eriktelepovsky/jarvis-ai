@@ -71,6 +71,10 @@
       </form>
       {% endif %}
       {% if data.list_title %}<div class="label list-head" data-list-title="{{ data.list_title }}">{{ data.list_title }}</div>{% endif %}
+      {% if data.rows | length > 6 %}
+      <input class="input list-search" type="search" data-list-search placeholder="Search {{ data.rows | length }} items…  ( / )" aria-label="Search the list" autocomplete="off" spellcheck="false">
+      <p class="muted list-empty" data-list-empty hidden>Nothing matches.</p>
+      {% endif %}
       {% for row in data.rows %}
       <div class="modal-row" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}">
         <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>

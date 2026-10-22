@@ -24,6 +24,8 @@ from myorb.plugins.health.models import HealthDay
 
 ICON = "M3 12h4l2-5 4 10 2-5h6"
 SETUP = Link("Set up health", "/integrations/health")
+# Strava activities listed in the details; "km this week" counts the last 7 days of them.
+HISTORY_DAYS = 30
 
 
 def sleep_text(minutes: int | None) -> str:
@@ -63,7 +65,7 @@ class HealthPlugin(Plugin):
     async def _activities(
         self, context: WidgetContext
     ) -> tuple[list[strava.Activity], str | None, bool]:
-        """Strava activities of the last 7 days, an error, and whether Strava is connected."""
+        """Strava activities of the last HISTORY_DAYS, an error, and whether Strava is connected."""
         accounts = await context.connections.list(strava.PROVIDER)
         if not accounts:
             return [], None, False
@@ -76,11 +78,12 @@ class HealthPlugin(Plugin):
             token, updated = await strava.access_token(context.http, client, account.credentials)
             if updated:
                 await context.connections.update_credentials(account.id, updated)
-            return await strava.activities(context.http, token, context.now - timedelta(days=7))
+            since = context.now - timedelta(days=HISTORY_DAYS)
+            return await strava.activities(context.http, token, since)
 
         try:
             cached = await context.cache.get(
-                f"strava:{account.id}:week", fetch, 15 * 60, 6 * 60 * 60
+                f"strava:{account.id}:history", fetch, 15 * 60, 6 * 60 * 60
             )
         except ProviderError as error:
             return [], str(error), True
@@ -102,7 +105,8 @@ class HealthPlugin(Plugin):
             )
         sleep = latest.sleep_minutes if latest and latest.day == today else None
         steps = next((d.steps for d in days if d.day == today and d.steps is not None), None)
-        week_km = sum(a.distance_km for a in activities)
+        week_ago = context.now - timedelta(days=7)
+        week_km = round(sum(a.distance_km for a in activities if a.start >= week_ago), 1)
         rows = [
             Row(
                 a.name,
@@ -160,8 +164,8 @@ class HealthPlugin(Plugin):
                 Stat(f"{steps:,}" if steps is not None else "—", "Steps today"),
                 Stat(f"{week_km:g} km" if strava_connected else "—", "Week · Strava"),
             ],
-            list_title="Last 7 days",
-            rows=rows[:14],
+            list_title=f"Last {HISTORY_DAYS} days",
+            rows=rows,
             action=Link("Open Strava", "https://www.strava.com/dashboard")
             if strava_connected
             else None,
@@ -183,5 +187,6 @@ class HealthPlugin(Plugin):
             f"Strava {a.start.astimezone(context.now.tzinfo):%A}: {a.name} "
             f"({a.sport}, {a.distance_km:g} km, {a.moving_minutes} min)"
             for a in activities
+            if a.start >= context.now - timedelta(days=7)
         ]
         return BriefSection("Health", lines) if lines else None

@@ -20,7 +20,11 @@ from myorb.plugins.google_data import account_status, load_accounts
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 API_NAME = "Gmail API"
 SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
-UNREAD_SHOWN = 6
+# Unread emails listed in the details (with search); the brief gets the newest BRIEF_UNREAD.
+UNREAD_SHOWN = 100
+BRIEF_UNREAD = 15
+# Message headers are read this many at a time, to stay within Gmail's rate limits.
+PARALLEL = 10
 # Counting today's emails stops here; more is shown as "500+".
 TODAY_LIMIT = 500
 ICON = "M3 6h18v12H3zM3 7l9 6 9-6"
@@ -65,17 +69,18 @@ async def fetch_inbox(
             {"q": "in:inbox is:unread", "maxResults": UNREAD_SHOWN},
         ),
     )
-    messages = await asyncio.gather(
-        *(
-            google.get_json(
+    limit = asyncio.Semaphore(PARALLEL)
+
+    async def headers(message_id: str) -> dict[str, Any]:
+        async with limit:
+            return await google.get_json(
                 account,
-                f"{API}/messages/{message['id']}",
+                f"{API}/messages/{message_id}",
                 API_NAME,
                 {"format": "metadata", "metadataHeaders": ["From", "Subject"]},
             )
-            for message in unread.get("messages", [])
-        )
-    )
+
+    messages = await asyncio.gather(*(headers(m["id"]) for m in unread.get("messages", [])))
     return {
         "unread": inbox.get("threadsUnread", 0),
         "total": inbox.get("threadsTotal", 0),
@@ -126,7 +131,7 @@ class GmailPlugin(Plugin):
             f"{sum(a.data['today'] for a in loaded)} emails received today."
         ]
         for account in loaded:
-            for message in account.data["latest_unread"]:
+            for message in account.data["latest_unread"][:BRIEF_UNREAD]:
                 received = received_badge(message["received"], context.now)
                 lines.append(f"Unread from {message['sender']}: {message['subject']} ({received})")
         return BriefSection("Email (Gmail)", lines)
@@ -165,9 +170,11 @@ class GmailPlugin(Plugin):
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=message["url"],
+                    group=email,
                 )
                 for email, message in messages
             ],
+            group_label="accounts",
             **open_buttons("Open inbox", [(a.email, a.data["url"]) for a in loaded]),
             **status,
         )

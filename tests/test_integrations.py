@@ -312,6 +312,7 @@ def test_jira_lists_every_issue(client: TestClient, apis: FakeApis):
     text = client.get("/welcome/widgets").text
     assert '<span class="node-value">150</span>' in text
     assert "AC-150 Summary of AC-150" in text  # all of them, read over two pages
+    assert 'placeholder="Search 150 items…  ( / )"' in text
 
 
 def test_jira_rejects_non_https_address(client: TestClient):

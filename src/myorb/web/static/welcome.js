@@ -207,13 +207,23 @@
 
   // A number in the details filters the list next to it; clicking it again shows everything.
   // ...and the list can be narrowed to one group (a Jira workspace, a repository); both apply.
+  // Lower case without diacritics, so "zaznam" finds "Záznam".
+  const fold = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
   function applyFilters(dialog) {
     const pressed = dialog.querySelector('[data-filter][aria-pressed="true"]');
     const group = dialog.querySelector('[data-group-value][aria-pressed="true"]')?.dataset.groupValue || "";
+    const words = fold(dialog.querySelector("[data-list-search]")?.value || "").split(/\s+/).filter(Boolean);
+    let shown = 0;
     dialog.querySelectorAll(".modal-row").forEach((row) => {
       const tagged = !pressed || row.dataset.tags.split(" ").includes(pressed.dataset.filter);
-      row.hidden = !tagged || (group && row.dataset.group !== group);
+      row.dataset.text ??= fold(row.textContent);
+      const found = words.every((word) => row.dataset.text.includes(word));
+      row.hidden = !tagged || (group && row.dataset.group !== group) || !found;
+      if (!row.hidden) shown += 1;
     });
+    const empty = dialog.querySelector("[data-list-empty]");
+    if (empty) empty.hidden = shown > 0;
     const head = dialog.querySelector("[data-list-title]");
     if (head) {
       const label = pressed?.querySelector(".label").textContent;
@@ -228,6 +238,10 @@
     button.setAttribute("aria-pressed", String(active));
     applyFilters(dialog);
   }
+
+  document.addEventListener("input", (event) => {
+    if (event.target.matches("[data-list-search]")) applyFilters(event.target.closest("dialog"));
+  });
 
   function filterGroup(button) {
     const dialog = button.closest("dialog");
@@ -276,11 +290,12 @@
     }
   });
 
-  // "/" jumps to the command line, as in many apps.
+  // "/" jumps to the command line, as in many apps; in open details, to the list's search.
   document.addEventListener("keydown", (event) => {
     if (event.key !== "/" || event.target.closest?.("input, textarea, select, [contenteditable]")) return;
-    const input = document.getElementById("command-input");
-    if (!input || document.querySelector("dialog[open]")) return;
+    const dialog = document.querySelector("dialog[data-detail][open]");
+    const input = dialog ? dialog.querySelector("[data-list-search]") : document.getElementById("command-input");
+    if (!input || (!dialog && document.querySelector("dialog[open]"))) return;
     event.preventDefault();
     input.focus();
   });
