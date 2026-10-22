@@ -3,13 +3,15 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import tzinfo
 from pathlib import Path
+from typing import Any
 
 import httpx2
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from granian.utils.proxies import wrap_asgi_with_proxy_headers
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
+from starlette.responses import Response
 
 from jarvis_hud import __version__, music, profile, voice
 from jarvis_hud.auth import passkeys
@@ -28,6 +30,7 @@ from jarvis_hud.crypto import SecretBox, load_secret_key
 from jarvis_hud.db import create_engine, create_sessionmaker, run_migrations
 from jarvis_hud.plugins import Plugin, discover_plugins
 from jarvis_hud.plugins.install import add_to_path, plugins_dir
+from jarvis_hud.profile import DEFAULT_ASSISTANT, load_profile
 from jarvis_hud.tasks import routes as task_routes
 from jarvis_hud.templating import register_filters
 from jarvis_hud.timezone import resolve_timezone
@@ -36,6 +39,18 @@ from jarvis_hud.web.routes import app_context, router
 WEB_DIR = Path(__file__).parent / "web"
 
 logger = logging.getLogger(__name__)
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files the browser asks about every time (a quick 304 when unchanged).
+
+    Without Cache-Control, browsers keep CSS and JS by their own estimate and miss updates.
+    """
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Templates:
@@ -53,7 +68,12 @@ def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Temp
     )
     env.globals["version"] = __version__
     register_filters(env, timezone)
-    return Jinja2Templates(env=env)
+
+    def assistant(request: Request) -> dict[str, str]:
+        # The assistant's name, chosen by the user; loaded at startup, updated when saved.
+        return {"assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT)}
+
+    return Jinja2Templates(env=env, context_processors=[assistant])
 
 
 def create_app(
@@ -93,6 +113,7 @@ def create_app(
         ]
         async with app.state.sessionmaker() as db:
             app.state.auth = await load_auth_state(db)
+            app.state.assistant = (await load_profile(db, app.state.secret_box))["assistant"]
         if not app.state.auth.password_set:
             setup_url = f"{(settings.public_url or '').rstrip('/')}/setup"
             logger.warning(
@@ -115,7 +136,7 @@ def create_app(
     app.state.cache = Cache()
     app.state.templates = create_templates(plugins, app.state.timezone)
     app.middleware("http")(auth_middleware)
-    app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
+    app.mount("/static", RevalidatedStaticFiles(directory=WEB_DIR / "static"), name="static")
     app.include_router(auth_routes.router)
     app.include_router(passkeys.router)
     app.include_router(connection_routes.router)

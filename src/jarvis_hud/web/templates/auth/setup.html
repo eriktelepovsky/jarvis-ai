@@ -9,6 +9,10 @@
 <form method="post" action="/setup" class="form">
   <input type="hidden" name="token" value="{{ token }}">
   <div class="field">
+    <label class="label" for="assistant">Name your assistant</label>
+    <input class="input" id="assistant" name="assistant" maxlength="40" value="J.A.R.V.I.S." placeholder="e.g. J.A.R.V.I.S., Iris, HAL 9000" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="field">
     <label class="label" for="name">Your name <span style="text-transform: none">(optional, for the greeting)</span></label>
     <input class="input" id="name" name="name" autocomplete="given-name" maxlength="40">
   </div>

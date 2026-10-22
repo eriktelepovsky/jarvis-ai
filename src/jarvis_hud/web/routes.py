@@ -13,7 +13,7 @@ from jarvis_hud import __version__
 from jarvis_hud.db import get_db
 from jarvis_hud.overview import snapshots
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
-from jarvis_hud.profile import user_name
+from jarvis_hud.profile import DEFAULT_ASSISTANT, user_name
 
 router = APIRouter()
 
@@ -57,13 +57,15 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 
 @router.get("/manifest.webmanifest")
-async def manifest() -> JSONResponse:
-    """Web app manifest: lets phones and desktops install Jarvis as an app."""
+async def manifest(request: Request) -> JSONResponse:
+    """Web app manifest: lets phones and desktops install Jarvis as an app, by the assistant's
+    name (the manifest is public, like the name on the sign-in page)."""
     icons = "/static/icons"
+    name = getattr(request.app.state, "assistant", DEFAULT_ASSISTANT)
     return JSONResponse(
         {
-            "name": "Jarvis",
-            "short_name": "Jarvis",
+            "name": name,
+            "short_name": name[:12],
             "description": "Personal AI daily briefing dashboard",
             "start_url": "/",
             "scope": "/",

@@ -51,8 +51,8 @@ READ_LANGUAGES = {
 }
 TRANSLATION_MODEL = "claude-haiku-5-5"
 
-SYSTEM = """You are Jarvis, a personal assistant. You write the user's daily brief: a short report \
-they read on their dashboard to know what their day holds and what needs them first.
+SYSTEM = """You are {assistant}, a personal assistant. You write the user's daily brief: a short \
+report they read on their dashboard to know what their day holds and what needs them first.
 
 Work only with the facts you are given. Never invent meetings, people, numbers or deadlines; if \
 something is unknown, leave it out. Decide what matters: people waiting for a reply, meetings \
@@ -143,6 +143,7 @@ async def write_brief(
     now: datetime,
     language: str,
     model: str = DEFAULT_MODEL,
+    assistant: str = "Jarvis",
 ) -> Written:
     settings = MODELS.get(model, MODELS[DEFAULT_MODEL])
     # On a safety decline the API retries on the model Anthropic recommends.
@@ -160,7 +161,8 @@ async def write_brief(
                 "effort": settings.effort,
                 "format": {"type": "json_schema", "schema": SCHEMA},
             },
-            system=SYSTEM,
+            # The name the user gave the assistant; replace, as the prompt has no other fields.
+            system=SYSTEM.replace("{assistant}", assistant),
             messages=[{"role": "user", "content": facts_prompt(sections, now, language)}],
         )
     except anthropic.AuthenticationError as error:

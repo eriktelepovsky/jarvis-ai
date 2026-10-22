@@ -190,6 +190,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert request["output_config"]["format"]["type"] == "json_schema"
     assert request["output_config"]["effort"] == "medium"
     assert "Never invent" in request["system"]
+    assert request["system"].startswith("You are J.A.R.V.I.S., a personal assistant.")
     facts = request["messages"][0]["content"]
     assert "## To-do list" in facts
     assert "Water plants" in facts
