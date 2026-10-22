@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from granian.utils.proxies import wrap_asgi_with_proxy_headers
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
 
 from jarvis_hud import __version__
@@ -73,4 +74,17 @@ def create_app(
     app.include_router(auth_routes.router)
     app.include_router(passkeys.router)
     app.include_router(router)
+    return app
+
+
+def create_server_app():
+    """Entry point for `jarvis serve`: the app behind trusted reverse proxy header handling."""
+    settings = Settings()
+    wrapped = wrap_asgi_with_proxy_headers(create_app(settings), settings.trusted_proxies)
+
+    # Granian's wrapper is a plain function returning a coroutine; an async function makes it
+    # recognizable as an ASGI 3 app to any server or test client.
+    async def app(scope, receive, send):
+        await wrapped(scope, receive, send)
+
     return app

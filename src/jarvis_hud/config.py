@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # Public address of Jarvis, e.g. https://jarvis.example.com. Used for the CSRF origin check
     # and passkeys; when unset, the address of each request is used.
     public_url: str | None = None
+    # Reverse proxies whose X-Forwarded-For and X-Forwarded-Proto headers are trusted:
+    # comma-separated IP addresses or networks, or * to trust any client.
+    trusted_proxies: str = "127.0.0.1"
 
     @property
     def database_url(self) -> str:

@@ -17,6 +17,7 @@ Browser ── GET / ───────────────────�
 | Area | Choice | Why |
 |---|---|---|
 | Language | Python 3.11+ | Rich ecosystem of API clients; the package is already on PyPI. |
+| Web server | Granian | Fast ASGI server written in Rust, with HTTP/2 and WebSockets (voice). It also handles `X-Forwarded-*` headers from trusted reverse proxies. |
 | Web framework | FastAPI | Async I/O for many parallel third-party API calls; built-in support for streaming responses (chat) and WebSockets (voice). |
 | Frontend | Server-rendered Jinja2 templates with HTMX | One codebase without a Node.js build. Plugins ship their widgets as plain templates. Small JavaScript islands are added only where needed (e.g. voice). |
 | Database | SQLite through SQLAlchemy 2 (async) and Alembic | A single file in the data volume: no extra container and trivial backups. SQLAlchemy keeps PostgreSQL possible later. |
@@ -178,7 +179,7 @@ Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, bu
 - **Image:** a multi-stage build with `uv`. The final stage contains only Python and the virtual environment, runs as the non-root user `jarvis` (UID 1000) and stores the database in the `/data` volume.
 - **Health check:** `GET /healthz` returns `ok` without signing in. The image's `HEALTHCHECK` uses it, and so can uptime monitors.
 - **First run:** requests reach the container from the Docker network, not from the loopback address, so setup always needs the token from `docker logs jarvis`.
-- **Reverse proxy:** set `JARVIS_PUBLIC_URL` to the public HTTPS address. It is used for the CSRF origin check, passkeys and `Secure` cookies, so Jarvis does not have to trust the `Host` and `X-Forwarded-Proto` headers. Set `FORWARDED_ALLOW_IPS` to the proxy's address so that Jarvis sees real client IPs; otherwise all clients share the proxy's IP and the sign-in throttle applies to all of them together.
+- **Reverse proxy:** set `JARVIS_PUBLIC_URL` to the public HTTPS address. It is used for the CSRF origin check, passkeys and `Secure` cookies, so Jarvis does not have to trust the `Host` and `X-Forwarded-Proto` headers. Set `JARVIS_TRUSTED_PROXIES` to the proxy's address or network (e.g. the Docker network `172.16.0.0/12`) so that Jarvis sees real client IPs; otherwise all clients share the proxy's IP and the sign-in throttle applies to all of them together.
 - **CI:** every pull request builds the image and checks that the container becomes healthy and redirects to setup.
 - **Plugins:** installing custom plugins with `JARVIS_PLUGINS` comes with the plugin system (phase 1).
 

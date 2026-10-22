@@ -12,8 +12,8 @@ services:
     environment:
       # Public address when Jarvis runs behind a reverse proxy, e.g. https://jarvis.example.com
       JARVIS_PUBLIC_URL: ${JARVIS_PUBLIC_URL:-}
-      # IP addresses of the reverse proxy whose X-Forwarded-* headers are trusted
-      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      # IP addresses or networks of the reverse proxy whose X-Forwarded-* headers are trusted
+      JARVIS_TRUSTED_PROXIES: ${JARVIS_TRUSTED_PROXIES:-127.0.0.1}
 
 volumes:
   jarvis-data:

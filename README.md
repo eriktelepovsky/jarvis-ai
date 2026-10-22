@@ -14,7 +14,7 @@ docker logs jarvis
 
 The log contains a setup link (`/setup?token=…`). Open it at http://your-server:8000 and choose a password. Data is stored in the `jarvis-data` volume.
 
-When Jarvis runs behind a reverse proxy with HTTPS, set `JARVIS_PUBLIC_URL` (e.g. `https://jarvis.example.com`) and `FORWARDED_ALLOW_IPS` (the IP address of the proxy) in `compose.yaml` or a `.env` file next to it. Passkeys require HTTPS, except on `localhost`.
+When Jarvis runs behind a reverse proxy with HTTPS, set `JARVIS_PUBLIC_URL` (e.g. `https://jarvis.example.com`) and `JARVIS_TRUSTED_PROXIES` (the IP address or network of the proxy) in `compose.yaml` or a `.env` file next to it. Passkeys require HTTPS, except on `localhost`.
 
 ## Development
 

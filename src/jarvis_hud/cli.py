@@ -18,18 +18,21 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "serve":
-        import uvicorn
+        from granian import Granian
+        from granian.constants import Interfaces
 
         from jarvis_hud.config import Settings
 
         settings = Settings()
-        uvicorn.run(
-            "jarvis_hud.app:create_app",
+        Granian(
+            "jarvis_hud.app:create_server_app",
             factory=True,
-            host=args.host or settings.host,
+            interface=Interfaces.ASGI,
+            address=args.host or settings.host,
             port=args.port or settings.port,
+            log_access=True,
             reload=args.reload,
-        )
+        ).serve()
 
 
 if __name__ == "__main__":

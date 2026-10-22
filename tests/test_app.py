@@ -66,3 +66,23 @@ def test_widget_context_is_autoescaped(tmp_path: Path):
 )
 def test_greeting(hour: int, expected: str):
     assert greeting(hour) == expected
+
+
+def test_server_app_trusts_forwarded_headers_only_from_proxies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("JARVIS_TRUSTED_PROXIES", "127.0.0.1")
+    from jarvis_hud.app import create_server_app
+
+    # A request through a local proxy is treated as coming from the forwarded client,
+    # so it must not get the loopback-only setup form.
+    forwarded = {"X-Forwarded-For": "203.0.113.5", "X-Forwarded-Proto": "https"}
+    with TestClient(create_server_app(), client=("127.0.0.1", 50000)) as client:
+        assert 'name="password"' in client.get("/setup").text
+        assert 'name="password"' not in client.get("/setup", headers=forwarded).text
+
+    # Untrusted clients cannot pretend to be local.
+    with TestClient(create_server_app(), client=("198.51.100.7", 50000)) as client:
+        local = {"X-Forwarded-For": "127.0.0.1"}
+        assert 'name="password"' not in client.get("/setup", headers=local).text
