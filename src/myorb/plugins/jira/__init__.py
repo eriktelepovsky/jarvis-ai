@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -29,6 +30,7 @@ from myorb.plugins.connection_data import AccountResult, connected_status, load_
 
 ICON = "M4 4h16v16H4zM9 4v16M15 4v16M11 8h2M5.5 8h2"
 JQL = "assignee = currentUser() AND statusCategory != Done ORDER BY priority DESC, updated DESC"
+SPRINT_JQL = "assignee = currentUser() AND statusCategory != Done AND sprint in openSprints()"
 FIELDS = "summary,status,priority,duedate,updated,project"
 # Issues read per workspace (in pages of PAGE); the details list all of them.
 MAX_ISSUES = 200
@@ -49,6 +51,9 @@ class Issue:
     workspace: str
     # The project's name, e.g. "Transportly"; its key when Jira does not say.
     project: str = ""
+    # In the backlog: still to do, and in status "Backlog" or, in a project with sprints, not
+    # in an active one.
+    backlog: bool = False
 
 
 def site_url(value: str) -> str:
@@ -91,18 +96,20 @@ class Jira(Provider):
             capability |= {"ok": False, "detail": str(error)}
         return Verified(workspace_name(credentials["site"]), credentials, [capability])
 
-    async def issues(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Issue]:
-        site = credentials["site"]
+    async def _search(
+        self, http: httpx2.AsyncClient, credentials: dict[str, Any], jql: str, fields: str
+    ) -> list[dict[str, Any]]:
+        """Issues for a JQL query, page by page, up to MAX_ISSUES."""
         items: list[dict[str, Any]] = []
         token = None
         while len(items) < MAX_ISSUES:
-            params = {"jql": JQL, "fields": FIELDS, "maxResults": PAGE}
+            params = {"jql": jql, "fields": fields, "maxResults": PAGE}
             if token:
                 params["nextPageToken"] = token
             data = await request_json(
                 http,
                 "GET",
-                f"{site}/rest/api/3/search/jql",
+                f"{credentials['site']}/rest/api/3/search/jql",
                 "Jira",
                 auth=httpx2.BasicAuth(credentials["email"], credentials["token"]),
                 params=params,
@@ -111,22 +118,68 @@ class Jira(Provider):
             token = data.get("nextPageToken")
             if data.get("isLast", True) or not token:
                 break
+        return items[:MAX_ISSUES]
+
+    async def _sprints(
+        self, http: httpx2.AsyncClient, credentials: dict[str, Any], projects: set[str]
+    ) -> tuple[set[str], set[str]]:
+        """The user's issues in an active sprint, and the projects that plan in sprints.
+
+        In a project with a scrum board, what is not in an active sprint is in its backlog.
+        Without Jira Software (no sprints), both are empty.
+        """
+        auth = httpx2.BasicAuth(credentials["email"], credentials["token"])
+        try:
+            in_sprint = await self._search(http, credentials, SPRINT_JQL, "status")
+        except ProviderError:
+            return set(), set()
+
+        async def scrum(project: str) -> str | None:
+            try:
+                boards = await request_json(
+                    http,
+                    "GET",
+                    f"{credentials['site']}/rest/agile/1.0/board",
+                    "Jira",
+                    auth=auth,
+                    params={"projectKeyOrId": project, "type": "scrum", "maxResults": 1},
+                )
+            except ProviderError:
+                return None
+            return project if boards.get("values") else None
+
+        found = await asyncio.gather(*(scrum(p) for p in sorted(projects)))
+        return {item["key"] for item in in_sprint}, {p for p in found if p}
+
+    async def issues(self, http: httpx2.AsyncClient, credentials: dict[str, Any]) -> list[Issue]:
+        site = credentials["site"]
+        items = await self._search(http, credentials, JQL, FIELDS)
+        projects = {(i.get("fields", {}).get("project") or {}).get("key") for i in items} - {None}
+        in_sprint, scrum_projects = await self._sprints(http, credentials, projects)
         issues = []
-        for item in items[:MAX_ISSUES]:
+        for item in items:
             fields = item.get("fields", {})
             status = fields.get("status") or {}
             due = fields.get("duedate")
+            project = fields.get("project") or {}
+            category = (status.get("statusCategory") or {}).get("key", "new")
+            # Only what is still to do: work in progress is never the backlog, sprint or not.
+            backlog = category == "new" and (
+                status.get("name", "").lower() == "backlog"
+                or (project.get("key") in scrum_projects and item["key"] not in in_sprint)
+            )
             issues.append(
                 Issue(
                     key=item["key"],
                     summary=fields.get("summary") or "(no summary)",
                     status=status.get("name", ""),
-                    category=(status.get("statusCategory") or {}).get("key", "new"),
+                    category=category,
                     priority=(fields.get("priority") or {}).get("name", ""),
                     due=date.fromisoformat(due) if due else None,
                     url=f"{site}/browse/{item['key']}",
                     workspace=workspace_name(site),
-                    project=(fields.get("project") or {}).get("name") or item["key"].split("-")[0],
+                    project=project.get("name") or item["key"].split("-")[0],
+                    backlog=backlog,
                 )
             )
         return issues
@@ -179,16 +232,22 @@ class JiraPlugin(Plugin):
             return WidgetData(value=None, **status)
         today = context.now.date()
         issues = [issue for r in loaded for issue in r.data]
-        overdue = [i for i in issues if is_overdue(i, today)]
-        urgent = [i for i in issues if i.priority in URGENT_PRIORITIES]
-        in_progress = [i for i in issues if i.category == "indeterminate"]
-        # Overdue first, then in progress, then the rest in Jira's priority order.
+        # The orb counts what is being worked on; the backlog is listed, but last and apart.
+        active = [i for i in issues if not i.backlog]
+        backlog = [i for i in issues if i.backlog]
+        overdue = [i for i in active if is_overdue(i, today)]
+        urgent = [i for i in active if i.priority in URGENT_PRIORITIES]
+        in_progress = [i for i in active if i.category == "indeterminate"]
+        # Overdue first, then in progress, then the rest in Jira's priority order; backlog last.
         ordered = sorted(
-            issues, key=lambda i: (not is_overdue(i, today), i.category != "indeterminate")
+            issues,
+            key=lambda i: (i.backlog, not is_overdue(i, today), i.category != "indeterminate"),
         )
         rows = []
         for issue in ordered:
-            if is_overdue(issue, today):
+            if issue.backlog:
+                badge, tone = "Backlog", "neutral"
+            elif is_overdue(issue, today):
                 badge, tone = f"▲ Due {issue.due:%-d %b}", "fail"
             else:
                 badge = issue.status
@@ -201,6 +260,8 @@ class JiraPlugin(Plugin):
                 for tag, applies in (
                     ("overdue", is_overdue(issue, today)),
                     ("progress", issue.category == "indeterminate"),
+                    ("active", not issue.backlog),
+                    ("backlog", issue.backlog),
                 )
                 if applies
             )
@@ -217,13 +278,21 @@ class JiraPlugin(Plugin):
                 )
             )
         return WidgetData(
-            value=len(issues),
-            summary="assigned to you" + (f" · {len(overdue)} overdue" if overdue else ""),
+            value=len(active),
+            summary=" · ".join(
+                p
+                for p in (
+                    "assigned to you",
+                    f"{len(overdue)} overdue" if overdue else "",
+                    f"{len(backlog)} more in the backlog" if backlog else "",
+                )
+                if p
+            ),
             attention=bool(overdue or urgent),
             stats=[
-                Stat(len(issues), "Assigned"),
+                Stat(len(active), "Active", filter="active"),
                 Stat(len(in_progress), "In progress", filter="progress"),
-                Stat(len(loaded), "Workspaces"),
+                Stat(len(backlog), "Backlog", filter="backlog"),
             ],
             list_title="Assigned to you",
             group_label="workspaces",
@@ -244,8 +313,10 @@ class JiraPlugin(Plugin):
         if not loaded:
             return None
         today = context.now.date()
-        lines = []
-        for issue in [i for r in loaded for i in r.data][:20]:
+        issues = [i for r in loaded for i in r.data]
+        backlog = sum(1 for i in issues if i.backlog)
+        lines = [f"{backlog} more issues wait in the backlog."] if backlog else []
+        for issue in [i for i in issues if not i.backlog][:20]:
             notes = [issue.status, issue.priority, issue.workspace]
             if is_overdue(issue, today):
                 notes.insert(0, f"overdue since {issue.due:%-d %b}")
