@@ -14,6 +14,10 @@ uv run pytest
 
 The dashboard runs at http://127.0.0.1:8000. On the first visit, Jarvis asks you to set a password. See the [architecture](docs/ARCHITECTURE.md) for how Jarvis is built.
 
+### Local domain
+
+To open Jarvis at http://jarvis.localhost instead, run it on port 80 with `uv run jarvis serve --host 0.0.0.0 --port 80`, or put `JARVIS_HOST=0.0.0.0` and `JARVIS_PORT=80` in a `.env` file. macOS allows port 80 without `sudo` only on all network interfaces, so Jarvis is then also reachable from your local network, protected by the login. Addresses ending in `.localhost` point to your own computer in macOS and modern browsers, so no hosts entry is needed. Passkeys only work at the address where they were added, so always use the same one.
+
 ## Roadmap
 
 See the [roadmap](ROADMAP.md) for planned features and their order.

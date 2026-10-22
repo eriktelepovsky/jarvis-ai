@@ -15,7 +15,7 @@ def _redirect(request: Request, url: str) -> Response:
     if request.headers.get("HX-Request"):
         # HTMX would swap the redirected page into a widget; ask it to navigate instead.
         return Response(status_code=401, headers={"HX-Redirect": url})
-    if request.method != "GET":
+    if request.method not in ("GET", "HEAD"):
         return PlainTextResponse("Authentication required.", status_code=401)
     return RedirectResponse(url, status_code=303)
 

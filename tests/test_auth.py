@@ -132,8 +132,9 @@ def test_throttle_blocks_after_max_failures_within_window():
 # Setup
 
 
-def test_fresh_install_redirects_to_setup(make_client: MakeClient):
-    response = make_client().get("/", follow_redirects=False)
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+def test_fresh_install_redirects_to_setup(make_client: MakeClient, method: str):
+    response = make_client().request(method, "/", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["location"] == "/setup"
 
