@@ -1121,7 +1121,7 @@ code,
   background: var(--fail);
 }
 
-/* To-do page */
+/* Tasks page */
 
 .task-add {
   gap: var(--s-2);
