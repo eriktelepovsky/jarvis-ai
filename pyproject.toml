@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "aiosqlite>=0.22.1",
     "alembic>=1.20.0",
+    "anthropic>=2.1.0",
     "cryptography>=50.0.2",
     "fastapi>=0.156.8",
     "granian[reload,uvloop]>=2.8.5",
@@ -41,6 +42,14 @@ jarvis = "jarvis_hud.cli:main"
 [project.entry-points."jarvis_hud.plugins"]
 calendar = "jarvis_hud.plugins.calendar:CalendarPlugin"
 gmail = "jarvis_hud.plugins.gmail:GmailPlugin"
+tasks = "jarvis_hud.tasks.plugin:TasksPlugin"
+code_review = "jarvis_hud.plugins.code_review:CodeReviewPlugin"
+jira = "jarvis_hud.plugins.jira:JiraPlugin"
+weather = "jarvis_hud.plugins.weather:WeatherPlugin"
+youtube = "jarvis_hud.plugins.youtube:YouTubePlugin"
+slack = "jarvis_hud.plugins.slack:SlackPlugin"
+health = "jarvis_hud.plugins.health:HealthPlugin"
+uptime = "jarvis_hud.plugins.uptime:UptimePlugin"
 
 [build-system]
 requires = ["hatchling>=1.27"]

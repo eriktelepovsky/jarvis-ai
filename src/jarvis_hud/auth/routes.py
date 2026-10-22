@@ -11,6 +11,7 @@ from jarvis_hud.auth.gate import safe_next
 from jarvis_hud.auth.passwords import MIN_PASSWORD_LENGTH, password_problem
 from jarvis_hud.auth.sessions import client_id, end_session, is_loopback, start_session
 from jarvis_hud.db import get_db
+from jarvis_hud.profile import save_name, user_name
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ async def setup(
     password: Annotated[str, Form()],
     password_confirmation: Annotated[str, Form()],
     token: Annotated[str, Form()] = "",
+    name: Annotated[str, Form()] = "",
 ) -> Response:
     state = request.app.state.auth
     if state.password_set:
@@ -59,6 +61,8 @@ async def setup(
         context = {"allowed": True, "token": token, "error": problem}
         return _render(request, "auth/setup.html", context, status_code=400)
     await store.set_password(db, state, password)
+    if name.strip():
+        await save_name(request, db, name)
     response = RedirectResponse("/", status_code=303)
     start_session(response, request, state)
     return response
@@ -105,8 +109,15 @@ async def logout() -> Response:
 
 
 @router.get("/settings/security", response_class=HTMLResponse)
-async def security_page(request: Request, db: Db, changed: bool = False) -> Response:
-    context = {"passkeys": await store.list_passkeys(db), "changed": changed}
+async def security_page(
+    request: Request, db: Db, changed: bool = False, saved: bool = False
+) -> Response:
+    context = {
+        "passkeys": await store.list_passkeys(db),
+        "changed": changed,
+        "saved": saved,
+        "name": await user_name(request, db),
+    }
     return _render(request, "auth/security.html", context)
 
 

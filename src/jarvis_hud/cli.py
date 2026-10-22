@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 from jarvis_hud import __version__
 
@@ -22,8 +23,11 @@ def main() -> None:
         from granian.constants import Interfaces
 
         from jarvis_hud.config import Settings
+        from jarvis_hud.plugins.install import install, plugins_dir
 
         settings = Settings()
+        if settings.plugins:
+            install(settings.plugins, plugins_dir(settings.data_dir))
         Granian(
             "jarvis_hud.app:create_server_app",
             factory=True,
@@ -32,6 +36,9 @@ def main() -> None:
             port=args.port or settings.port,
             log_access=True,
             reload=args.reload,
+            # Only code: the data directory (database, plugins) may be inside the project, and
+            # a restart on every database write would cut off work in progress, like the brief.
+            reload_paths=[Path(__file__).parent],
         ).serve()
 
 

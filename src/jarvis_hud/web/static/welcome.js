@@ -1,29 +1,13 @@
-// Welcome screen: clock, the animated point-cloud orb, details dialogs, interface sounds,
-// ambient music and pause. Data comes from the server (HTMX); this only adds behavior.
+// Welcome screen: clock, the animated point-cloud orb, details dialogs and the report. Data
+// comes from the server (HTMX); this only adds behavior. Sound and music are in media.js.
+// Loaded on every page: with hx-boost, the welcome screen can appear without a page load.
 
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "jarvis.welcome";
+  const media = () => window.jarvisMedia;
+  const sound = (kind) => media()?.sound(kind);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  function loadPrefs() {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    } catch {
-      return {};
-    }
-  }
-
-  function savePrefs() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-    } catch {
-      // Storage may be unavailable (private mode); preferences then last for this page only.
-    }
-  }
-
-  const prefs = { sounds: false, volume: 0.45, paused: false, ...loadPrefs() };
 
   // Clock and greeting
 
@@ -181,199 +165,24 @@
     }
   }
 
+  let orbTimer = null;
+
   function startOrb() {
+    // The welcome screen may be shown again without a page load: bind to its new paths.
+    orb.paths = {};
     document.querySelectorAll("[data-orb]").forEach((path) => {
       orb.paths[path.dataset.orb] = path;
     });
-    orb.model = buildOrb();
+    orb.model ??= buildOrb();
     drawOrb();
-    if (reducedMotion) return;
-    setInterval(() => {
-      if (prefs.paused || document.hidden) return;
+    if (reducedMotion || orbTimer) return;
+    orbTimer = setInterval(() => {
+      if (document.hidden || !document.getElementById("welcome")) return;
       stepSignals();
       orb.angle = (orb.angle + 0.006) % (Math.PI * 2);
       orb.time += 0.05;
       drawOrb();
     }, 50);
-  }
-
-  // Interface sounds: short synthesized tones, off by default
-
-  const ui = { ctx: null, out: null };
-
-  function uiContext() {
-    if (!ui.ctx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return null;
-      ui.ctx = new AudioContext();
-      ui.out = ui.ctx.createGain();
-      ui.out.gain.value = 5.5;
-      ui.out.connect(ui.ctx.destination);
-    }
-    if (ui.ctx.state === "suspended") ui.ctx.resume().catch(() => {});
-    return ui;
-  }
-
-  function tone(f1, f2, start, duration, peak, type = "sine") {
-    const { ctx, out } = ui;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const t0 = ctx.currentTime + start;
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(f1, t0);
-    oscillator.frequency.exponentialRampToValueAtTime(f2, t0 + duration);
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(peak, t0 + 0.006);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    oscillator.connect(gain);
-    gain.connect(out);
-    oscillator.start(t0);
-    oscillator.stop(t0 + duration + 0.02);
-  }
-
-  function sound(kind) {
-    if (!prefs.sounds) return;
-    // Hover never starts audio by itself: browsers only allow it after a click.
-    if (kind === "hover" ? !ui.ctx || ui.ctx.state !== "running" : !uiContext()) return;
-    if (kind === "hover") {
-      tone(2400, 2000, 0, 0.04, 0.02);
-    } else if (kind === "open") {
-      tone(523.25, 523.25, 0, 0.18, 0.035);
-      tone(783.99, 783.99, 0.06, 0.2, 0.03);
-      tone(1046.5, 1046.5, 0.12, 0.35, 0.028);
-    } else if (kind === "close") {
-      tone(1046.5, 1046.5, 0, 0.12, 0.025);
-      tone(659.25, 659.25, 0.05, 0.22, 0.025);
-    } else {
-      tone(900, 1350, 0, 0.06, 0.035);
-      tone(1800, 1800, 0.012, 0.05, 0.01, "triangle");
-    }
-  }
-
-  // Ambient music: a slowly swelling pad with occasional chimes, synthesized in the browser
-
-  let music = null;
-
-  function startMusic() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return false;
-    const ctx = new AudioContext();
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(prefs.volume * 0.5, ctx.currentTime + 4);
-    master.connect(ctx.destination);
-
-    const lowpass = ctx.createBiquadFilter();
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = 900;
-    lowpass.Q.value = 0.6;
-    lowpass.connect(master);
-    const sweep = ctx.createOscillator();
-    const sweepAmount = ctx.createGain();
-    sweep.frequency.value = 0.04;
-    sweepAmount.gain.value = 450;
-    sweep.connect(sweepAmount);
-    sweepAmount.connect(lowpass.frequency);
-    sweep.start();
-
-    const delay = ctx.createDelay(2);
-    const feedback = ctx.createGain();
-    const delayFilter = ctx.createBiquadFilter();
-    const wet = ctx.createGain();
-    delay.delayTime.value = 0.48;
-    feedback.gain.value = 0.5;
-    delayFilter.type = "lowpass";
-    delayFilter.frequency.value = 2200;
-    wet.gain.value = 0.4;
-    delay.connect(delayFilter);
-    delayFilter.connect(feedback);
-    feedback.connect(delay);
-    delayFilter.connect(wet);
-    wet.connect(master);
-
-    [73.42, 110, 146.83, 174.61, 220, 261.63, 329.63].forEach((frequency, i) => {
-      const gain = ctx.createGain();
-      gain.gain.value = 0.05 / (1 + i * 0.15);
-      const swell = ctx.createOscillator();
-      const swellAmount = ctx.createGain();
-      swell.frequency.value = 0.025 + Math.random() * 0.05;
-      swellAmount.gain.value = gain.gain.value * 0.8;
-      swell.connect(swellAmount);
-      swellAmount.connect(gain.gain);
-      swell.start();
-      [-6, 6].forEach((detune, k) => {
-        const oscillator = ctx.createOscillator();
-        oscillator.type = k ? "triangle" : "sine";
-        oscillator.frequency.value = frequency;
-        oscillator.detune.value = detune;
-        oscillator.connect(gain);
-        oscillator.start();
-      });
-      gain.connect(lowpass);
-      gain.connect(delay);
-    });
-
-    const bells = [587.33, 659.25, 698.46, 880, 1046.5, 1174.66];
-    const chime = () => {
-      if (!music) return;
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const t0 = ctx.currentTime;
-      oscillator.type = "sine";
-      oscillator.frequency.value = bells[Math.floor(Math.random() * bells.length)];
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.03, t0 + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.5);
-      oscillator.connect(gain);
-      gain.connect(master);
-      gain.connect(delay);
-      oscillator.start(t0);
-      oscillator.stop(t0 + 3.6);
-      music.chime = setTimeout(chime, 2500 + Math.random() * 4500);
-    };
-    music = { ctx, master, chime: setTimeout(chime, 3000) };
-    return true;
-  }
-
-  function stopMusic() {
-    if (!music) return;
-    const { ctx, master, chime } = music;
-    music = null;
-    clearTimeout(chime);
-    const t = ctx.currentTime;
-    master.gain.cancelScheduledValues(t);
-    master.gain.setValueAtTime(master.gain.value, t);
-    master.gain.linearRampToValueAtTime(0, t + 1.5);
-    setTimeout(() => ctx.close().catch(() => {}), 1700);
-  }
-
-  // Header toggles
-
-  function render() {
-    const page = document.getElementById("welcome");
-    page.classList.toggle("paused", prefs.paused);
-    const toggle = (name) => document.querySelector(`[data-toggle="${name}"]`);
-    toggle("sounds").setAttribute("aria-pressed", String(prefs.sounds));
-    toggle("pause").setAttribute("aria-pressed", String(prefs.paused));
-    document.querySelector("[data-pause-label]").textContent = prefs.paused ? "Resume" : "Pause";
-    toggle("music").setAttribute("aria-pressed", String(Boolean(music)));
-    document.querySelector("[data-music-label]").textContent = music ? "Ambient on" : "Ambient off";
-    document.querySelector(".eq").classList.toggle("on", Boolean(music));
-    document.querySelector(".volume").hidden = !music;
-  }
-
-  function onToggle(name) {
-    if (name === "sounds") {
-      prefs.sounds = !prefs.sounds;
-      if (prefs.sounds) uiContext();
-    } else if (name === "pause") {
-      prefs.paused = !prefs.paused;
-    } else if (name === "music") {
-      if (music) stopMusic();
-      else startMusic();
-    }
-    savePrefs();
-    render();
   }
 
   // Details dialogs
@@ -397,24 +206,47 @@
   }
 
   document.addEventListener("click", (event) => {
-    const toggle = event.target.closest("[data-toggle]");
     const opener = event.target.closest("[data-open]");
     const dialog = event.target.closest("dialog[data-detail]");
-    if (toggle) {
-      onToggle(toggle.dataset.toggle);
-      sound("click");
-    } else if (opener) {
+    if (event.target.closest("#media-dock")) {
+      return;
+    } else if (opener && document.getElementById(opener.dataset.open)) {
       openDialog(document.getElementById(opener.dataset.open));
       sound("open");
     } else if (event.target.closest("[data-step]")) {
       stepDialog(dialog, Number(event.target.closest("[data-step]").dataset.step));
       sound("click");
-    } else if (event.target.closest("[data-close]") || event.target === dialog) {
+    } else if (event.target.closest("[data-open-report]")) {
+      dialogs().forEach((other) => other.open && other.close());
+      document.getElementById("report").showModal();
+      sound("open");
+    } else if (event.target.closest("[data-read-aloud]")) {
+      readAloud(event.target.closest("[data-read-aloud]"));
+    } else if (event.target.closest("[data-close]") || event.target.matches("dialog")) {
       // A click on the dialog element itself is a click on its backdrop.
-      dialog.close();
+      event.target.closest("dialog").close();
     } else if (event.target.closest("a, button")) {
       sound("click");
     }
+  });
+
+  // "/" jumps to the command line, as in many apps.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "/" || event.target.closest?.("input, textarea, select, [contenteditable]")) return;
+    const input = document.getElementById("command-input");
+    if (!input || document.querySelector("dialog[open]")) return;
+    event.preventDefault();
+    input.focus();
+  });
+
+  // The confirmation under the command line fades after a while.
+  let commandTimer = null;
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target.id !== "command-result") return;
+    clearTimeout(commandTimer);
+    commandTimer = setTimeout(() => {
+      event.detail.target.textContent = "";
+    }, 6000);
   });
 
   document.addEventListener("keydown", (event) => {
@@ -426,9 +258,106 @@
     }
   });
 
+  // Read aloud: Azure Speech's recording of the summary when it is set up on Integrations →
+  // Voice, otherwise the browser's own voices (see speech.js), in the language chosen.
+
+  // The language chosen to read in, as a speech tag ("sk-SK").
+  function readingLanguage() {
+    const option = document.querySelector("[data-read-language]")?.selectedOptions[0];
+    return { code: option?.value || "en", tag: option?.dataset.tag || "en-GB" };
+  }
+
+  // With the browser's voices, offer only languages this device has a voice for.
+  function filterLanguages() {
+    const button = document.querySelector("[data-read-aloud]");
+    if (!button || button.dataset.voice === "azure" || !window.jarvisSpeech) return;
+    document.querySelectorAll("[data-read-language] option").forEach((option) => {
+      option.hidden =
+        option.value !== button.dataset.briefLanguage && !window.jarvisSpeech.voicesFor(option.dataset.tag).length;
+    });
+  }
+
+  if ("speechSynthesis" in window) speechSynthesis.addEventListener("voiceschanged", filterLanguages);
+  document.addEventListener("htmx:load", filterLanguages);
+
+  let reading = null; // { stop() } while reading
+
+  function stopReading() {
+    reading?.stop();
+    reading = null;
+  }
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-read-language]")) stopReading();
+  });
+
+  // The summary in the chosen language: from the page, or translated by Claude (once per
+  // brief and language; Jarvis keeps the translation).
+  async function textToRead(button, language) {
+    if (language.code === button.dataset.briefLanguage) {
+      return document.querySelector("[data-report-text]")?.innerText;
+    }
+    const body = new URLSearchParams({ language: language.code });
+    const response = await fetch(`/brief/${button.dataset.brief}/translation`, { method: "POST", body });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "The translation did not work.");
+    return data.text;
+  }
+
+  async function readAloud(button) {
+    const reset = () => {
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = "▶ Read aloud";
+      reading = null;
+    };
+    const showError = (message) => {
+      reset();
+      document.querySelector("[data-read-error]")?.replaceChildren(message);
+    };
+    if (reading) {
+      stopReading();
+      return reset();
+    }
+    document.querySelector("[data-read-error]")?.replaceChildren();
+    const language = readingLanguage();
+    button.setAttribute("aria-pressed", "true");
+    button.textContent = "… Preparing";
+
+    if (button.dataset.voice === "azure") {
+      const audio = new Audio(`/brief/${button.dataset.brief}/audio?language=${language.code}`);
+      reading = { stop: () => audio.pause() };
+      audio.addEventListener("playing", () => {
+        button.textContent = "■ Stop reading";
+      });
+      audio.addEventListener("ended", reset);
+      audio.addEventListener("error", () => showError("Azure Speech could not read the brief. Check Integrations → Voice."));
+      audio.play().catch(() => {});
+      return;
+    }
+
+    reading = { stop: () => speechSynthesis.cancel() };
+    let text;
+    try {
+      text = await textToRead(button, language);
+    } catch (error) {
+      return showError(error.message);
+    }
+    if (!reading || !text) return reset();
+    button.textContent = "■ Stop reading";
+    await window.jarvisSpeech.speak(text, language.tag);
+    if (reading) reset();
+  }
+
+
+
   document.addEventListener(
     "close",
     (event) => {
+      if (event.target.id === "report") {
+        stopReading();
+        sound("close");
+        return;
+      }
       if (!event.target.matches("dialog[data-detail]")) return;
       if (!document.querySelector("dialog[data-detail][open]")) {
         document.querySelectorAll(".node[aria-expanded]").forEach((node) => node.removeAttribute("aria-expanded"));
@@ -445,25 +374,85 @@
     lastHover = target;
   });
 
-  document.addEventListener("input", (event) => {
-    if (!event.target.matches("[data-volume]")) return;
-    prefs.volume = Number(event.target.value) / 100;
-    savePrefs();
-    if (music) music.master.gain.setTargetAtTime(prefs.volume * 0.5, music.ctx.currentTime, 0.1);
+  // Periodic refreshes must not replace the numbers while their details are open...
+  let reopen = null;
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    if (event.detail.target.id !== "orb-widgets") return;
+    const open = document.querySelector("dialog[data-detail][open]");
+    if (open && reopen === null) event.detail.shouldSwap = false;
   });
 
-  // Periodic refreshes must not replace the numbers while their details are open.
-  document.addEventListener("htmx:beforeSwap", (event) => {
-    if (event.detail.target.id === "orb-widgets" && document.querySelector("dialog[data-detail][open]")) {
-      event.detail.shouldSwap = false;
+  // ...but after a change made in a dialog (a task added or done), the widgets reload and
+  // the same dialog opens again with the new data.
+  document.body.addEventListener("jarvis:refresh", () => {
+    if (!document.getElementById("orb-widgets")) return;
+    const open = document.querySelector("dialog[data-detail][open]");
+    reopen = open ? open.id : "";
+    const focused = document.activeElement?.id;
+    htmx.ajax("GET", "/welcome/widgets", { target: "#orb-widgets", swap: "innerHTML" }).then(() => {
+      const dialog = reopen && document.getElementById(reopen);
+      reopen = null;
+      if (!dialog) return;
+      openDialog(dialog);
+      if (focused) document.getElementById(focused)?.focus();
+    });
+  });
+
+  // While the numbers load (the first time after a start, the services are asked), the orb
+  // shows as many dimmed, spinning circles as it had last time, where the numbers will appear.
+  const NODES_KEY = "jarvis.nodes";
+
+  function showLoadingNodes() {
+    const widgets = document.getElementById("orb-widgets");
+    if (!widgets || widgets.querySelector(".node")) return;
+    let count = 6;
+    try {
+      count = Number(localStorage.getItem(NODES_KEY)) || count;
+    } catch {
+      // Storage unavailable: the default count.
+    }
+    widgets.replaceChildren(
+      ...Array.from({ length: count }, (_, index) => {
+        const place = document.createElement("div");
+        place.className = "place";
+        place.style.setProperty("--angle", `${(360 / count) * index}deg`);
+        const node = document.createElement("span");
+        node.className = "node node-loading";
+        node.innerHTML = '<span class="spinner"></span>';
+        place.append(node);
+        return place;
+      }),
+    );
+    widgets.setAttribute("aria-busy", "true");
+  }
+
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target.id !== "orb-widgets") return;
+    event.detail.target.removeAttribute("aria-busy");
+    try {
+      localStorage.setItem(NODES_KEY, String(event.detail.target.querySelectorAll(".node").length));
+    } catch {
+      // Storage unavailable: the default count next time.
     }
   });
 
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelector("[data-volume]").value = Math.round(prefs.volume * 100);
-    render();
+  let clockTimer = null;
+  let welcomePage = null;
+
+  function initWelcome() {
+    const page = document.getElementById("welcome");
+    // A page restored from history is a new element, even with the same id.
+    if (!page || page === welcomePage) return;
+    welcomePage = page;
+    showLoadingNodes();
     tick();
-    setInterval(tick, 1000);
+    clockTimer ??= setInterval(tick, 1000);
     startOrb();
-  });
+  }
+
+  document.addEventListener("DOMContentLoaded", initWelcome);
+  // Coming back to the welcome screen from another page (hx-boost) or with the browser's Back
+  // button loads no new page. (htmx:afterSettle would fire on the replaced, detached #app.)
+  document.addEventListener("htmx:load", initWelcome);
+  document.addEventListener("htmx:historyRestore", initWelcome);
 })();

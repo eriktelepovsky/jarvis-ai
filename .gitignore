@@ -224,3 +224,6 @@ __marimo__/
 
 # Jarvis runtime data (database)
 /data/
+
+# Example plugins are developed against this repository
+examples/*/uv.lock

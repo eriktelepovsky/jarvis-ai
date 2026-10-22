@@ -1,9 +1,17 @@
+{% if loaded %}
+{# Which day: today, tomorrow or another day of the week ahead. #}
+<div class="day-nav">
+  <button type="button" class="icon-btn" hx-get="/panels/calendar/today?day={{ offset - 1 }}" hx-target="closest div[hx-get]" aria-label="Previous day" {% if offset == 0 %}disabled{% endif %}>‹</button>
+  <span class="label strong">{{ label }}</span>
+  <button type="button" class="icon-btn" hx-get="/panels/calendar/today?day={{ offset + 1 }}" hx-target="closest div[hx-get]" aria-label="Next day" {% if offset == last %}disabled{% endif %}>›</button>
+</div>
+{% endif %}
 {% if not connected %}
 <p class="t2">Connect Google to see today's schedule. <a href="/integrations">Integrations</a></p>
 {% elif not loaded %}
 <p class="t2">The calendar could not be loaded. <a href="/integrations">Check the connection</a></p>
 {% elif not day.today %}
-<p class="t2">Nothing on the calendar today.</p>
+<p class="t2">Nothing on the calendar {{ "today" if offset == 0 else ("tomorrow" if offset == 1 else "this day") }}.</p>
 {% else %}
 <div>
   {% for event in day.today %}

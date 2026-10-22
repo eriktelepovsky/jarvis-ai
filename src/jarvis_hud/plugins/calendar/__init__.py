@@ -6,11 +6,13 @@ from urllib.parse import quote
 
 from jarvis_hud.connections.google_accounts import GoogleAccount, GoogleAccounts
 from jarvis_hud.plugins.base import (
+    BriefSection,
     Link,
     Panel,
     Plugin,
     Row,
     Stat,
+    TimelineItem,
     Widget,
     WidgetContext,
     WidgetData,
@@ -29,7 +31,8 @@ HIDDEN_EVENT_TYPES = {"workingLocation"}
 
 
 def calendar_url(email: str) -> str:
-    return f"https://calendar.google.com/calendar/u/?authuser={quote(email)}"
+    # "/calendar/u/?authuser=" is a 404; "/calendar/r" picks the account from authuser.
+    return f"https://calendar.google.com/calendar/r?authuser={quote(email)}"
 
 
 def parse_event(
@@ -105,6 +108,21 @@ def today_and_upcoming(events: list[dict[str, Any]], now: datetime) -> dict[str,
     }
 
 
+def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
+    """A whole other day's events (all-day ones first), for looking ahead in the side panel."""
+    tz = events[0]["start"].tzinfo if events else None
+    start = datetime.combine(date, datetime.min.time(), tz)
+    end = start + timedelta(days=1)
+    seen: set[tuple[str, datetime]] = set()
+    day = []
+    for event in sorted(events, key=lambda e: (not e["all_day"], e["start"])):
+        key = (event["title"], event["start"])
+        if event["start"] < end and event["end"] > start and key not in seen:
+            seen.add(key)
+            day.append({**event, "kind": "event", "sub": describe(event)})
+    return day
+
+
 def until(start: datetime, now: datetime) -> str:
     """How long until an event starts, e.g. "in 1 h 18 m", or "now" when it has started."""
     minutes = int((start - now).total_seconds() // 60)
@@ -175,7 +193,7 @@ class CalendarPlugin(Plugin):
 
     def panels(self) -> list[Panel]:
         return [
-            Panel(id="today", title="Today", template="today.html", load=self._today),
+            Panel(id="today", title="Schedule", template="today.html", load=self._today),
             Panel(
                 id="next", title="Next", template="next.html", load=self._next, placement="header"
             ),
@@ -214,6 +232,49 @@ class CalendarPlugin(Plugin):
         )
         return today_and_upcoming(events, now)
 
+    async def timeline(self, context: WidgetContext) -> list[TimelineItem]:
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        day = self._merged(loaded, context.now)
+        return [
+            TimelineItem(e["start"], e["end"], e["title"])
+            for e in day["today"]
+            if e["kind"] != "now" and not e["all_day"]
+        ]
+
+    async def brief(self, context: WidgetContext) -> BriefSection | None:
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        if not loaded:
+            return None
+        now = context.now
+        day = self._merged(loaded, now)
+        lines = []
+        for event in day["today"]:
+            if event["kind"] == "now":
+                lines.append(f"-- now is {now:%H:%M} --")
+                continue
+            when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
+            done = " (already over)" if event["kind"] == "past" else ""
+            details = f" ({event['sub']})" if event["sub"] else ""
+            lines.append(f"Today {when}: {event['title']}{details}{done}")
+        if not day["today"]:
+            lines.append("Nothing on the calendar today.")
+        # All of tomorrow, with times and places: a flight or an early start needs preparing
+        # today. Then a few events of the rest of the week.
+        tomorrow = (now + timedelta(days=1)).date()
+        events = [e for a in loaded for e in a.data["events"]]
+        tomorrows = events_on(events, tomorrow)
+        for event in tomorrows:
+            when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
+            details = f" ({event['sub']})" if event["sub"] else ""
+            lines.append(f"Tomorrow {when}: {event['title']}{details}")
+        if not tomorrows:
+            lines.append("Nothing on the calendar tomorrow.")
+        later = [e for e in day["upcoming"] if e["start"].date() > tomorrow]
+        for event in later[:5]:
+            when = event["start"].strftime("%A" if event["all_day"] else "%A %H:%M")
+            lines.append(f"Later this week, {when}: {event['title']}")
+        return BriefSection("Calendar", lines)
+
     async def _widget(self, context: WidgetContext) -> WidgetData:
         accounts = await self._accounts(context)
         status = account_status(accounts, "Google Calendar")
@@ -250,12 +311,27 @@ class CalendarPlugin(Plugin):
         )
 
     async def _today(self, context: WidgetContext) -> dict[str, Any]:
+        """The side panel: today with a "now" marker, or another day of the week ahead."""
         accounts = await self._accounts(context)
         loaded = [account for account in accounts if account.data is not None]
+        try:
+            offset = min(max(int(context.params.get("day", 0)), 0), DAYS_AHEAD - 1)
+        except ValueError:
+            offset = 0
+        now = context.now
+        date = (now + timedelta(days=offset)).date()
+        if offset == 0:
+            day = self._merged(loaded, now) if loaded else None
+        else:
+            day = {"today": events_on([e for a in loaded for e in a.data["events"]], date)}
+        label = "Today" if offset == 0 else "Tomorrow" if offset == 1 else f"{date:%a %-d %b}"
         return {
             "connected": bool(accounts),
             "loaded": bool(loaded),
-            "day": self._merged(loaded, context.now) if loaded else None,
+            "day": day,
+            "offset": offset,
+            "last": DAYS_AHEAD - 1,
+            "label": label,
         }
 
     async def _next(self, context: WidgetContext) -> dict[str, Any]:

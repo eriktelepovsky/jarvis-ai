@@ -27,6 +27,13 @@ async def save_provider_settings(
     await db.commit()
 
 
+async def delete_provider_settings(db: AsyncSession, provider: str) -> None:
+    row = await db.get(ProviderSettings, provider)
+    if row is not None:
+        await db.delete(row)
+        await db.commit()
+
+
 async def list_connections(db: AsyncSession, provider: str) -> list[Connection]:
     query = select(Connection).where(Connection.provider == provider).order_by(Connection.account)
     return list(await db.scalars(query))

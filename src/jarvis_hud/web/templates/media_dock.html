@@ -1,0 +1,36 @@
+{# Sound and music controls in the bottom-right corner, on every page. Page changes replace only
+   #app (see app.js), so the dock and its YouTube player stay and the music keeps playing. #}
+<div class="media-dock" id="media-dock">
+  <div class="music-player" hidden>
+    <div class="music-player-head"><span class="label">YouTube</span><button type="button" class="icon-btn" data-toggle="video" aria-label="Hide the video (the music keeps playing)" title="Hide the video"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div id="youtube-player"></div>
+  </div>
+  <div class="music-finder" id="music-finder" hidden>
+    <form class="finder-search" data-finder-form role="search">
+      <label class="visually-hidden" for="finder-query">Search YouTube</label>
+      <input class="input" id="finder-query" name="q" type="search" placeholder="Search YouTube for music…" autocomplete="off">
+      <button type="submit" class="btn btn-small">Search</button>
+    </form>
+    <div class="finder-results" data-finder-results aria-live="polite"></div>
+  </div>
+  <div class="dock-controls">
+    <button type="button" class="btn btn-small" data-toggle="video" aria-label="Show the video" title="Show the video" hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg>
+    </button>
+    <button type="button" class="btn btn-small" data-toggle="finder" aria-expanded="false" aria-controls="music-finder" aria-label="Find music" title="Find music">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+    </button>
+    <div class="music">
+      <button type="button" class="btn btn-small" data-toggle="music" aria-pressed="false">
+        <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span data-music-label>Music off</span>
+      </button>
+      <button type="button" class="btn btn-small" data-toggle="volume" aria-expanded="false" aria-controls="dock-volume" aria-label="Music volume" title="Music volume" hidden>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      </button>
+      <label class="label volume" id="dock-volume" hidden>Vol <input type="range" min="0" max="100" value="45" data-volume aria-label="Music volume"></label>
+    </div>
+    <button type="button" class="btn btn-small" data-toggle="sounds" aria-pressed="false" aria-label="Interface sounds" title="Interface sounds">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-on" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="sound-off" d="M16 9l5 6M21 9l-5 6"/></svg>
+    </button>
+  </div>
+</div>

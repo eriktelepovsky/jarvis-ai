@@ -9,28 +9,28 @@ The smallest useful version for a daily morning routine.
 ### Platform
 
 - [x] Welcome screen: orb with numbers and details, today's schedule, clock, ambient music and interface sounds
-- [ ] Responsive layout and PWA, so Jarvis works on a phone
+- [x] Responsive layout and PWA, so Jarvis works on a phone
 - [x] Self-hosted deployment as a Docker image (VPS, NAS)
 - [x] Built-in login with password and passkeys
 - [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
 - [ ] Integrations page and setup checklist that guides the user through connecting services
 - [ ] Sample data mode with fictional data for development and demos
-- [ ] AI powered by Claude (Anthropic API)
+- [x] AI powered by Claude (Anthropic API)
 
 ### Features
 
 - [x] **Email stats:** number of unread emails and new emails received today (Gmail)
 - [ ] **AI email summary:** summary of important emails and a list of emails waiting for your reply
 - [x] **Calendar:** upcoming events (Google Calendar)
-- [ ] **TODO list:** simple task list built into Jarvis
-- [ ] **Morning AI brief:** a single "what awaits you today" summary across all sources
+- [x] **TODO list:** simple task list built into Jarvis, with due dates written in plain language
+- [x] **Morning AI brief:** a single "what awaits you today" summary across all sources
 
 ## Phase 1: Plugin system
 
-- [ ] Plugin API, so every integration is a plugin
-- [ ] Migrate the MVP integrations to plugins
-- [ ] Support for custom (private) plugins
-- [ ] Plugin developer documentation
+- [x] Plugin API, so every integration is a plugin (widgets, panels, connections, brief facts)
+- [x] Migrate the MVP integrations to plugins
+- [x] Support for custom (private) plugins, installed with `JARVIS_PLUGINS`
+- [x] Plugin developer documentation and an example plugin
 
 ## Phase 2: Finances
 
@@ -54,16 +54,19 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 
 ## Phase 4: Work and communication
 
-- [ ] **Slack:** unread messages and mentions
-- [ ] **GitHub:** pull requests waiting for your review, your open pull requests, issues and CI status
-- [ ] **Jira:** tasks assigned to you across multiple workspaces (e.g. development, support)
-- [ ] **Uptime:** incidents from monitored websites and services (own checks or Uptime Kuma, UptimeRobot, Better Stack)
+- [x] **Slack:** mentions from the last 24 hours, across workspaces
+- [ ] **Slack:** unread direct messages
+- [x] **Pull requests (GitHub, GitLab, Bitbucket):** waiting for your review and your own, with CI status
+- [x] **Jira:** tasks assigned to you across multiple workspaces (e.g. development, support)
+- [x] **Uptime:** Jarvis checks your websites every minute, records outages and warns before TLS certificates expire
+- [ ] **Uptime:** import monitors from Uptime Kuma, UptimeRobot or Better Stack
 - [ ] **Focus time:** free blocks between meetings available for deep work
 - [ ] **Time tracking:** built-in time tracker, time worked today and this week (low priority)
 
 ## Phase 5: Lifestyle
 
-- [ ] **Weather and commute:** today's forecast and travel time to the first meeting
+- [x] **Weather:** today's forecast and rain by the hour (Open-Meteo)
+- [ ] **Commute:** travel time to the first meeting
 - [ ] **News:** AI-picked important stories from RSS feeds, Hacker News and similar sources
-- [ ] **YouTube:** new videos from channels you are subscribed to (YouTube Data API)
-- [ ] **Health:** sleep, steps and activity from Apple Health and Strava
+- [x] **YouTube:** new videos from channels you are subscribed to (YouTube Data API)
+- [x] **Health:** sleep and steps from Apple Health (iPhone Shortcut and webhook), activities from Strava

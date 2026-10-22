@@ -2,14 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090c">
   <title>{% block title %}Jarvis{% endblock %}</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Jarvis">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-  <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
+  {# Also the welcome screen's: moving between pages loads no new <head>. #}
+  <link rel="stylesheet" href="{{ url_for('static', path='welcome.css') }}">
+  {% include "scripts.html" %}
   {% block head %}{% endblock %}
 </head>
-<body>
+<body hx-boost="true">
+  <div id="app" hx-history-elt>
   {% block body %}
   <div class="page">
     <header class="topbar">
@@ -20,7 +30,8 @@
       {% if request.state.authenticated %}
       {% set path = request.url.path %}
       <nav class="nav" aria-label="Main">
-        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Home</a>
+        <a href="/tasks" {% if path.startswith("/tasks") %}aria-current="page"{% endif %}>To-do</a>
         <a href="/integrations" {% if path.startswith("/integrations") %}aria-current="page"{% endif %}>Integrations</a>
         <a href="/settings/security" {% if path.startswith("/settings") %}aria-current="page"{% endif %}>Security</a>
       </nav>
@@ -37,5 +48,7 @@
     </footer>
   </div>
   {% endblock %}
+  </div>
+  {% if request.state.authenticated %}{% include "media_dock.html" %}{% endif %}
 </body>
 </html>

@@ -1,7 +1,7 @@
 /* Welcome screen: the orb with numbers around it, today's schedule and the header controls.
    Follows "6 · Welcome — after sign-in" in the Jarvis design. */
 
-.welcome-body {
+body:has(#welcome) {
   background: #06080b;
 }
 
@@ -94,7 +94,8 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 20px;
-  padding: 26px 28px 8px;
+  /* Installed on a phone, the page runs under the status bar: keep clear of it. */
+  padding: max(26px, env(safe-area-inset-top)) 28px 8px;
 }
 
 .header-line {
@@ -107,8 +108,32 @@
 
 .header-nav {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
+}
+
+/* A faint dot between items, so the uppercase, widely spaced words do not run together. */
+.header-nav > * + *::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-right: 14px;
+  vertical-align: middle;
+  background: var(--line-accent);
+  border-radius: 50%;
+}
+
+.header-nav form {
+  display: flex;
+  align-items: center;
+}
+
+/* One line height for links, the Sign out button and the panels, so their text lines up. */
+.header-nav a,
+.header-nav button,
+.header-item {
+  line-height: 1;
 }
 
 .header-nav a,
@@ -146,71 +171,8 @@
   margin-left: auto;
 }
 
-.btn-small {
-  height: 30px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-[data-toggle="sounds"] {
-  width: 34px;
-  padding: 0;
-}
-
-[data-toggle="sounds"] .sound-on,
-[data-toggle="sounds"][aria-pressed="true"] .sound-off {
-  display: none;
-}
-
-[data-toggle="sounds"][aria-pressed="true"] .sound-on {
-  display: inline;
-}
-
-.music {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.volume {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.volume input {
-  width: 90px;
-  accent-color: var(--accent);
-}
-
-.eq {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 12px;
-}
-
-.eq i {
-  display: block;
-  width: 2px;
-  height: 12px;
-  background: var(--accent);
-  transform: scaleY(0.3);
-  transform-origin: bottom;
-}
-
-.eq.on i { animation: eq 1.4s ease-in-out infinite; }
-.eq.on i:nth-child(2) { animation-delay: 0.3s; }
-.eq.on i:nth-child(3) { animation-delay: 0.7s; }
-.eq.on i:nth-child(4) { animation-delay: 0.15s; }
-
-@keyframes eq {
-  0%,
-  100% { transform: scaleY(0.3); }
-  50% { transform: scaleY(1); }
-}
-
 .clock {
+  position: relative;
   text-align: right;
 }
 
@@ -231,6 +193,43 @@
   color: var(--neutral);
 }
 
+/* Out of the flow, so the header (and with it the greeting and the orb) keeps its height. */
+.clock-extra {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  white-space: nowrap;
+}
+
+/* A chip, so the next event does not read as part of the date. The line box is trimmed to
+   the capital letters, so with equal padding the uppercase text sits exactly in the middle. */
+.clock-extra .header-item {
+  display: inline-block;
+  padding: 7px 10px;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+  background: rgb(79 209 232 / 6%);
+  border: 1px solid var(--line-accent);
+  border-radius: 6px;
+}
+
+.clock-extra .header-item::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  /* Centered on the capital letters. */
+  vertical-align: calc(0.5cap - 3px);
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.clock-extra .header-item .dim {
+  color: var(--accent);
+}
+
 /* Main grid: schedule, orb, right column */
 
 .welcome-main {
@@ -239,7 +238,8 @@
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 340px);
   gap: 28px;
   align-items: center;
-  padding: 0 28px 6px;
+  /* As much room below as the header takes above, so the orb sits in the middle of the screen. */
+  padding: 0 28px 90px;
 }
 
 .side {
@@ -357,32 +357,52 @@ a.ti:hover .t1 {
 
 /* The orb */
 
+/* The orb is centered on its own; the greeting sits just above it without pushing it down. */
 .stage {
-  --d: clamp(320px, min(calc((100vh - 190px) * 0.9), calc(100vw - 780px)), 860px);
+  --d: clamp(320px, min(calc((100vh - 360px) * 0.9), calc(100vw - 780px)), 860px);
   --r: calc(var(--d) * 0.41);
   --n: calc(var(--d) * 0.15);
 
   display: flex;
   flex-direction: column;
-  gap: calc(var(--d) * 0.03);
   align-items: center;
+  position: relative;
   min-width: 0;
 }
 
 @media (max-width: 1279px) {
-  .stage { --d: min(calc((100vh - 190px) * 0.9), 88vw, 760px); }
+  .stage { --d: min(calc((100vh - 360px) * 0.9), 88vw, 760px); }
 }
 
 @media (max-width: 720px) {
   .stage { --d: min(94vw, calc(100vh - 120px)); }
 
   .welcome-header {
-    padding: 20px 16px 8px;
+    padding: max(20px, env(safe-area-inset-top)) 16px 8px;
   }
 
   .header-controls {
     flex-wrap: wrap;
     margin-left: 0;
+  }
+
+  /* On a phone there is little room: the greeting goes back in the flow above the orb. */
+  .greeting {
+    position: static;
+    margin-bottom: 12px;
+  }
+
+  .command {
+    position: static;
+    width: 100%;
+    margin-top: 16px;
+    transform: none;
+  }
+
+  /* On a phone the header stacks anyway; keep the chip in the flow so it cannot overlap. */
+  .clock-extra {
+    position: static;
+    margin-top: 8px;
   }
 
   .welcome-main {
@@ -399,7 +419,99 @@ a.ti:hover .t1 {
   letter-spacing: 0.05em;
   color: var(--text);
   text-align: center;
-  transform: translateY(calc(var(--d) * -0.065));
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--d) * 0.09);
+  left: 0;
+}
+
+/* The command line under the orb */
+
+.command {
+  position: absolute;
+  top: calc(100% + var(--d) * 0.09);
+  left: 50%;
+  width: min(calc(var(--d) * 0.7), 92vw);
+  transform: translateX(-50%);
+}
+
+.command-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  height: 46px;
+  padding: 0 10px 0 18px;
+  background: rgb(10 18 24 / 80%);
+  border: 1px solid var(--line-accent);
+  border-radius: 23px;
+  box-shadow: 0 0 30px -14px var(--accent-glow);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.command-bar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 34px -8px var(--accent-glow);
+}
+
+.command-prompt {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.command-bar input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-strong);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.command-bar input::placeholder {
+  color: var(--text-3);
+}
+
+.command-key {
+  padding: 3px 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.command-bar:focus-within .command-key {
+  visibility: hidden;
+}
+
+.command-result {
+  min-height: 16px;
+  margin-top: 10px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-ok {
+  color: var(--ok);
+}
+
+.command-title {
+  color: var(--text-strong);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.greeting-name {
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 0 22px rgb(79 209 232 / 55%);
 }
 
 .orb {
@@ -813,16 +925,7 @@ a.ti:hover .t1 {
   border-top: 1px solid var(--line-soft);
 }
 
-/* Paused and reduced motion */
-
-.welcome.paused .floor,
-.welcome.paused .cloud,
-.welcome.paused .spin,
-.welcome.paused .spin-fast,
-.welcome.paused .spin-rev,
-.welcome.paused .core {
-  animation-play-state: paused;
-}
+/* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
   .floor,
@@ -834,4 +937,513 @@ a.ti:hover .t1 {
   .eq.on i {
     animation: none;
   }
+}
+
+/* Forms and actions inside details, and checkable items in the side column */
+
+.widget-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.widget-input .input {
+  height: 40px;
+  font-size: 14px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+button.row-btn {
+  cursor: pointer;
+}
+
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 5px 0;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.t2.overdue {
+  color: var(--fail);
+}
+
+/* Brief: headline and button in the orb's core, and the report dialog */
+
+.core:has(.brief-headline) #core-line {
+  display: none;
+}
+
+.core-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.full-report {
+  display: inline-flex;
+  align-items: center;
+  height: 2.6em;
+  margin-top: 6px;
+  padding: 0 1.3em;
+  font-size: max(10px, calc(var(--d) * 0.015));
+  color: var(--accent);
+  background: var(--accent-surface);
+  border: 1px solid var(--line-accent);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.full-report:hover {
+  color: #e8fbfe;
+  background: #0f2a33;
+  border-color: var(--accent);
+  box-shadow: 0 0 18px -2px rgb(79 209 232 / 55%);
+}
+
+.modal-report {
+  width: min(1180px, calc(100% - 48px));
+  /* As tall as the report needs, up to the window; it scrolls only when it does not fit. */
+  height: fit-content;
+  max-height: calc(100vh - 48px);
+}
+
+.report {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.report-title {
+  margin: 2px 0;
+  font-family: "Chakra Petch", var(--font-mono);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+.report-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px 32px;
+  align-content: start;
+  min-height: 0;
+  padding: 22px 24px;
+  overflow-y: auto;
+}
+
+.report-wide,
+.report-body > .alert {
+  grid-column: 1 / -1;
+}
+
+.report-summary { grid-column: span 7; }
+.report-priorities { grid-column: span 5; }
+
+@media (max-width: 900px) {
+  .report-summary,
+  .report-priorities {
+    grid-column: 1 / -1;
+  }
+}
+
+.report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.report-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.report-paragraph {
+  max-width: 72ch;
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-body);
+}
+
+.report-paragraph:first-child {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.report-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.report-item .badge {
+  flex: none;
+  justify-content: center;
+  min-width: 72px;
+}
+
+/* Weather panel */
+
+.weather-now {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.warn-text {
+  color: var(--warn);
+}
+
+.weather-hours {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: center;
+}
+
+.weather-hours > div {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  background: var(--surface-2);
+  border-radius: var(--r-badge);
+}
+
+.weather-hours .rain {
+  font-size: 11px;
+  color: var(--info);
+}
+
+/* YouTube mini player: YouTube requires its player to stay visible, at least 200 px tall. */
+
+
+
+.voice-picker {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.voice-picker[hidden] {
+  display: none;
+}
+
+.voice-picker select {
+  height: 34px;
+  max-width: 260px;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.read-error {
+  flex-basis: 100%;
+  color: var(--warn);
+  text-align: right;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.read-error:empty {
+  display: none;
+}
+
+.modal-report .modal-head {
+  flex-wrap: wrap;
+}
+
+/* Report: day at a glance */
+
+.report-glance {
+  margin-bottom: 18px;
+}
+
+/* As in the design: a dark bar with bright event blocks, labels alternating above and below. */
+.glance-track {
+  position: relative;
+  height: 84px;
+  margin-top: 4px;
+}
+
+.glance-track::before {
+  content: "";
+  position: absolute;
+  top: 38px;
+  right: 0;
+  left: 0;
+  height: 20px;
+  background: #0d1117;
+  border: 1px solid #1f2833;
+  border-radius: 4px;
+}
+
+.glance-item {
+  position: absolute;
+  top: 38px;
+  height: 20px;
+  min-width: 4px;
+  background: rgb(79 209 232 / 28%);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+
+.glance-item.past {
+  background: rgb(79 209 232 / 11%);
+  border-color: rgb(79 209 232 / 40%);
+}
+
+.glance-label {
+  position: absolute;
+  top: -26px;
+  left: 0;
+  max-width: 240px;
+  overflow: hidden;
+  font-size: 12px;
+  color: #c9d4de;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-item.below .glance-label {
+  top: 24px;
+}
+
+.glance-item.past .glance-label {
+  opacity: 0.55;
+}
+
+.glance-item.end .glance-label {
+  right: 0;
+  left: auto;
+}
+
+.glance-time {
+  margin-right: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #8794a1;
+}
+
+.glance-now {
+  position: absolute;
+  top: 30px;
+  width: 2px;
+  height: 36px;
+  margin-left: -1px;
+  background: #ff8a8a;
+  box-shadow: 0 0 8px rgb(255 138 138 / 70%);
+}
+
+.glance-now::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  background: #ff8a8a;
+  border-radius: 50%;
+}
+
+.glance-now-label {
+  color: #ff8a8a;
+}
+
+.glance-hours {
+  position: relative;
+  height: 14px;
+}
+
+.glance-hours span {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #8794a1;
+  letter-spacing: 0;
+  transform: translateX(-50%);
+}
+
+.glance-hours span:first-child {
+  transform: none;
+}
+
+/* Report: sources */
+
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+
+.source-tile {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.source-tile:hover {
+  border-color: var(--line-accent);
+}
+
+.source-tile.warn {
+  border-color: rgb(245 196 106 / 35%);
+}
+
+.source-icon {
+  color: var(--accent);
+}
+
+.source-tile.warn .source-icon {
+  color: var(--warn);
+}
+
+.source-value {
+  min-width: 34px;
+  font-size: 30px;
+}
+
+.source-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.source-change {
+  margin-left: 4px;
+  color: var(--text-3);
+}
+
+.source-change.up {
+  color: var(--warn);
+}
+
+.source-arrow {
+  font-size: 18px;
+  color: var(--text-3);
+}
+
+/* Calendar side panel: moving between days */
+
+.day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.day-nav .icon-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.day-nav .icon-btn:disabled {
+  visibility: hidden;
+}
+
+/* Writing a new brief: a spinner on the button and a status line until Claude has answered */
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.brief-writing {
+  display: none;
+}
+
+.brief-writing.is-writing,
+.brief-writing.htmx-request {
+  display: flex;
+}
+
+.brief-writing .alert-tag {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.brief-generate .spinner,
+.brief-generate .when-busy,
+.brief-generate.htmx-request .when-idle {
+  display: none;
+}
+
+.brief-generate.htmx-request .spinner,
+.brief-generate.htmx-request .when-busy {
+  display: inline-block;
+}
+
+.btn.brief-generate {
+  gap: 8px;
+}
+
+.icon-btn.brief-generate.htmx-request svg {
+  animation: spin 1s linear infinite;
+}
+
+/* Circles shown while the numbers load */
+
+.node.node-loading {
+  color: var(--accent);
+  cursor: default;
+  animation: node-loading 1.6s ease-in-out infinite;
+}
+
+@keyframes node-loading {
+  0%,
+  100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+
+.node-loading .spinner {
+  width: calc(var(--sz) * 0.22);
+  height: calc(var(--sz) * 0.22);
+  border-width: 2px;
 }

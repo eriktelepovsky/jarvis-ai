@@ -85,6 +85,8 @@ def access(**overrides: Any) -> AccessRequest:
     [
         (access(path="/static/style.css", password_set=False), Decision.ALLOW),
         (access(path="/healthz", password_set=False), Decision.ALLOW),
+        # Webhooks authenticate themselves with a token and come without an Origin header.
+        (access(path="/hooks/health/x", method="POST"), Decision.ALLOW),
         (access(password_set=False), Decision.SETUP),
         (access(path="/setup", password_set=False), Decision.ALLOW),
         (access(path="/setup", method="POST", password_set=False), Decision.REJECT_ORIGIN),

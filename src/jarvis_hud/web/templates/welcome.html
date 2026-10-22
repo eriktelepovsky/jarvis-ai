@@ -2,15 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#06080b">
   <title>Jarvis</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Jarvis">
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='welcome.css') }}">
-  <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
-  <script src="{{ url_for('static', path='welcome.js') }}" defer></script>
+  {% include "scripts.html" %}
 </head>
-<body class="welcome-body">
+<body hx-boost="true">
+<div id="app" hx-history-elt>
 <div class="welcome" id="welcome">
   <div class="bgl halo" aria-hidden="true"></div>
   <div class="bgl wall" aria-hidden="true"></div>
@@ -25,29 +32,21 @@
   <header class="welcome-header">
     <div class="header-line">
       <nav class="header-nav" aria-label="Main">
+        <a class="label" href="/tasks">To-do</a>
         <a class="label" href="/integrations">Integrations</a>
         <a class="label" href="/settings/security">Security</a>
         <form method="post" action="/logout"><button type="submit" class="label">Sign out</button></form>
       </nav>
-      {% for plugin, panel in header_panels %}
-      <span hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 60s"></span>
-      {% endfor %}
       <a class="label header-item warn" id="attention" href="/integrations" hidden></a>
     </div>
     <div class="header-controls">
-      <button type="button" class="btn btn-small" data-toggle="sounds" aria-pressed="false" aria-label="Interface sounds" title="Interface sounds">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-on" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="sound-off" d="M16 9l5 6M21 9l-5 6"/></svg>
-      </button>
-      <div class="music">
-        <button type="button" class="btn btn-small" data-toggle="music" aria-pressed="false">
-          <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span data-music-label>Ambient off</span>
-        </button>
-        <label class="label volume" hidden>Vol <input type="range" min="0" max="100" value="45" data-volume aria-label="Music volume"></label>
-      </div>
-      <button type="button" class="btn btn-small" data-toggle="pause" aria-pressed="false"><span data-pause-label>Pause</span></button>
       <div class="clock">
         <div class="num"><span data-clock-hhmm>{{ now.strftime("%H:%M") }}</span><span class="clock-seconds" data-clock-ss>:{{ now.strftime("%S") }}</span></div>
         <div class="label clock-date" data-clock-date>{{ now.strftime("%A · %-d %b %Y") }}</div>
+        {# Header panels (e.g. the next event) sit under the date, apart from the menu. #}
+        {% for plugin, panel in header_panels %}
+        <div class="clock-extra" hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 60s, jarvis:refresh from:body"></div>
+        {% endfor %}
       </div>
     </div>
   </header>
@@ -56,7 +55,7 @@
     <section class="side side-left" aria-label="Today">
       {% for plugin, panel in side_panels %}
       <div class="side-head"><span class="label strong">{{ panel.title }}</span><span class="label">{{ plugin.name }}</span></div>
-      <div hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 5m">
+      <div hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 5m, jarvis:refresh from:body">
         <p class="t2">Loading…</p>
       </div>
       {% else %}
@@ -65,7 +64,7 @@
     </section>
 
     <div class="stage" id="stage">
-      <h1 class="greeting" data-greeting>{{ "Good morning" if 5 <= now.hour < 12 else "Good afternoon" if 12 <= now.hour < 18 else "Good evening" }}</h1>
+      <h1 class="greeting"><span data-greeting>{{ "Good morning" if 5 <= now.hour < 12 else "Good afternoon" if 12 <= now.hour < 18 else "Good evening" }}</span>{% if name %}, <span class="greeting-name">{{ name }}</span>{% endif %}</h1>
       <div class="orb">
         <span class="ring" style="inset: 0; border-width: 1px; border-color: #16323a"></span>
         <div class="ticks spin-rev" aria-hidden="true"></div>
@@ -82,18 +81,37 @@
         </div>
 
         <div class="core">
-          <span class="label core-status"><span class="live-dot" aria-hidden="true"></span><span id="core-status">Starting…</span></span>
+          <span class="label core-status"><span class="live-dot" aria-hidden="true"></span><span id="core-status">Loading sources…</span></span>
           <span class="core-name">J.A.R.V.I.S.</span>
           <span class="muted core-line" id="core-line"></span>
+          <div class="core-brief" hx-get="{{ url_for('headline') }}" hx-trigger="load, every 5m, jarvis:brief from:body"></div>
         </div>
 
         <div id="orb-widgets" class="orb-widgets" hx-get="{{ url_for('widgets') }}" hx-trigger="load, every 5m"></div>
+      </div>
+
+      <div class="command">
+        <form class="command-bar" hx-post="/command" hx-target="#command-result" hx-on::after-request="if (event.detail.successful) this.reset()">
+          <span class="command-prompt" aria-hidden="true">›</span>
+          <label class="visually-hidden" for="command-input">Add a task</label>
+          <input id="command-input" name="text" placeholder="Add a task… e.g. “call the accountant tomorrow 10:00”" autocomplete="off" required>
+          <kbd class="command-key" title="Press / to type here">/</kbd>
+        </form>
+        <div class="label command-result" id="command-result" role="status" aria-live="polite"></div>
       </div>
     </div>
 
     <div class="side side-right" aria-hidden="true"></div>
   </main>
   <footer class="label welcome-footer">Click a number to open its details</footer>
+
+  <dialog class="modal modal-report" id="report" aria-labelledby="report-title">
+    <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, jarvis:brief from:body">
+      <div class="modal-head"><h2 id="report-title">Daily brief</h2></div>
+    </div>
+  </dialog>
 </div>
+</div>
+{% include "media_dock.html" %}
 </body>
 </html>

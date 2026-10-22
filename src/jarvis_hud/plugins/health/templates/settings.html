@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Health · Jarvis{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Health</h1></div>
+</div>
+
+{% if message %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
+{% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+
+<section class="panel panel-narrow" aria-labelledby="apple-title">
+  <div class="panel-header"><h2 class="label" id="apple-title">Apple Health · sleep and steps</h2></div>
+  <div class="panel-section instructions">
+    <p style="margin: 0">Apple Health data stays on your iPhone, so a Shortcut sends it to Jarvis every morning through a secret webhook address.</p>
+    {% if webhook %}
+    <div class="copy" style="margin-top: 12px"><code id="webhook">{{ webhook }}</code><button type="button" class="btn" data-copy="#webhook">Copy</button></div>
+    <ol style="margin-top: 12px">
+      <li>In the <strong>Shortcuts</strong> app, create a new shortcut named <code>Send health to Jarvis</code>.</li>
+      <li>Add <strong>Find Health Samples</strong> for <em>Steps</em> started <em>today</em>, then <strong>Calculate Statistics</strong> → <em>Sum</em>.</li>
+      <li>Add <strong>Find Health Samples</strong> for <em>Sleep</em> (value <em>Asleep</em>) started in the last 1 day, then <strong>Calculate Statistics</strong> → <em>Sum</em> of the duration, in minutes.</li>
+      <li>Add <strong>Get Contents of URL</strong> with the address above, method <em>POST</em>, request body <em>JSON</em> with the fields <code>date</code> (today, as <code>yyyy-MM-dd</code>), <code>steps</code> and <code>sleep_minutes</code>.</li>
+      <li>In <strong>Automation</strong>, run the shortcut every day at a time after you wake up, and turn off <em>Ask Before Running</em>.</li>
+    </ol>
+    <p class="muted">The body can also hold <code>resting_heart_rate</code>, <code>active_energy</code> or a list of several days: <code>{"days": [{"date": "2026-10-22", "steps": 8410, "sleep_minutes": 432}]}</code>. Your iPhone must be able to reach Jarvis, so this needs its public address.</p>
+    {% if last %}<p class="muted">Last received: {{ last.updated_at | localtime }} (day {{ last.day.strftime("%-d %b") }}).</p>{% else %}<p class="label">○ Nothing received yet</p>{% endif %}
+    {% endif %}
+  </div>
+  <form method="post" action="/integrations/health/apple/token" class="panel-section actions">
+    <button type="submit" class="btn {{ '' if webhook else 'btn-primary' }}">{{ "Create a new address" if webhook else "Create the webhook address" }}</button>
+    {% if webhook %}<span class="muted" style="font-size: 12.5px">The old address stops working.</span>{% endif %}
+  </form>
+</section>
+
+<section class="panel panel-narrow" aria-labelledby="strava-title">
+  <div class="panel-header"><h2 class="label" id="strava-title">Strava · activities</h2></div>
+  {% for connection in connections %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">ST</span>
+    <div><div class="integration-name"><strong>{{ connection.account }}</strong><span class="label">Strava</span></div></div>
+    <form method="post" action="/integrations/health/strava/{{ connection.id }}/disconnect" class="actions"><span class="badge badge-ok">✓ Connected</span><button type="submit" class="btn btn-danger">Disconnect</button></form>
+  </div>
+  {% endfor %}
+  <div class="panel-section instructions">
+    <ol>
+      <li>Open <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener">Strava → My API Application</a> and create an application (any name and website will do).</li>
+      <li>Set <strong>Authorization Callback Domain</strong> to <code>{{ callback_domain }}</code>.</li>
+      <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> below, save, and connect your account.</li>
+    </ol>
+  </div>
+  <form method="post" action="/integrations/health/strava/client" class="panel-section form">
+    <div class="field">
+      <label class="label" for="strava-id">Client ID</label>
+      <input class="input" id="strava-id" name="client_id" inputmode="numeric" value="{{ client.client_id if client else '' }}" required>
+    </div>
+    <div class="field">
+      <label class="label" for="strava-secret">Client Secret</label>
+      <input class="input" id="strava-secret" name="client_secret" type="password" autocomplete="off" placeholder="{{ 'Saved; leave empty to keep it' if client else '' }}" {% if not client %}required{% endif %}>
+    </div>
+    <div class="actions"><button type="submit" class="btn">Save application</button></div>
+  </form>
+  {% if client and not connections %}
+  <form method="post" action="/integrations/health/strava/connect" class="panel-section actions">
+    <button type="submit" class="btn btn-primary">Connect Strava</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -38,6 +38,8 @@ src/jarvis_hud/
 ├── db.py             # SQLAlchemy base, engine and migrations
 ├── crypto.py         # Encryption of stored credentials
 ├── connections/      # Connected accounts: Google OAuth, integrations page
+├── tasks/            # Built-in to-do list: parsing due dates, page, widget, panel
+├── brief/            # Daily AI brief: facts from plugins, Claude, schedule, report
 ├── cache.py          # Stale-while-revalidate cache for integration data
 ├── auth/             # Login: passwords, passkeys, sessions, access gate
 ├── migrations/       # Alembic database migrations
@@ -45,6 +47,13 @@ src/jarvis_hud/
 │   ├── base.py       # Plugin, Widget and Panel interfaces
 │   ├── registry.py   # Entry point discovery
 │   ├── gmail/        # Unread and today's emails
+│   ├── code_review/  # Pull requests from GitHub, GitLab and Bitbucket
+│   ├── jira/         # Jira issues assigned to you
+│   ├── weather/      # Forecast from Open-Meteo (no API key)
+│   ├── youtube/      # New videos from YouTube subscriptions
+│   ├── slack/        # Slack mentions (own Slack app with search:read)
+│   ├── health/       # Apple Health webhook, Strava OAuth
+│   ├── uptime/       # Own website checks every minute, outages, TLS expiry
 │   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Welcome screen, widget and panel endpoints
@@ -84,6 +93,14 @@ Panel templates are available under the plugin id prefix (`calendar/today.html`)
 
 The interface will grow during the MVP with what the first real integrations need: connections (see below), background refresh and data for the AI brief.
 
+Widget rows can carry **actions** (buttons that POST to a URL, e.g. "Done") and a widget can offer an **input** (a one-line form, e.g. "Add a task"). They are sent with HTMX; the endpoint answers with the `HX-Trigger: jarvis:refresh` header, and the welcome screen reloads its widgets and panels, reopening the dialog the user was in.
+
+## Tasks
+
+The to-do list is built into Jarvis (`src/jarvis_hud/tasks/`) and appears as the "To-do" widget, a side panel with what is overdue or due today, and the `/tasks` page for editing, deleting and the last week's done tasks.
+
+Due dates are written in plain language and recognized by rules, not AI (`tasks/parse.py`), in Slovak and English: today/dnes, tomorrow/zajtra, pozajtra, weekdays (Friday, v piatok), dates (24.10., 24.10.2026, 2026-10-24) and times (10:00, 3pm, o 10). Only full weekday names count, and only valid dates are taken out of the title, so "verzia 2.0" or "the sun" stay as written. A task is overdue when its date has passed, or when its time today has.
+
 ## Integrations
 
 Adding an integration has two steps: **installing** the plugin and **connecting** an account. Most users only do the second step, entirely in the Jarvis UI.
@@ -91,7 +108,7 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 ### Installing plugins
 
 - **Built-in integrations** (Google, Jira, Slack, GitHub, Strava, weather and others) ship with Jarvis. Nothing to install.
-- **Custom plugins** are Python packages. In Docker they are installed at container start from the `JARVIS_PLUGINS` environment variable (e.g. `JARVIS_PLUGINS="jarvis-wallet jarvis-invoices"`), or baked into a custom image built on top of the official one.
+- **Custom plugins** are Python packages. `JARVIS_PLUGINS` lists them as pip would (names with versions, wheel URLs, local paths); `jarvis serve` installs them with `uv` into `plugins/` in the data directory, which goes last on `sys.path`, so they survive image updates and cannot shadow Jarvis's own packages. A custom image built on top of the official one works too. See [writing plugins](PLUGINS.md) and the [example plugin](../examples/jarvis-plugin-example).
 
 ### Connecting accounts
 
@@ -143,6 +160,20 @@ The `Plugin` interface gains a declaration of the connection it needs, and Jarvi
 - **Multiple connections per plugin:** e.g. several Jira workspaces or two Gmail accounts.
 - **Shared connections:** one Google connection is used by the Gmail, Calendar and YouTube plugins. Each requests additional OAuth scopes only when it needs them (incremental authorization).
 
+### Form-based connections
+
+Services that use an API token, a URL or a place name instead of OAuth are declared by plugins as `Provider`s (`connections/providers.py`): the form fields, the setup instructions (a template of the plugin) and `verify()`, which checks the values with the service and returns the account's name, what to store and which capabilities work. Jarvis then renders the connect form, stores the values encrypted in `connections`, tests them again on request and lists them on the Integrations page, all through generic routes (`connections/form_routes.py`). Plugins read their accounts through `context.connections` and load data per account through the cache (`plugins/connection_data.py`).
+
+One plugin can declare several providers: the Pull requests plugin connects GitHub (GraphQL search), GitLab (GraphQL, also self-managed) and Bitbucket (REST; it has no "waiting for my review" search, so the 30 most recently updated repositories of the workspace are queried), and shows them as one number. Jira connects each site (workspace) separately with an Atlassian API token. Slack uses the user's own Slack app, created from a manifest Jarvis shows, with only the `search:read` user scope; mentions come from Slack search.
+
+### Health
+
+Apple Health data never leaves the iPhone on its own, so a Shortcut automation sends sleep, steps and optionally resting heart rate and active energy every morning to `/hooks/health/<token>`, a webhook with a secret token Jarvis generates (new token = old address stops working). Values are stored per day; fields the iPhone did not send keep their earlier value. `/hooks/` paths skip the session and Origin checks; each webhook authenticates itself. Strava uses OAuth with the user's own Strava API application; Strava rotates refresh tokens, so the new one is stored after every refresh.
+
+### Uptime
+
+The Uptime plugin runs a background loop (`Plugin.background()`) that requests each monitored address every minute (up: an answer below HTTP 400 within 10 seconds) and reads https certificates once an hour. A monitor is down after two failed checks in a row; going down opens an incident and coming back closes it, and 30-day uptime is computed from the incidents. Network checks run in parallel, database updates one at a time.
+
 ### Stored credentials
 
 OAuth client secrets and tokens are stored in the database encrypted with Fernet (AES with an HMAC, from the `cryptography` package) and are never sent to the browser. The key comes from `JARVIS_SECRET_KEY`; when it is unset, Jarvis generates a random key in `secret.key` in the data directory (readable only by its owner) on first start.
@@ -154,7 +185,8 @@ The generated key protects copies of the database on their own, e.g. in a backup
 The first connection, Google, lives in `src/jarvis_hud/connections/`; the generic Connection API above will be extracted from it when the second provider arrives.
 
 - The setup wizard (`/integrations/google/setup`) walks through creating the Google Cloud project, enabling the Gmail and Calendar APIs, publishing the app (apps in *Testing* lose access every 7 days) and creating the OAuth client. It shows the exact redirect URI to copy.
-- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `calendar.readonly`) with offline access.
+- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `calendar.readonly`, `youtube.readonly`) with offline access; accounts connected before a capability was added are asked to connect again.
+- YouTube: the subscriptions come from the YouTube Data API (cached for 12 hours, a few quota units a day) and the videos from each channel's public RSS feed, which costs no quota.
 - After connecting and on **Test connection**, Jarvis refreshes the access token and makes a cheap read request per capability. The result tells apart a revoked connection, a permission that was not granted and an API that is not enabled in the Google project (with a link to enable it).
 - Disconnecting revokes the token at Google and deletes it.
 - Tests run the whole flow against a fake Google that verifies the PKCE challenge, client credentials and redirect URI.
@@ -176,7 +208,8 @@ Times are shown in the user's time zone: `JARVIS_TIMEZONE` (e.g. `Europe/Bratisl
 
 ## AI and actions
 
-- **Morning brief:** rules first, AI second. Plugins rank their items with deterministic rules (e.g. a client or a real person ranks above a newsletter; items waiting for a reply carry over with the time they were first seen). Claude then writes the brief from this ranked list instead of from raw data, which makes the brief cheaper, faster and more predictable. The brief is generated on schedule and stored, so opening Jarvis does not call any API.
+- **Morning brief:** rules first, AI second. Each plugin's `brief(context)` returns a `BriefSection`: plain-text facts in the order the plugin ranks them (today's events with times, unread senders and subjects, overdue and due tasks). Claude writes the brief from these facts instead of from raw data, which makes it cheaper, faster and more predictable; ranking rules such as "a real person above a newsletter" go into the plugins over time. The brief is written once a day at the time the user sets (and on request), stored in the database, and shown as a headline in the orb's core and a full report dialog with "Read aloud" (browser speech synthesis), so opening Jarvis does not call any API.
+- **Claude request:** the model chosen in the Claude settings (Claude Sonnet 5.5 by default; Opus 5.5 or Haiku 5.5 at effort `low`) with effort `medium` and a JSON schema (`output_config.format`) for the headline, summary paragraphs and up to five priorities; server-side refusal fallback (`fallbacks: "default"`; Haiku has none, so its requests go without it). The system prompt forbids inventing facts. The user's own API key is stored encrypted like other credentials and checked with a free Models API call when saved. The code is in `src/jarvis_hud/brief/`; tests use a fake Anthropic API that checks the request.
 - **Chat context:** the chat receives a short summary of what is currently on screen, so questions like "what about this one?" work.
 - **Safe actions:** actions that change something outside Jarvis (send, create, pay) are disabled until the user enables them in settings. Every action needs explicit confirmation in the UI, and email replies are never sent directly: Jarvis creates a Gmail draft for the user to review and send.
 - **Testing without the API:** a stub AI provider returns deterministic responses and can trigger tools, so the brief, chat and actions are tested without calling Claude.
@@ -210,6 +243,16 @@ Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, bu
 - **Reverse proxy:** set `JARVIS_PUBLIC_URL` to the public HTTPS address. It is used for the CSRF origin check, passkeys and `Secure` cookies, so Jarvis does not have to trust the `Host` and `X-Forwarded-Proto` headers. Set `JARVIS_TRUSTED_PROXIES` to the proxy's address or network (e.g. the Docker network `172.16.0.0/12`) so that Jarvis sees real client IPs; otherwise all clients share the proxy's IP and the sign-in throttle applies to all of them together.
 - **CI:** every pull request builds the image and checks that the container becomes healthy and redirects to setup.
 - **Plugins:** installing custom plugins with `JARVIS_PLUGINS` comes with the plugin system (phase 1).
+
+## Background music
+
+The music button on the welcome screen plays either the built-in ambient pad (synthesized with Web Audio in `welcome.js`) or a YouTube video, playlist or live stream chosen on Integrations → Music (`music.py`). YouTube's terms require its player to stay visible, so YouTube music plays in a small player in the corner (at least 200 px tall) through the official IFrame Player API. The API loads only when the music starts, from `youtube-nocookie.com`; volume follows Jarvis's slider.
+
+## Installable app (PWA)
+
+Jarvis can be installed on a phone or desktop like an app: `/manifest.webmanifest` describes it (name, colors, icons in `web/static/icons/`), and `/sw.js` is a small service worker served from the root so it controls every page. The service worker never caches pages or data, only static files (network first, so updates arrive at once) and an offline page shown when the server cannot be reached. Both URLs and the icons are public, like `/healthz`. Pages respect the phone's safe areas (`viewport-fit=cover`, `env(safe-area-inset-*)`), since an installed app runs under the status bar.
+
+Browsers install apps and run service workers only over HTTPS or on `localhost`, so on a phone Jarvis needs its HTTPS address (`JARVIS_PUBLIC_URL`); iOS can still add a plain-HTTP Jarvis to the home screen, without the offline page.
 
 ## Planned for the MVP
 

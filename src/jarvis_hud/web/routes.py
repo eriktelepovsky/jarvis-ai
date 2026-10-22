@@ -1,11 +1,19 @@
 import asyncio
 import logging
+from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from jarvis_hud import __version__
+from jarvis_hud.db import get_db
+from jarvis_hud.overview import snapshots
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
+from jarvis_hud.profile import user_name
 
 router = APIRouter()
 
@@ -20,8 +28,20 @@ FAILED = WidgetData(
 
 
 def widget_context(request: Request) -> WidgetContext:
-    state = request.app.state
-    return WidgetContext(now=datetime.now(state.timezone), cache=state.cache, google=state.google)
+    return app_context(request.app)
+
+
+def app_context(app: FastAPI) -> WidgetContext:
+    """The context plugins load with, also outside a request (e.g. the brief scheduler)."""
+    state = app.state
+    return WidgetContext(
+        now=datetime.now(state.timezone),
+        cache=state.cache,
+        google=state.google,
+        sessionmaker=state.sessionmaker,
+        http=state.http,
+        connections=state.connections,
+    )
 
 
 def ordered_plugins(request: Request) -> list[Plugin]:
@@ -33,8 +53,48 @@ async def health() -> str:
     return "ok"
 
 
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@router.get("/manifest.webmanifest")
+async def manifest() -> JSONResponse:
+    """Web app manifest: lets phones and desktops install Jarvis as an app."""
+    icons = "/static/icons"
+    return JSONResponse(
+        {
+            "name": "Jarvis",
+            "short_name": "Jarvis",
+            "description": "Personal AI daily briefing dashboard",
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",
+            "background_color": "#06080b",
+            "theme_color": "#07090c",
+            "icons": [
+                {"src": f"{icons}/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                {"src": f"{icons}/icon-512.png", "sizes": "512x512", "type": "image/png"},
+                {
+                    "src": f"{icons}/icon-maskable-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable",
+                },
+            ],
+        },
+        media_type="application/manifest+json",
+    )
+
+
+@router.get("/sw.js")
+async def service_worker() -> Response:
+    # Served from the root, not /static, so it controls every page. The cache name changes
+    # with each version, which drops files cached by the previous one.
+    script = (STATIC_DIR / "sw.js").read_text().replace("__VERSION__", __version__)
+    return Response(script, media_type="text/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @router.get("/", response_class=HTMLResponse)
-async def welcome(request: Request) -> HTMLResponse:
+async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> HTMLResponse:
     panels = [(plugin, panel) for plugin in ordered_plugins(request) for panel in plugin.panels()]
     return request.app.state.templates.TemplateResponse(
         request,
@@ -43,6 +103,7 @@ async def welcome(request: Request) -> HTMLResponse:
             "now": datetime.now(request.app.state.timezone),
             "side_panels": [(p, panel) for p, panel in panels if panel.placement == "side"],
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
+            "name": await user_name(request, db),
         },
     )
 
@@ -56,18 +117,49 @@ async def _load_widget(context: WidgetContext, plugin: Plugin, widget: Widget) -
         return FAILED
 
 
-@router.get("/welcome/widgets", response_class=HTMLResponse)
-async def widgets(request: Request) -> HTMLResponse:
-    """The numbers around the orb and their details, loaded together."""
+def node_size(weight: float, data: WidgetData) -> float:
+    """How big a widget's circle is around the orb: by what needs the user, as in the design.
+
+    Something that needs attention is large, a source with nothing to show (0 or no data) is
+    small; the plugin's weight only adjusts it a little.
+    """
+    needs = data.attention or data.message_tone in ("fail", "warn")
+    empty = data.value in (None, 0, "")
+    state = 1.25 if needs else 0.8 if empty else 1.0
+    return round(min(1.4, state * (1 + (weight - 1) * 0.5)), 3)
+
+
+async def load_widgets(request: Request) -> list[dict[str, Any]]:
+    """All widgets of set-up services, with today's numbers kept for "change since yesterday"."""
     context = widget_context(request)
     entries = [
         (plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()
     ]
     results = await asyncio.gather(*(_load_widget(context, p, w) for p, w in entries))
+    # Widgets of services that are not set up are left out; Integrations lists them instead.
     items = [
         {"plugin": plugin, "widget": widget, "data": data, "key": f"{plugin.id}-{widget.id}"}
         for (plugin, widget), data in zip(entries, results, strict=True)
+        if data.connected
     ]
+    values = {
+        item["key"]: number
+        for item in items
+        if (number := snapshots.numeric(item["data"].value)) is not None
+    }
+    async with request.app.state.sessionmaker() as db:
+        previous = await snapshots.changes(db, context.now.date(), values)
+        await snapshots.record(db, context.now.date(), values)
+    for item in items:
+        item["change"] = snapshots.change_label(previous.get(item["key"]))
+        item["size"] = node_size(item["widget"].weight, item["data"])
+    return items
+
+
+@router.get("/welcome/widgets", response_class=HTMLResponse)
+async def widgets(request: Request) -> HTMLResponse:
+    """The numbers around the orb and their details, loaded together."""
+    items = await load_widgets(request)
     return request.app.state.templates.TemplateResponse(
         request, "welcome/widgets.html", {"items": items}
     )
@@ -81,7 +173,8 @@ async def panel(request: Request, plugin_id: str, panel_id: str) -> HTMLResponse
         raise HTTPException(status_code=404, detail="Panel not found")
     templates = request.app.state.templates
     try:
-        context = await found.load(widget_context(request))
+        params = dict(request.query_params)
+        context = await found.load(replace(widget_context(request), params=params))
         return templates.TemplateResponse(request, f"{plugin_id}/{found.template}", context)
     except Exception:
         logger.exception("Panel %s/%s failed", plugin_id, panel_id)

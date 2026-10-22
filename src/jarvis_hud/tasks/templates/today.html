@@ -1,0 +1,15 @@
+{% if not tasks %}
+<p class="t2">Nothing due today.{% if upcoming %} {{ upcoming }} more {{ "task" if upcoming == 1 else "tasks" }} later.{% endif %} <a href="/tasks">All tasks</a></p>
+{% else %}
+<div>
+  {% for task in tasks %}
+  <label class="check">
+    <input type="checkbox" hx-post="/tasks/{{ task.id }}/done" hx-trigger="change" hx-swap="none" aria-label="Mark “{{ task.title }}” as done">
+    <span style="min-width: 0">
+      <span class="t1">{{ task.title }}</span>
+      <span class="t2{% if task.id in overdue %} overdue{% endif %}">{{ label(task) }}</span>
+    </span>
+  </label>
+  {% endfor %}
+</div>
+{% endif %}

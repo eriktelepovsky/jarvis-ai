@@ -107,7 +107,8 @@ def connect_google(client: TestClient, fake_google: FakeGoogle) -> None:
 # Widgets
 
 
-def test_widgets_are_ordered_by_plugin_position(client: TestClient):
+def test_widgets_are_ordered_by_plugin_position(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
     text = client.get("/welcome/widgets").text
     assert text.index('data-open="detail-gmail-inbox"') < text.index(
         'data-open="detail-calendar-today"'
@@ -116,10 +117,10 @@ def test_widgets_are_ordered_by_plugin_position(client: TestClient):
 
 def test_widgets_without_google_ask_to_connect(client: TestClient):
     text = client.get("/welcome/widgets").text
-    assert text.count('<span class="node-value">—</span>') == 2
-    assert text.count("Google is not connected.") == 2
-    assert "Connect Google" in text
+    # Nothing around the orb until Google is connected; Integrations lists it instead.
+    assert "node-value" not in text
     assert "Connect a service to get started" in text
+    assert "Online · 0/0 sources" in text
     assert "Connect Google to see today" in client.get("/panels/calendar/today").text
 
 
@@ -180,7 +181,7 @@ def test_disconnect_clears_cached_data(client: TestClient, fake_google: FakeGoog
     connect_google(client, fake_google)
     assert '<span class="node-value">7</span>' in client.get("/welcome/widgets").text
     client.post("/integrations/google/1/disconnect")
-    assert "Google is not connected." in client.get("/welcome/widgets").text
+    assert 'data-open="detail-gmail-inbox"' not in client.get("/welcome/widgets").text
 
 
 def test_today_panel_labels_all_day_events_once(client: TestClient, fake_google: FakeGoogle):
@@ -375,3 +376,109 @@ def test_resolve_timezone(monkeypatch: pytest.MonkeyPatch):
     assert resolve_timezone("Not/AZone") == ZoneInfo("America/New_York")
     monkeypatch.setenv("TZ", "")
     assert resolve_timezone(None) is not None
+
+
+def test_calendar_panel_moves_between_days(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    today = client.get("/panels/calendar/today").text
+    assert '<span class="label strong">Today</span>' in today
+    assert 'aria-label="Previous day" disabled' in today
+    tomorrow = client.get("/panels/calendar/today", params={"day": 1}).text
+    assert '<span class="label strong">Tomorrow</span>' in tomorrow
+    assert "Nothing on the calendar tomorrow." in tomorrow
+    assert 'hx-get="/panels/calendar/today?day=2"' in tomorrow
+    last = client.get("/panels/calendar/today", params={"day": 99}).text
+    assert 'aria-label="Next day" disabled' in last
+    assert "Today" in client.get("/panels/calendar/today", params={"day": "x"}).text
+
+
+def test_events_on_another_day():
+    from datetime import UTC, datetime, timedelta
+
+    from jarvis_hud.plugins.calendar import events_on
+
+    day = datetime(2026, 10, 23, tzinfo=UTC)
+    event = {"title": "Standup", "all_day": False, "video_url": None, "location": None}
+    events = [
+        {**event, "start": day + timedelta(hours=9), "end": day + timedelta(hours=9, minutes=15)},
+        {**event, "start": day + timedelta(hours=9), "end": day + timedelta(hours=9, minutes=15)},
+        {
+            **event,
+            "title": "Trip",
+            "all_day": True,
+            "start": day - timedelta(days=1),
+            "end": day + timedelta(days=2),
+            "calendar": None,
+        },
+        {
+            **event,
+            "title": "Later",
+            "start": day + timedelta(days=1),
+            "end": day + timedelta(days=1, hours=1),
+        },
+    ]
+    for e in events:
+        e.setdefault("calendar", None)
+    titles = [e["title"] for e in events_on(events, day.date())]
+    assert titles == ["Trip", "Standup"]  # all-day first, the duplicate (two accounts) once
+
+
+def test_brief_includes_all_of_tomorrow(monkeypatch):
+    import asyncio
+    from datetime import datetime, timedelta
+    from types import SimpleNamespace
+    from zoneinfo import ZoneInfo
+
+    from jarvis_hud.plugins.calendar import CalendarPlugin
+    from jarvis_hud.plugins.google_data import AccountData
+
+    now = datetime(2026, 10, 22, 17, 0, tzinfo=ZoneInfo("Europe/Bratislava"))
+    tomorrow = now.replace(hour=0) + timedelta(days=1)
+    base = {"location": None, "video_url": None, "url": None, "calendar": None}
+    events = [
+        {
+            **base,
+            "title": f"Name day {i}",
+            "all_day": True,
+            "start": tomorrow,
+            "end": tomorrow + timedelta(days=1),
+        }
+        for i in range(6)
+    ] + [
+        {
+            **base,
+            "title": "Flight to Bratislava",
+            "all_day": False,
+            "location": "VIE",
+            "start": tomorrow + timedelta(hours=19),
+            "end": tomorrow + timedelta(hours=21),
+        },
+        {
+            **base,
+            "title": "Dentist",
+            "all_day": False,
+            "start": tomorrow + timedelta(days=3, hours=9),
+            "end": tomorrow + timedelta(days=3, hours=10),
+        },
+    ]
+    plugin = CalendarPlugin()
+
+    async def accounts(context):
+        return [AccountData("me@example.com", {"events": events})]
+
+    monkeypatch.setattr(plugin, "_accounts", accounts)
+    section = asyncio.run(plugin.brief(SimpleNamespace(now=now)))
+    assert "Tomorrow 19:00–21:00: Flight to Bratislava (2 h · VIE)" in section.lines
+    assert sum(line.startswith("Tomorrow all day") for line in section.lines) == 6
+    assert any(line.startswith("Later this week, Monday 09:00: Dentist") for line in section.lines)
+
+
+def test_node_size_follows_attention():
+    from jarvis_hud.plugins import WidgetData
+    from jarvis_hud.web.routes import node_size
+
+    assert node_size(1.0, WidgetData(value=60, attention=True)) == 1.25
+    assert node_size(1.0, WidgetData(value=8)) == 1.0
+    assert node_size(1.3, WidgetData(value=0)) == 0.92  # empty, even for a heavy widget
+    assert node_size(1.0, WidgetData(value=None, message="Failed", message_tone="fail")) == 1.25
+    assert node_size(2.0, WidgetData(value=1, attention=True)) == 1.4  # capped

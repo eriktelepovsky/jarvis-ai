@@ -1,0 +1,99 @@
+{% from "icons.html" import icon %}
+<div class="modal-head">
+  <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7M9 8h2"/></svg></span>
+  <div style="min-width: 0; flex: 1">
+    <span class="label" style="color: var(--info)">{{ kicker or "Daily brief" }}</span>
+    <h2 id="report-title" class="report-title">{% if brief %}{{ brief.created_at | localtime("%A, %-d %B") }}{% else %}Daily brief{% endif %}</h2>
+    {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · {{ model_name(brief.model) }}</span>{% endif %}
+  </div>
+  {% if brief %}
+  <button type="button" class="btn" data-read-aloud data-brief="{{ brief.id }}" data-brief-language="{{ brief.language }}" data-voice="{{ 'azure' if voice.azure else 'browser' }}" aria-pressed="false" title="Voices are set on Integrations → Voice">▶ Read aloud</button>
+  <label class="label voice-picker">In <select class="input" data-read-language aria-label="Language to read in">
+    {% for code, (name, tag) in read_languages.items() %}<option value="{{ code }}" data-tag="{{ tag }}" {% if code == brief.language %}selected{% endif %}>{{ name }}</option>{% endfor %}
+  </select></label>
+  <span class="label read-error" data-read-error role="alert"></span>
+  {% endif %}
+  {% if configured %}
+  <button type="button" class="icon-btn brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this" aria-label="Write a new brief" title="Write a new brief"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+  {% endif %}
+  <button type="button" class="icon-btn" data-close aria-label="Close report"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+</div>
+
+<div class="report-body">
+  {# Shown while a brief is being written: by the schedule (from the server), or after a click
+     (htmx adds .htmx-request to it until Claude has answered). #}
+  <div class="alert alert-info report-wide brief-writing{% if generating %} is-writing{% endif %}" id="brief-writing" role="status"><span class="alert-tag"><span class="spinner" aria-hidden="true"></span> WRITING</span><span>Jarvis is writing a new brief… This usually takes 20–40 seconds.</span></div>
+  {% if error %}
+  <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
+  {% endif %}
+
+  <section class="report-section report-wide report-glance" aria-labelledby="glance-title">
+    <div class="report-head">
+      <span class="label strong" id="glance-title">Day at a glance</span>
+      <span class="label"><span class="glance-now-label">● Now {{ now.strftime("%H:%M") }}</span> · {{ glance.count }} {{ "event" if glance.count == 1 else "events" }} · {{ duration(glance.free_minutes) }} free until 18:00</span>
+    </div>
+    <ul class="visually-hidden">{% for placed in glance.items %}<li>{{ placed.item.start.strftime("%H:%M") }}–{{ placed.item.end.strftime("%H:%M") }} {{ placed.item.title }}</li>{% endfor %}</ul>
+    <div class="glance" aria-hidden="true">
+      <div class="glance-track">
+        {% for placed in glance.items %}
+        <div class="glance-item{% if placed.past %} past{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%">
+          <span class="glance-label"><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span>{{ placed.item.title }}</span>
+        </div>
+        {% endfor %}
+        {% if glance.now is not none %}<span class="glance-now" style="left: {{ '%.2f' % glance.now }}%"></span>{% endif %}
+      </div>
+      <div class="glance-hours">{% for hour, position in glance.hours %}<span style="left: {{ '%.2f' % position }}%">{{ "%02d:00" % hour }}</span>{% endfor %}</div>
+    </div>
+  </section>
+
+  {% if not configured %}
+  <div class="report-wide">
+    <p style="margin: 0 0 12px">Jarvis can write you a short brief every morning from your calendar, email and to-do list. It uses Claude, Anthropic's AI, with your own API key.{% if brief %} Below is the last brief it wrote.{% endif %}</p>
+    <a class="btn btn-primary" href="/integrations/claude">Connect Claude</a>
+  </div>
+  {% endif %}
+  {% if configured and not brief %}
+  <div class="report-wide">
+    <p style="margin: 0 0 12px">No brief yet. Jarvis writes one every morning; you can also ask for one now.</p>
+    <button type="button" class="btn btn-primary brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this"><span class="spinner" aria-hidden="true"></span><span class="when-idle">Write a brief now</span><span class="when-busy">Writing…</span></button>
+  </div>
+  {% elif brief %}
+  <section class="report-section report-summary" aria-label="Summary">
+    <div class="report-head"><span class="label strong">Summary</span><span class="label">AI · {{ brief.sources | join(" · ") }}</span></div>
+    <div data-report-text>
+      {% for paragraph in brief.content.summary %}<p class="report-paragraph">{{ paragraph }}</p>{% endfor %}
+    </div>
+  </section>
+  <section class="report-section report-priorities" aria-label="Needs you">
+    <div class="report-head"><span class="label strong">Needs you</span><span class="label">{{ brief.content.priorities | length }} {{ "item" if brief.content.priorities | length == 1 else "items" }}</span></div>
+    {% for item in brief.content.priorities %}
+    <div class="report-item">
+      <span class="badge badge-{{ item.tone }}">{{ item.tag }}</span>
+      <span style="min-width: 0"><span class="t1">{{ item.title }}</span>{% if item.detail %}<span class="t2">{{ item.detail }}</span>{% endif %}</span>
+    </div>
+    {% else %}
+    <p class="muted" style="margin: 0">Nothing needs you right now.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if sources %}
+  <section class="report-section report-wide" aria-labelledby="sources-title">
+    <div class="report-head"><span class="label strong" id="sources-title">Sources</span><span class="label">Change since yesterday · click for details</span></div>
+    <div class="source-grid">
+      {% for source in sources %}
+      {% set data = source.data %}
+      <button type="button" class="source-tile{% if data.attention or data.message_tone in ('fail', 'warn') %} warn{% endif %}" data-open="detail-{{ source.key }}">
+        <svg class="source-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ source.widget.icon }}"/></svg>
+        <span class="num source-value">{{ data.value if data.value is not none else "—" }}</span>
+        <span class="source-text">
+          <span class="label strong">{{ source.widget.label }}{% if source.change %} <span class="source-change{% if source.change.startswith('▲') and data.attention %} up{% endif %}">{{ source.change }}</span>{% endif %}</span>
+          <span class="t2 trunc">{{ data.summary or data.message or "" }}</span>
+        </span>
+        <span class="source-arrow" aria-hidden="true">›</span>
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>

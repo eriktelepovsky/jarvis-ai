@@ -107,7 +107,7 @@ def test_connect_account(client: TestClient, fake_google: FakeGoogle):
     response = connect(client, fake_google)
     assert "The Google account was connected" in response.text
     assert EMAIL in response.text
-    assert response.text.count("Works") == 3
+    assert response.text.count("Works") == 4
 
     [connection] = rows(client, Connection)
     assert b"refresh-1" not in connection.credentials
@@ -156,14 +156,14 @@ def test_disabled_api_is_reported_with_link(client: TestClient, fake_google: Fak
     response = connect(client, fake_google)
     assert "The Gmail API is not enabled in your Google project" in response.text
     assert "https://console.cloud.google.com/apis/library/gmail.googleapis.com" in response.text
-    assert response.text.count("Works") == 2
+    assert response.text.count("Works") == 3
 
 
 def test_missing_permission_is_reported(client: TestClient, fake_google: FakeGoogle):
     fake_google.granted_scopes = " ".join(google.BASE_SCOPES)
     save_oauth_client(client)
     response = connect(client, fake_google)
-    assert response.text.count("Permission was not granted") == 2
+    assert response.text.count("Permission was not granted") == 3
 
 
 def test_revoked_access_is_reported_on_test(client: TestClient, fake_google: FakeGoogle):

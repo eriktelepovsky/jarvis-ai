@@ -5,7 +5,16 @@ from typing import Any
 from urllib.parse import quote
 
 from jarvis_hud.connections.google_accounts import GoogleAccount, GoogleAccounts
-from jarvis_hud.plugins.base import Link, Plugin, Row, Stat, Widget, WidgetContext, WidgetData
+from jarvis_hud.plugins.base import (
+    BriefSection,
+    Link,
+    Plugin,
+    Row,
+    Stat,
+    Widget,
+    WidgetContext,
+    WidgetData,
+)
 from jarvis_hud.plugins.google_data import account_status, load_accounts
 
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
@@ -97,7 +106,7 @@ class GmailPlugin(Plugin):
             )
         ]
 
-    async def _load(self, context: WidgetContext) -> WidgetData:
+    async def _accounts(self, context: WidgetContext) -> list:
         day_start = context.now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         async def fetch(account: GoogleAccount) -> dict[str, Any]:
@@ -106,7 +115,24 @@ class GmailPlugin(Plugin):
         result = await load_accounts(
             context, SCOPE, f"gmail:{day_start.date()}", fetch, fresh=60, max_age=30 * 60
         )
-        accounts = result["accounts"]
+        return result["accounts"]
+
+    async def brief(self, context: WidgetContext) -> BriefSection | None:
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        if not loaded:
+            return None
+        lines = [
+            f"{sum(a.data['unread'] for a in loaded)} unread conversations in the inbox, "
+            f"{sum(a.data['today'] for a in loaded)} emails received today."
+        ]
+        for account in loaded:
+            for message in account.data["latest_unread"]:
+                received = received_badge(message["received"], context.now)
+                lines.append(f"Unread from {message['sender']}: {message['subject']} ({received})")
+        return BriefSection("Email (Gmail)", lines)
+
+    async def _load(self, context: WidgetContext) -> WidgetData:
+        accounts = await self._accounts(context)
         status = account_status(accounts, "Gmail")
         loaded = [account for account in accounts if account.data is not None]
         if not loaded:

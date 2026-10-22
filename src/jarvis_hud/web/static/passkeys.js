@@ -53,27 +53,29 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+});
 
-  const registerForm = document.querySelector("[data-passkey-register]");
-  if (registerForm) {
-    registerForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      try {
-        if (!passkeysSupported()) {
-          throw new Error("This browser does not support passkeys.");
-        }
-        const options = await postJSON("/settings/security/passkeys/options");
-        const credential = await navigator.credentials.create({
-          publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(options),
-        });
-        await postJSON("/settings/security/passkeys", {
-          name: registerForm.elements.name.value,
-          credential: credential.toJSON(),
-        });
-        window.location.reload();
-      } catch (error) {
-        showError(registerForm, error);
-      }
+// Delegated, because the Security page can be opened without a page load (hx-boost).
+document.addEventListener("submit", async (event) => {
+  const registerForm = event.target.closest("[data-passkey-register]");
+  if (!registerForm) {
+    return;
+  }
+  event.preventDefault();
+  try {
+    if (!passkeysSupported()) {
+      throw new Error("This browser does not support passkeys.");
+    }
+    const options = await postJSON("/settings/security/passkeys/options");
+    const credential = await navigator.credentials.create({
+      publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(options),
     });
+    await postJSON("/settings/security/passkeys", {
+      name: registerForm.elements.name.value,
+      credential: credential.toJSON(),
+    });
+    window.location.reload();
+  } catch (error) {
+    showError(registerForm, error);
   }
 });

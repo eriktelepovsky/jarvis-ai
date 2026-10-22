@@ -48,6 +48,14 @@ CAPABILITIES = (
         api_name="Google Calendar API",
         api_url="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com",
     ),
+    Capability(
+        id="youtube.read",
+        label="Read YouTube subscriptions",
+        scope="https://www.googleapis.com/auth/youtube.readonly",
+        check_url="https://www.googleapis.com/youtube/v3/subscriptions?mine=true&part=id&maxResults=1",
+        api_name="YouTube Data API v3",
+        api_url="https://console.cloud.google.com/apis/library/youtube.googleapis.com",
+    ),
 )
 
 

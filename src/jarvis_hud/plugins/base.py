@@ -1,13 +1,19 @@
 from abc import ABC
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 if TYPE_CHECKING:
+    import httpx2
+    from fastapi import APIRouter
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from jarvis_hud.cache import Cache
+    from jarvis_hud.connections.accounts import Connections
     from jarvis_hud.connections.google_accounts import GoogleAccounts
+    from jarvis_hud.connections.providers import Provider
 
 Tone = Literal["ok", "warn", "fail", "info", "neutral"]
 
@@ -19,6 +25,11 @@ class WidgetContext:
     now: datetime  # in the user's time zone
     cache: "Cache"
     google: "GoogleAccounts"
+    sessionmaker: "async_sessionmaker[AsyncSession]"
+    http: "httpx2.AsyncClient"
+    connections: "Connections"
+    # The panel request's query parameters, e.g. which day a calendar panel shows.
+    params: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -34,6 +45,23 @@ class Stat:
 
 
 @dataclass(frozen=True)
+class Action:
+    """A button that POSTs to `url`; the widgets refresh afterwards."""
+
+    label: str
+    url: str
+
+
+@dataclass(frozen=True)
+class Input:
+    """A one-line form in a widget's details that POSTs its `text` field to `url`."""
+
+    url: str
+    placeholder: str
+    label: str
+
+
+@dataclass(frozen=True)
 class Row:
     """One item in a widget's details, e.g. an email or an event."""
 
@@ -42,6 +70,9 @@ class Row:
     badge: str = ""
     tone: Tone = "neutral"
     url: str | None = None
+    actions: list[Action] = field(default_factory=list)
+    # The label of the `url` link. Links within Jarvis ("/…") open in the same tab.
+    url_label: str = "Open"
 
 
 @dataclass(frozen=True)
@@ -59,11 +90,15 @@ class WidgetData:
     list_title: str = ""
     rows: list[Row] = field(default_factory=list)
     action: Link | None = None
+    input: Input | None = None
     source: str = ""
     updated_at: float | None = None
     message: str | None = None
     message_tone: Tone = "info"
     message_action: Link | None = None
+    # False when the service behind the widget is not set up yet: the widget is not shown
+    # around the orb until it is (problems with a set-up service are shown instead).
+    connected: bool = True
 
 
 @dataclass(frozen=True)
@@ -71,8 +106,8 @@ class Widget:
     """A number around the orb on the welcome screen, with details that open on click.
 
     `label` names the number (e.g. "Unread"), `title` heads its details (e.g. "Email") and
-    `icon` is an SVG path in a 24×24 box. `weight` scales the node: more important numbers
-    are bigger.
+    `icon` is an SVG path in a 24×24 box. The node is large when its data needs
+    attention and small when it has nothing to show; `weight` adjusts that a little.
     """
 
     id: str
@@ -85,7 +120,7 @@ class Widget:
 
 @dataclass(frozen=True)
 class Panel:
-    """A section rendered from a template: in the side column or in the header line.
+    """A section rendered from a template: in the side column or under the clock.
 
     `template` is relative to the plugin's `templates_dir`; `load` returns its context.
     """
@@ -95,6 +130,30 @@ class Panel:
     template: str
     load: Callable[[WidgetContext], Awaitable[dict[str, Any]]]
     placement: Literal["side", "header"] = "side"
+
+
+@dataclass(frozen=True)
+class SettingsLink:
+    logo: str
+    summary: str
+    url: str
+
+
+@dataclass(frozen=True)
+class TimelineItem:
+    """Something at a time today, for the brief's "Day at a glance", e.g. a meeting."""
+
+    start: datetime
+    end: datetime
+    title: str
+
+
+@dataclass(frozen=True)
+class BriefSection:
+    """Facts a plugin contributes to the AI brief, most important first, as plain text lines."""
+
+    title: str
+    lines: list[str]
 
 
 class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they need)
@@ -109,6 +168,8 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     templates_dir: ClassVar[Path | None] = None
     # Order on the welcome screen: plugins with a lower position come first.
     position: ClassVar[int] = 100
+    # A settings page of the plugin, listed on the Integrations page (logo, summary, URL).
+    settings: ClassVar["SettingsLink | None"] = None
 
     def widgets(self) -> list[Widget]:
         """Return the numbers this plugin adds around the orb."""
@@ -117,3 +178,31 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     def panels(self) -> list[Panel]:
         """Return the sections this plugin adds to the side column or the header."""
         return []
+
+    def connections(self) -> list["Provider"]:
+        """Return the connections this plugin is set up with on the Integrations page."""
+        return []
+
+    def background(self, context: Callable[[], WidgetContext]) -> Awaitable[None] | None:
+        """Return a coroutine Jarvis runs in the background while it is up, or None.
+
+        `context()` gives a fresh WidgetContext each time it is called. The coroutine should
+        loop, sleep between rounds and handle its own errors; it is cancelled at shutdown.
+        """
+        return None
+
+    async def timeline(self, context: WidgetContext) -> list[TimelineItem]:
+        """Today's items with a start and an end, for the day's timeline in the report."""
+        return []
+
+    def router(self) -> "APIRouter | None":
+        """Return the plugin's own pages and endpoints, e.g. an OAuth callback or a webhook.
+
+        Every route requires a signed-in user, except paths under /hooks/, which the plugin
+        must authenticate itself (e.g. with a secret token in the URL).
+        """
+        return None
+
+    async def brief(self, context: WidgetContext) -> BriefSection | None:
+        """Return facts for the AI brief, or None when the plugin has nothing to add."""
+        return None

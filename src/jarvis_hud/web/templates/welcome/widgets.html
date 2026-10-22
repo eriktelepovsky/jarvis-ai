@@ -4,7 +4,7 @@
 {% set data = item.data %}
 {% set warn = data.attention or data.message_tone in ("fail", "warn") %}
 <div class="place" style="--angle: {{ (360 / count * loop.index0) | round(2) }}deg">
-  <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.widget.weight }}"
+  <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.size }}"
           data-open="detail-{{ item.key }}" data-sfx
           aria-label="{{ data.value if data.value is not none else 'No data' }} {{ item.widget.label }}. Show details">
     <svg class="node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ item.widget.icon }}"/></svg>
@@ -48,12 +48,22 @@
       {% endif %}
     </div>
     <div style="min-width: 0">
+      {% if data.input %}
+      <form class="widget-input" hx-post="{{ data.input.url }}" hx-swap="none" hx-on::after-request="if (event.detail.successful) this.reset()">
+        <label class="visually-hidden" for="input-{{ item.key }}">{{ data.input.label }}</label>
+        <input class="input" id="input-{{ item.key }}" name="text" placeholder="{{ data.input.placeholder }}" autocomplete="off" required>
+        <button type="submit" class="btn btn-primary" aria-label="{{ data.input.label }}">Add</button>
+      </form>
+      {% endif %}
       {% if data.list_title %}<div class="label list-head">{{ data.list_title }}</div>{% endif %}
       {% for row in data.rows %}
       <div class="modal-row">
         <span style="min-width: 0"><span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}</span>
         {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
-        {% if row.url %}<a class="row-btn" href="{{ row.url }}" target="_blank" rel="noopener">Open</a>{% else %}<span></span>{% endif %}
+        <span class="row-actions">
+          {% for action in row.actions %}<button type="button" class="row-btn" hx-post="{{ action.url }}" hx-swap="none">{{ action.label }}</button>{% endfor %}
+          {% if row.url %}<a class="row-btn" href="{{ row.url }}"{% if not row.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ row.url_label }}</a>{% endif %}
+        </span>
       </div>
       {% else %}
       {% if data.value is not none %}<p class="muted" style="margin: 0">Nothing here right now.</p>{% endif %}
@@ -61,7 +71,7 @@
     </div>
   </div>
   <div class="modal-foot">
-    {% if data.action %}<a class="btn btn-primary" href="{{ data.action.url }}" target="_blank" rel="noopener">{{ data.action.label }}</a>{% endif %}
+    {% if data.action %}<a class="btn btn-primary" href="{{ data.action.url }}"{% if not data.action.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ data.action.label }}</a>{% endif %}
     {% if data.message_action and data.value is none %}<a class="btn btn-primary" href="{{ data.message_action.url }}">{{ data.message_action.label }}</a>{% endif %}
     <span class="label" style="margin-left: auto">Esc closes · ← → switch</span>
   </div>
