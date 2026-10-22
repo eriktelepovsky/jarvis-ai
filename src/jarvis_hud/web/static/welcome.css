@@ -835,3 +835,45 @@ a.ti:hover .t1 {
     animation: none;
   }
 }
+
+/* Forms and actions inside details, and checkable items in the side column */
+
+.widget-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.widget-input .input {
+  height: 40px;
+  font-size: 14px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+button.row-btn {
+  cursor: pointer;
+}
+
+.check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 5px 0;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.t2.overdue {
+  color: var(--fail);
+}

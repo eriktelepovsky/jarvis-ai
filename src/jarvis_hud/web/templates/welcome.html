@@ -25,12 +25,13 @@
   <header class="welcome-header">
     <div class="header-line">
       <nav class="header-nav" aria-label="Main">
+        <a class="label" href="/tasks">To-do</a>
         <a class="label" href="/integrations">Integrations</a>
         <a class="label" href="/settings/security">Security</a>
         <form method="post" action="/logout"><button type="submit" class="label">Sign out</button></form>
       </nav>
       {% for plugin, panel in header_panels %}
-      <span hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 60s"></span>
+      <span hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 60s, jarvis:refresh from:body"></span>
       {% endfor %}
       <a class="label header-item warn" id="attention" href="/integrations" hidden></a>
     </div>
@@ -56,7 +57,7 @@
     <section class="side side-left" aria-label="Today">
       {% for plugin, panel in side_panels %}
       <div class="side-head"><span class="label strong">{{ panel.title }}</span><span class="label">{{ plugin.name }}</span></div>
-      <div hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 5m">
+      <div hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 5m, jarvis:refresh from:body">
         <p class="t2">Loading…</p>
       </div>
       {% else %}

@@ -20,7 +20,8 @@
       {% if request.state.authenticated %}
       {% set path = request.url.path %}
       <nav class="nav" aria-label="Main">
-        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Home</a>
+        <a href="/tasks" {% if path.startswith("/tasks") %}aria-current="page"{% endif %}>To-do</a>
         <a href="/integrations" {% if path.startswith("/integrations") %}aria-current="page"{% endif %}>Integrations</a>
         <a href="/settings/security" {% if path.startswith("/settings") %}aria-current="page"{% endif %}>Security</a>
       </nav>

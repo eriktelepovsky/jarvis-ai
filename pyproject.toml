@@ -41,6 +41,7 @@ jarvis = "jarvis_hud.cli:main"
 [project.entry-points."jarvis_hud.plugins"]
 calendar = "jarvis_hud.plugins.calendar:CalendarPlugin"
 gmail = "jarvis_hud.plugins.gmail:GmailPlugin"
+tasks = "jarvis_hud.tasks.plugin:TasksPlugin"
 
 [build-system]
 requires = ["hatchling>=1.27"]

@@ -22,7 +22,7 @@ The smallest useful version for a daily morning routine.
 - [x] **Email stats:** number of unread emails and new emails received today (Gmail)
 - [ ] **AI email summary:** summary of important emails and a list of emails waiting for your reply
 - [x] **Calendar:** upcoming events (Google Calendar)
-- [ ] **TODO list:** simple task list built into Jarvis
+- [x] **TODO list:** simple task list built into Jarvis, with due dates written in plain language
 - [ ] **Morning AI brief:** a single "what awaits you today" summary across all sources
 
 ## Phase 1: Plugin system

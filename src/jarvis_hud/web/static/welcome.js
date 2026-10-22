@@ -452,11 +452,27 @@
     if (music) music.master.gain.setTargetAtTime(prefs.volume * 0.5, music.ctx.currentTime, 0.1);
   });
 
-  // Periodic refreshes must not replace the numbers while their details are open.
+  // Periodic refreshes must not replace the numbers while their details are open...
+  let reopen = null;
   document.addEventListener("htmx:beforeSwap", (event) => {
-    if (event.detail.target.id === "orb-widgets" && document.querySelector("dialog[data-detail][open]")) {
-      event.detail.shouldSwap = false;
-    }
+    if (event.detail.target.id !== "orb-widgets") return;
+    const open = document.querySelector("dialog[data-detail][open]");
+    if (open && reopen === null) event.detail.shouldSwap = false;
+  });
+
+  // ...but after a change made in a dialog (a task added or done), the widgets reload and
+  // the same dialog opens again with the new data.
+  document.body.addEventListener("jarvis:refresh", () => {
+    const open = document.querySelector("dialog[data-detail][open]");
+    reopen = open ? open.id : "";
+    const focused = document.activeElement?.id;
+    htmx.ajax("GET", "/welcome/widgets", { target: "#orb-widgets", swap: "innerHTML" }).then(() => {
+      const dialog = reopen && document.getElementById(reopen);
+      reopen = null;
+      if (!dialog) return;
+      openDialog(dialog);
+      if (focused) document.getElementById(focused)?.focus();
+    });
   });
 
   document.addEventListener("DOMContentLoaded", () => {

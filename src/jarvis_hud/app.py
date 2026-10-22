@@ -22,6 +22,7 @@ from jarvis_hud.connections.google_accounts import GoogleAccounts
 from jarvis_hud.crypto import SecretBox, load_secret_key
 from jarvis_hud.db import create_engine, create_sessionmaker, run_migrations
 from jarvis_hud.plugins import Plugin, discover_plugins
+from jarvis_hud.tasks import routes as task_routes
 from jarvis_hud.templating import register_filters
 from jarvis_hud.timezone import resolve_timezone
 from jarvis_hud.web.routes import router
@@ -94,6 +95,7 @@ def create_app(
     app.include_router(auth_routes.router)
     app.include_router(passkeys.router)
     app.include_router(connection_routes.router)
+    app.include_router(task_routes.router)
     app.include_router(router)
     return app
 

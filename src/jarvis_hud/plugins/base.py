@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
     from jarvis_hud.cache import Cache
     from jarvis_hud.connections.google_accounts import GoogleAccounts
 
@@ -19,6 +21,7 @@ class WidgetContext:
     now: datetime  # in the user's time zone
     cache: "Cache"
     google: "GoogleAccounts"
+    sessionmaker: "async_sessionmaker[AsyncSession]"
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,23 @@ class Stat:
 
 
 @dataclass(frozen=True)
+class Action:
+    """A button that POSTs to `url`; the widgets refresh afterwards."""
+
+    label: str
+    url: str
+
+
+@dataclass(frozen=True)
+class Input:
+    """A one-line form in a widget's details that POSTs its `text` field to `url`."""
+
+    url: str
+    placeholder: str
+    label: str
+
+
+@dataclass(frozen=True)
 class Row:
     """One item in a widget's details, e.g. an email or an event."""
 
@@ -42,6 +62,7 @@ class Row:
     badge: str = ""
     tone: Tone = "neutral"
     url: str | None = None
+    actions: list[Action] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -59,6 +80,7 @@ class WidgetData:
     list_title: str = ""
     rows: list[Row] = field(default_factory=list)
     action: Link | None = None
+    input: Input | None = None
     source: str = ""
     updated_at: float | None = None
     message: str | None = None

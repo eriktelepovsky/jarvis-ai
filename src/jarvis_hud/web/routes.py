@@ -21,7 +21,12 @@ FAILED = WidgetData(
 
 def widget_context(request: Request) -> WidgetContext:
     state = request.app.state
-    return WidgetContext(now=datetime.now(state.timezone), cache=state.cache, google=state.google)
+    return WidgetContext(
+        now=datetime.now(state.timezone),
+        cache=state.cache,
+        google=state.google,
+        sessionmaker=state.sessionmaker,
+    )
 
 
 def ordered_plugins(request: Request) -> list[Plugin]:

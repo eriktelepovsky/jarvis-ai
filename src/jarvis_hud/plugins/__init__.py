@@ -1,4 +1,6 @@
 from jarvis_hud.plugins.base import (
+    Action,
+    Input,
     Link,
     Panel,
     Plugin,
@@ -12,6 +14,8 @@ from jarvis_hud.plugins.registry import ENTRY_POINT_GROUP, discover_plugins
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "Action",
+    "Input",
     "Link",
     "Panel",
     "Plugin",

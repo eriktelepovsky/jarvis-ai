@@ -38,6 +38,7 @@ src/jarvis_hud/
 ├── db.py             # SQLAlchemy base, engine and migrations
 ├── crypto.py         # Encryption of stored credentials
 ├── connections/      # Connected accounts: Google OAuth, integrations page
+├── tasks/            # Built-in to-do list: parsing due dates, page, widget, panel
 ├── cache.py          # Stale-while-revalidate cache for integration data
 ├── auth/             # Login: passwords, passkeys, sessions, access gate
 ├── migrations/       # Alembic database migrations
@@ -83,6 +84,14 @@ weather = "jarvis_weather:WeatherPlugin"
 Panel templates are available under the plugin id prefix (`calendar/today.html`), so plugins cannot override each other's or the app's templates. A plugin that fails to load is logged and skipped.
 
 The interface will grow during the MVP with what the first real integrations need: connections (see below), background refresh and data for the AI brief.
+
+Widget rows can carry **actions** (buttons that POST to a URL, e.g. "Done") and a widget can offer an **input** (a one-line form, e.g. "Add a task"). They are sent with HTMX; the endpoint answers with the `HX-Trigger: jarvis:refresh` header, and the welcome screen reloads its widgets and panels, reopening the dialog the user was in.
+
+## Tasks
+
+The to-do list is built into Jarvis (`src/jarvis_hud/tasks/`) and appears as the "To-do" widget, a side panel with what is overdue or due today, and the `/tasks` page for editing, deleting and the last week's done tasks.
+
+Due dates are written in plain language and recognized by rules, not AI (`tasks/parse.py`), in Slovak and English: today/dnes, tomorrow/zajtra, pozajtra, weekdays (Friday, v piatok), dates (24.10., 24.10.2026, 2026-10-24) and times (10:00, 3pm, o 10). Only full weekday names count, and only valid dates are taken out of the title, so "verzia 2.0" or "the sun" stay as written. A task is overdue when its date has passed, or when its time today has.
 
 ## Integrations
 

@@ -497,11 +497,11 @@ code,
   border-top: 0;
 }
 
-.list a {
+.list a:not(.btn) {
   color: var(--text);
 }
 
-.list a:hover {
+.list a:not(.btn):hover {
   color: var(--accent);
 }
 
@@ -1119,4 +1119,69 @@ code,
   flex: 1;
   height: 1px;
   background: var(--fail);
+}
+
+/* To-do page */
+
+.task-add {
+  gap: var(--s-2);
+  flex-wrap: nowrap;
+}
+
+.label.overdue {
+  color: var(--fail);
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.task-row.is-done > span:nth-child(2) {
+  color: var(--text-done);
+  text-decoration: line-through;
+}
+
+.task-check {
+  display: block;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: var(--field);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.task-check:hover {
+  border-color: var(--accent);
+}
+
+.task-check.checked {
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2304141a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / 14px no-repeat;
+  border-color: var(--accent);
+}
+
+.task-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.task-edit .input {
+  height: 36px;
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .task-edit {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .task-edit .input:first-of-type {
+    grid-column: 1 / -1;
+  }
 }
