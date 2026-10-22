@@ -68,4 +68,4 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [ ] **Commute:** travel time to the first meeting
 - [ ] **News:** AI-picked important stories from RSS feeds, Hacker News and similar sources
 - [x] **YouTube:** new videos from channels you are subscribed to (YouTube Data API)
-- [ ] **Health:** sleep, steps and activity from Apple Health and Strava
+- [x] **Health:** sleep and steps from Apple Health (iPhone Shortcut and webhook), activities from Strava

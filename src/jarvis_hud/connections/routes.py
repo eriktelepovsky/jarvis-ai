@@ -63,6 +63,13 @@ async def _integrations_page(
         "client": await oauth_client(request, db),
         "connections": await store.list_connections(db, google.PROVIDER),
         "claude": await request.app.state.brief.settings(),
+        "plugin_settings": [
+            (plugin.name, plugin.settings)
+            for plugin in sorted(
+                request.app.state.plugins.values(), key=lambda p: (p.position, p.id)
+            )
+            if plugin.settings
+        ],
         "providers": [
             (provider, await store.list_connections(db, provider.id))
             for _, provider in form_providers(request)

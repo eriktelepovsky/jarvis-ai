@@ -52,6 +52,7 @@ src/jarvis_hud/
 │   ├── weather/      # Forecast from Open-Meteo (no API key)
 │   ├── youtube/      # New videos from YouTube subscriptions
 │   ├── slack/        # Slack mentions (own Slack app with search:read)
+│   ├── health/       # Apple Health webhook, Strava OAuth
 │   └── calendar/     # Today's and upcoming events
 └── web/
     ├── routes.py     # Welcome screen, widget and panel endpoints
@@ -163,6 +164,10 @@ The `Plugin` interface gains a declaration of the connection it needs, and Jarvi
 Services that use an API token, a URL or a place name instead of OAuth are declared by plugins as `Provider`s (`connections/providers.py`): the form fields, the setup instructions (a template of the plugin) and `verify()`, which checks the values with the service and returns the account's name, what to store and which capabilities work. Jarvis then renders the connect form, stores the values encrypted in `connections`, tests them again on request and lists them on the Integrations page, all through generic routes (`connections/form_routes.py`). Plugins read their accounts through `context.connections` and load data per account through the cache (`plugins/connection_data.py`).
 
 One plugin can declare several providers: the Pull requests plugin connects GitHub (GraphQL search), GitLab (GraphQL, also self-managed) and Bitbucket (REST; it has no "waiting for my review" search, so the 30 most recently updated repositories of the workspace are queried), and shows them as one number. Jira connects each site (workspace) separately with an Atlassian API token. Slack uses the user's own Slack app, created from a manifest Jarvis shows, with only the `search:read` user scope; mentions come from Slack search.
+
+### Health
+
+Apple Health data never leaves the iPhone on its own, so a Shortcut automation sends sleep, steps and optionally resting heart rate and active energy every morning to `/hooks/health/<token>`, a webhook with a secret token Jarvis generates (new token = old address stops working). Values are stored per day; fields the iPhone did not send keep their earlier value. `/hooks/` paths skip the session and Origin checks; each webhook authenticates itself. Strava uses OAuth with the user's own Strava API application; Strava rotates refresh tokens, so the new one is stored after every refresh.
 
 ### Stored credentials
 

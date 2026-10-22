@@ -99,6 +99,17 @@
   {% endif %}
   {% endfor %}
 
+  {% for name, settings in plugin_settings %}
+  <div class="integration">
+    <span class="integration-logo" aria-hidden="true">{{ settings.logo }}</span>
+    <div>
+      <div class="integration-name"><strong>{{ name }}</strong></div>
+      <div class="muted" style="font-size: 12.5px">{{ settings.summary }}</div>
+    </div>
+    <div class="actions"><a class="btn" href="{{ settings.url }}">Settings</a></div>
+  </div>
+  {% endfor %}
+
   <div class="integration">
     <span class="integration-logo" aria-hidden="true">♪</span>
     <div>

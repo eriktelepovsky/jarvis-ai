@@ -94,6 +94,12 @@ class WalletApi(Provider):
 
 Read the connected accounts with `context.connections.list("wallet")`, or use `load_connected()` from `jarvis_hud.plugins.connection_data`, which loads data per account through the cache and reports problems for the widget.
 
+### Own pages and webhooks
+
+`router()` returns a FastAPI `APIRouter` with the plugin's own pages, e.g. an OAuth callback or a settings page; `settings = SettingsLink(logo, summary, url)` lists that page on the Integrations page. Every route requires a signed-in user, except paths under `/hooks/`, which other services and devices call without a session: authenticate them yourself, e.g. with a secret token in the path compared with `hmac.compare_digest`. The Health plugin uses both, for Strava's OAuth and the Apple Health webhook.
+
+Tables of built-in plugins are created by Jarvis's migrations; a custom plugin that needs storage can keep its own SQLite file in the data directory or store small JSON values with `context.connections.settings()`.
+
 ### Cache and HTTP
 
 `context.http` is a shared `httpx2.AsyncClient` (10-second timeout). `context.cache.get(key, fetch, fresh, max_age)` returns fresh data immediately, serves stale data while refreshing in the background, and keeps the last good value when a refresh fails. `context.now` is the current time in the user's time zone.

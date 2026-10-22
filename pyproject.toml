@@ -48,6 +48,7 @@ jira = "jarvis_hud.plugins.jira:JiraPlugin"
 weather = "jarvis_hud.plugins.weather:WeatherPlugin"
 youtube = "jarvis_hud.plugins.youtube:YouTubePlugin"
 slack = "jarvis_hud.plugins.slack:SlackPlugin"
+health = "jarvis_hud.plugins.health:HealthPlugin"
 
 [build-system]
 requires = ["hatchling>=1.27"]

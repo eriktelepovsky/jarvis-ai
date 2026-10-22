@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 if TYPE_CHECKING:
     import httpx2
+    from fastapi import APIRouter
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from jarvis_hud.cache import Cache
@@ -125,6 +126,13 @@ class Panel:
 
 
 @dataclass(frozen=True)
+class SettingsLink:
+    logo: str
+    summary: str
+    url: str
+
+
+@dataclass(frozen=True)
 class BriefSection:
     """Facts a plugin contributes to the AI brief, most important first, as plain text lines."""
 
@@ -144,6 +152,8 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     templates_dir: ClassVar[Path | None] = None
     # Order on the welcome screen: plugins with a lower position come first.
     position: ClassVar[int] = 100
+    # A settings page of the plugin, listed on the Integrations page (logo, summary, URL).
+    settings: ClassVar["SettingsLink | None"] = None
 
     def widgets(self) -> list[Widget]:
         """Return the numbers this plugin adds around the orb."""
@@ -156,6 +166,14 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     def connections(self) -> list["Provider"]:
         """Return the connections this plugin is set up with on the Integrations page."""
         return []
+
+    def router(self) -> "APIRouter | None":
+        """Return the plugin's own pages and endpoints, e.g. an OAuth callback or a webhook.
+
+        Every route requires a signed-in user, except paths under /hooks/, which the plugin
+        must authenticate itself (e.g. with a secret token in the URL).
+        """
+        return None
 
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         """Return facts for the AI brief, or None when the plugin has nothing to add."""

@@ -115,7 +115,10 @@ def create_app(
     app.include_router(task_routes.router)
     app.include_router(brief_routes.router)
     app.include_router(music.router)
-    # Last: its /integrations/{provider}/... paths would otherwise shadow Google's.
+    for plugin in plugins.values():
+        if (plugin_router := plugin.router()) is not None:
+            app.include_router(plugin_router)
+    # Last: its /integrations/{provider}/... paths would otherwise shadow more specific ones.
     app.include_router(form_routes.router)
     app.include_router(router)
     return app

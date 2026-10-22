@@ -6,6 +6,7 @@ from sqlalchemy import Connection
 import jarvis_hud.auth.models  # noqa: F401  (registers models on Base.metadata)
 import jarvis_hud.brief.models  # noqa: F401
 import jarvis_hud.connections.models  # noqa: F401
+import jarvis_hud.plugins.health.models  # noqa: F401
 import jarvis_hud.tasks.models  # noqa: F401
 from jarvis_hud.db import Base
 
