@@ -101,6 +101,10 @@ Read the connected accounts with `context.connections.list("wallet")`, or use `l
 
 Tables of built-in plugins are created by Jarvis's migrations; a custom plugin that needs storage can keep its own SQLite file in the data directory or store small JSON values with `context.connections.settings()`.
 
+### The day's timeline
+
+`timeline(context)` returns today's `TimelineItem(start, end, title)`s, e.g. meetings or a planned run; the report's "Day at a glance" lays them out between morning and evening. The Calendar plugin uses it.
+
 ### Background work
 
 `background(context)` returns a coroutine Jarvis runs while it is up, e.g. a loop that checks something every minute; `context()` gives a fresh `WidgetContext`. Handle errors inside the loop and sleep between rounds; the task is cancelled at shutdown. The Uptime plugin uses it to check websites.

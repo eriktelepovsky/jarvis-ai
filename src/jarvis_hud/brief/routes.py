@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import re
 from typing import Annotated
 
@@ -6,6 +8,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 from jarvis_hud.brief.service import DEFAULT_TIME, KICKERS, BriefService, ClaudeSettings
 from jarvis_hud.brief.writer import DEFAULT_MODEL, LANGUAGES, MODELS, READ_LANGUAGES, BriefError
+from jarvis_hud.overview.glance import Glance, duration, glance
+from jarvis_hud.plugins import Plugin, TimelineItem
+from jarvis_hud.web.routes import load_widgets, ordered_plugins, widget_context
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -92,6 +99,20 @@ async def remove_claude(request: Request) -> Response:
     return RedirectResponse("/integrations?status=claude-removed", status_code=303)
 
 
+async def _timeline(request: Request) -> Glance:
+    context = widget_context(request)
+
+    async def collect(plugin: Plugin) -> list[TimelineItem]:
+        try:
+            return await plugin.timeline(context)
+        except Exception:
+            logger.exception("Timeline of %s failed", plugin.id)
+            return []
+
+    results = await asyncio.gather(*(collect(p) for p in ordered_plugins(request)))
+    return glance([item for items in results for item in items], context.now)
+
+
 async def _brief_context(request: Request) -> dict:
     service = _service(request)
     brief = await service.latest()
@@ -124,7 +145,14 @@ async def headline(request: Request) -> Response:
 
 @router.get("/brief/report", response_class=HTMLResponse)
 async def report(request: Request) -> Response:
-    return _render(request, "brief/report.html", await _brief_context(request))
+    """The brief, with the day's timeline and every source's number around it."""
+    context = await _brief_context(request)
+    context["glance"], context["sources"] = await asyncio.gather(
+        _timeline(request), load_widgets(request)
+    )
+    context["now"] = widget_context(request).now
+    context["duration"] = duration
+    return _render(request, "brief/report.html", context)
 
 
 @router.post("/brief/generate")

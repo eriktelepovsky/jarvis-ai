@@ -12,6 +12,7 @@ from jarvis_hud.plugins.base import (
     Plugin,
     Row,
     Stat,
+    TimelineItem,
     Widget,
     WidgetContext,
     WidgetData,
@@ -214,6 +215,15 @@ class CalendarPlugin(Plugin):
             ),
         )
         return today_and_upcoming(events, now)
+
+    async def timeline(self, context: WidgetContext) -> list[TimelineItem]:
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        day = self._merged(loaded, context.now)
+        return [
+            TimelineItem(e["start"], e["end"], e["title"])
+            for e in day["today"]
+            if e["kind"] != "now" and not e["all_day"]
+        ]
 
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         loaded = [a for a in await self._accounts(context) if a.data is not None]

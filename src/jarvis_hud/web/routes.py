@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from jarvis_hud import __version__
 from jarvis_hud.db import get_db
+from jarvis_hud.overview import snapshots
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
 from jarvis_hud.profile import user_name
 
@@ -115,9 +116,8 @@ async def _load_widget(context: WidgetContext, plugin: Plugin, widget: Widget) -
         return FAILED
 
 
-@router.get("/welcome/widgets", response_class=HTMLResponse)
-async def widgets(request: Request) -> HTMLResponse:
-    """The numbers around the orb and their details, loaded together."""
+async def load_widgets(request: Request) -> list[dict[str, Any]]:
+    """All widgets of set-up services, with today's numbers kept for "change since yesterday"."""
     context = widget_context(request)
     entries = [
         (plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()
@@ -129,6 +129,23 @@ async def widgets(request: Request) -> HTMLResponse:
         for (plugin, widget), data in zip(entries, results, strict=True)
         if data.connected
     ]
+    values = {
+        item["key"]: number
+        for item in items
+        if (number := snapshots.numeric(item["data"].value)) is not None
+    }
+    async with request.app.state.sessionmaker() as db:
+        previous = await snapshots.changes(db, context.now.date(), values)
+        await snapshots.record(db, context.now.date(), values)
+    for item in items:
+        item["change"] = snapshots.change_label(previous.get(item["key"]))
+    return items
+
+
+@router.get("/welcome/widgets", response_class=HTMLResponse)
+async def widgets(request: Request) -> HTMLResponse:
+    """The numbers around the orb and their details, loaded together."""
+    items = await load_widgets(request)
     return request.app.state.templates.TemplateResponse(
         request, "welcome/widgets.html", {"items": items}
     )

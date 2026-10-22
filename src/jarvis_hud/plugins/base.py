@@ -138,6 +138,15 @@ class SettingsLink:
 
 
 @dataclass(frozen=True)
+class TimelineItem:
+    """Something at a time today, for the brief's "Day at a glance", e.g. a meeting."""
+
+    start: datetime
+    end: datetime
+    title: str
+
+
+@dataclass(frozen=True)
 class BriefSection:
     """Facts a plugin contributes to the AI brief, most important first, as plain text lines."""
 
@@ -179,6 +188,10 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
         loop, sleep between rounds and handle its own errors; it is cancelled at shutdown.
         """
         return None
+
+    async def timeline(self, context: WidgetContext) -> list[TimelineItem]:
+        """Today's items with a start and an end, for the day's timeline in the report."""
+        return []
 
     def router(self) -> "APIRouter | None":
         """Return the plugin's own pages and endpoints, e.g. an OAuth callback or a webhook.

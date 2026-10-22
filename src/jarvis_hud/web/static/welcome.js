@@ -210,7 +210,7 @@
     const dialog = event.target.closest("dialog[data-detail]");
     if (event.target.closest("#media-dock")) {
       return;
-    } else if (opener) {
+    } else if (opener && document.getElementById(opener.dataset.open)) {
       openDialog(document.getElementById(opener.dataset.open));
       sound("open");
     } else if (event.target.closest("[data-step]")) {

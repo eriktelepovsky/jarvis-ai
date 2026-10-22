@@ -1177,3 +1177,171 @@ button.row-btn {
 .modal-report .modal-head {
   flex-wrap: wrap;
 }
+
+/* Report: day at a glance */
+
+.glance-now-label {
+  color: var(--fail);
+}
+
+.glance {
+  padding: 26px 0 0;
+}
+
+.glance-track {
+  position: relative;
+  height: 76px;
+}
+
+.glance-track::before {
+  content: "";
+  position: absolute;
+  top: 26px;
+  right: 0;
+  left: 0;
+  height: 20px;
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+.glance-item {
+  position: absolute;
+  top: 26px;
+  height: 20px;
+  background: rgb(79 209 232 / 22%);
+  border: 1px solid var(--line-accent);
+  border-radius: 4px;
+}
+
+.glance-item.past {
+  opacity: 0.45;
+}
+
+.glance-label {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  max-width: 220px;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-item.below .glance-label {
+  top: calc(100% + 6px);
+  bottom: auto;
+}
+
+.glance-item.end .glance-label {
+  right: 0;
+  left: auto;
+}
+
+.glance-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.glance-now {
+  position: absolute;
+  top: 18px;
+  width: 2px;
+  height: 36px;
+  margin-left: -1px;
+  background: var(--fail);
+  border-radius: 1px;
+}
+
+.glance-now::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  background: var(--fail);
+  border-radius: 50%;
+}
+
+.glance-hours {
+  position: relative;
+  height: 16px;
+}
+
+.glance-hours span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.glance-hours span:first-child {
+  transform: none;
+}
+
+/* Report: sources */
+
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+
+.source-tile {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.source-tile:hover {
+  border-color: var(--line-accent);
+}
+
+.source-tile.warn {
+  border-color: rgb(245 196 106 / 35%);
+}
+
+.source-icon {
+  color: var(--accent);
+}
+
+.source-tile.warn .source-icon {
+  color: var(--warn);
+}
+
+.source-value {
+  min-width: 34px;
+  font-size: 30px;
+}
+
+.source-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.source-change {
+  margin-left: 4px;
+  color: var(--text-3);
+}
+
+.source-change.up {
+  color: var(--warn);
+}
+
+.source-arrow {
+  font-size: 18px;
+  color: var(--text-3);
+}

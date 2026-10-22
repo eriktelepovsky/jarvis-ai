@@ -28,6 +28,25 @@
   <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
   {% endif %}
 
+  <section class="report-section report-wide" aria-labelledby="glance-title">
+    <div class="report-head">
+      <span class="label strong" id="glance-title">Day at a glance</span>
+      <span class="label"><span class="glance-now-label">● Now {{ now.strftime("%H:%M") }}</span> · {{ glance.count }} {{ "event" if glance.count == 1 else "events" }} · {{ duration(glance.free_minutes) }} free until 18:00</span>
+    </div>
+    <ul class="visually-hidden">{% for placed in glance.items %}<li>{{ placed.item.start.strftime("%H:%M") }}–{{ placed.item.end.strftime("%H:%M") }} {{ placed.item.title }}</li>{% endfor %}</ul>
+    <div class="glance" aria-hidden="true">
+      <div class="glance-track">
+        {% for placed in glance.items %}
+        <div class="glance-item{% if placed.past %} past{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%">
+          <span class="glance-label"><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span> {{ placed.item.title }}</span>
+        </div>
+        {% endfor %}
+        {% if glance.now is not none %}<span class="glance-now" style="left: {{ '%.2f' % glance.now }}%"></span>{% endif %}
+      </div>
+      <div class="glance-hours">{% for hour, position in glance.hours %}<span class="label" style="left: {{ '%.2f' % position }}%">{{ "%02d:00" % hour }}</span>{% endfor %}</div>
+    </div>
+  </section>
+
   {% if not configured %}
   <div class="report-wide">
     <p style="margin: 0 0 12px">Jarvis can write you a short brief every morning from your calendar, email and to-do list. It uses Claude, Anthropic's AI, with your own API key.{% if brief %} Below is the last brief it wrote.{% endif %}</p>
@@ -56,6 +75,26 @@
     {% else %}
     <p class="muted" style="margin: 0">Nothing needs you right now.</p>
     {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if sources %}
+  <section class="report-section report-wide" aria-labelledby="sources-title">
+    <div class="report-head"><span class="label strong" id="sources-title">Sources</span><span class="label">Change since yesterday · click for details</span></div>
+    <div class="source-grid">
+      {% for source in sources %}
+      {% set data = source.data %}
+      <button type="button" class="source-tile{% if data.attention or data.message_tone in ('fail', 'warn') %} warn{% endif %}" data-open="detail-{{ source.key }}">
+        <svg class="source-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ source.widget.icon }}"/></svg>
+        <span class="num source-value">{{ data.value if data.value is not none else "—" }}</span>
+        <span class="source-text">
+          <span class="label strong">{{ source.widget.label }}{% if source.change %} <span class="source-change{% if source.change.startswith('▲') and data.attention %} up{% endif %}">{{ source.change }}</span>{% endif %}</span>
+          <span class="t2 trunc">{{ data.summary or data.message or "" }}</span>
+        </span>
+        <span class="source-arrow" aria-hidden="true">›</span>
+      </button>
+      {% endfor %}
+    </div>
   </section>
   {% endif %}
 </div>
