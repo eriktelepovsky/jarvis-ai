@@ -1533,7 +1533,8 @@ button.row-btn {
   gap: 8px;
 }
 
-.icon-btn.brief-generate.htmx-request svg {
+.icon-btn.brief-generate.htmx-request svg,
+.refresh-btn.htmx-request svg {
   animation: spin 1s linear infinite;
 }
 

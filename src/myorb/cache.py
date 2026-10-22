@@ -2,10 +2,15 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Set while the user asks for new data (the Refresh button): values are fetched now, not
+# taken from the cache. Plugins that keep their own data can check it too (e.g. Uptime).
+refreshing: ContextVar[bool] = ContextVar("refreshing", default=False)
 
 
 @dataclass(frozen=True)
@@ -35,6 +40,8 @@ class Cache:
     ) -> Cached:
         entry = self._entries.get(key)
         age = self._clock() - entry.fetched_at if entry else None
+        if refreshing.get():
+            age = None if entry is None else max_age  # fetch now, keep the old value on failure
         if entry is not None and age is not None and age < fresh:
             return entry
         if entry is not None and age is not None and age < max_age:

@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from sqlalchemy import select
 
+from myorb.cache import refreshing
 from myorb.plugins.base import (
     BriefSection,
     Link,
@@ -109,6 +110,9 @@ class UptimePlugin(Plugin):
         return monitors, by_monitor
 
     async def _widget(self, context: WidgetContext) -> WidgetData:
+        if refreshing.get():
+            # Refresh: check every website now instead of waiting for the next minute.
+            await self.checker.check_all(context.sessionmaker, context.http)
         monitors, incidents = await self._state(context)
         if not monitors:
             return WidgetData(

@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from myorb import __version__
+from myorb.cache import refreshing
 from myorb.db import get_db
 from myorb.overview import snapshots
 from myorb.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
@@ -156,6 +157,22 @@ async def load_widgets(request: Request) -> list[dict[str, Any]]:
         item["change"] = snapshots.change_label(previous.get(item["key"]))
         item["size"] = node_size(item["widget"].weight, item["data"])
     return items
+
+
+@router.post("/welcome/widgets/{plugin_id}/{widget_id}/refresh")
+async def refresh_widget(request: Request, plugin_id: str, widget_id: str) -> Response:
+    """The Refresh button in a widget's details: its data is fetched again now."""
+    plugin = request.app.state.plugins.get(plugin_id)
+    widget = plugin and next((w for w in plugin.widgets() if w.id == widget_id), None)
+    if not widget:
+        raise HTTPException(status_code=404, detail="Widget not found")
+    token = refreshing.set(True)
+    try:
+        await _load_widget(widget_context(request), plugin, widget)
+    finally:
+        refreshing.reset(token)
+    # The welcome screen reloads its widgets (now fresh) and opens the same details again.
+    return Response(status_code=204, headers={"HX-Trigger": "myorb:refresh"})
 
 
 @router.get("/welcome/widgets", response_class=HTMLResponse)

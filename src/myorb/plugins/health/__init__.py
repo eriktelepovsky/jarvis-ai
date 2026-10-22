@@ -123,7 +123,8 @@ class HealthPlugin(Plugin):
                 tone="info",
                 url=a.url,
             )
-            for a in activities
+            # Newest first.
+            for a in sorted(activities, key=lambda a: a.start, reverse=True)
         ]
         rows += [
             Row(
