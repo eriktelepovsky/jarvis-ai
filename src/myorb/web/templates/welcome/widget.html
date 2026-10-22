@@ -4,7 +4,7 @@
 {% set data = item.data %}
 {% set warn = data.attention or data.message_tone in ("fail", "warn") %}
 <div class="place" style="--angle: {{ angle | default(0) }}deg">
-  <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.size }}" data-key="{{ item.key }}" data-has-value="{{ (data.value is not none) | lower }}" data-needs="{{ (data.message_tone in ('fail', 'warn')) | lower }}"
+  <button type="button" class="node{% if warn %} warn{% endif %}" style="--s: {{ item.size }}" data-size="{{ item.size }}" data-number="{{ data.value if data.value is number and data.value is not boolean else '' }}" data-key="{{ item.key }}" data-has-value="{{ (data.value is not none) | lower }}" data-needs="{{ (data.message_tone in ('fail', 'warn')) | lower }}"
           data-open="detail-{{ item.key }}" data-sfx
           aria-label="{{ data.value if data.value is not none else 'No data' }} {{ data.label or item.widget.label }}. Show details">
     <svg class="node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ item.widget.icon }}"/></svg>

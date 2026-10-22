@@ -482,6 +482,15 @@
     });
     const loading = widgets.querySelectorAll(".node-loading").length;
     const nodes = [...widgets.querySelectorAll(".node[data-key]")];
+    // Larger numbers than the others make a circle a little larger, up to a fifth for the
+    // largest (on a log scale, so 134 emails do not dwarf 2 pull requests). What needs
+    // attention (sized by the server) stays the largest.
+    const numbers = nodes.map((node) => Math.max(0, Number(node.dataset.number) || 0));
+    const most = Math.log1p(Math.max(0, ...numbers));
+    nodes.forEach((node, index) => {
+      const bonus = most ? (0.2 * Math.log1p(numbers[index])) / most : 0;
+      node.style.setProperty("--s", Math.min(1.5, Number(node.dataset.size) * (1 + bonus)).toFixed(3));
+    });
     const loaded = nodes.filter((node) => node.dataset.hasValue === "true").length;
     const needs = nodes.filter((node) => node.dataset.needs === "true").length;
     const sources = needs === 1 ? "source needs" : "sources need";
