@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from granian.utils.proxies import wrap_asgi_with_proxy_headers
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
 
-from jarvis_hud import __version__
+from jarvis_hud import __version__, music
 from jarvis_hud.auth import passkeys
 from jarvis_hud.auth import routes as auth_routes
 from jarvis_hud.auth.middleware import auth_middleware
@@ -112,6 +112,7 @@ def create_app(
     app.include_router(connection_routes.router)
     app.include_router(task_routes.router)
     app.include_router(brief_routes.router)
+    app.include_router(music.router)
     # Last: its /integrations/{provider}/... paths would otherwise shadow Google's.
     app.include_router(form_routes.router)
     app.include_router(router)

@@ -347,6 +347,60 @@
     setTimeout(() => ctx.close().catch(() => {}), 1700);
   }
 
+  // YouTube music: the official IFrame player API, loaded only when the music starts. YouTube
+  // requires its player to stay visible, so it plays in the small player in the corner.
+
+  const youtube = { player: null, api: null };
+
+  function musicSource() {
+    const button = document.querySelector('button[data-toggle="music"][data-source]');
+    return button?.dataset.source === "youtube" ? button.dataset : null;
+  }
+
+  function loadYouTubeApi() {
+    if (!youtube.api) {
+      youtube.api = new Promise((resolve) => {
+        window.onYouTubeIframeAPIReady = () => resolve(window.YT);
+        const script = document.createElement("script");
+        script.src = "https://www.youtube.com/iframe_api";
+        document.head.append(script);
+      });
+    }
+    return youtube.api;
+  }
+
+  async function startYouTube(source) {
+    document.querySelector(".music-player").hidden = false;
+    music = { youtube: true };
+    if (youtube.player) {
+      youtube.player.playVideo();
+      return;
+    }
+    const YT = await loadYouTubeApi();
+    const playerVars = { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 };
+    if (source.playlist) {
+      playerVars.listType = "playlist";
+      playerVars.list = source.playlist;
+    }
+    youtube.player = new YT.Player("youtube-player", {
+      host: "https://www.youtube-nocookie.com",
+      videoId: source.video || undefined,
+      playerVars,
+      events: {
+        onReady: (event) => {
+          event.target.setVolume(Math.round(prefs.volume * 100));
+          event.target.playVideo();
+        },
+      },
+    });
+  }
+
+  function stopYouTube() {
+    youtube.player?.pauseVideo();
+    document.querySelector(".music-player").hidden = true;
+    music = null;
+  }
+
   // Header toggles
 
   function render() {
@@ -357,7 +411,8 @@
     toggle("pause").setAttribute("aria-pressed", String(prefs.paused));
     document.querySelector("[data-pause-label]").textContent = prefs.paused ? "Resume" : "Pause";
     toggle("music").setAttribute("aria-pressed", String(Boolean(music)));
-    document.querySelector("[data-music-label]").textContent = music ? "Ambient on" : "Ambient off";
+    const name = musicSource() ? "YouTube" : "Ambient";
+    document.querySelector("[data-music-label]").textContent = `${name} ${music ? "on" : "off"}`;
     document.querySelector(".eq").classList.toggle("on", Boolean(music));
     document.querySelector(".volume").hidden = !music;
   }
@@ -368,6 +423,9 @@
       if (prefs.sounds) uiContext();
     } else if (name === "pause") {
       prefs.paused = !prefs.paused;
+    } else if (name === "music" && musicSource()) {
+      if (music) stopYouTube();
+      else startYouTube(musicSource());
     } else if (name === "music") {
       if (music) stopMusic();
       else startMusic();
@@ -483,7 +541,8 @@
     if (!event.target.matches("[data-volume]")) return;
     prefs.volume = Number(event.target.value) / 100;
     savePrefs();
-    if (music) music.master.gain.setTargetAtTime(prefs.volume * 0.5, music.ctx.currentTime, 0.1);
+    if (music?.youtube) youtube.player?.setVolume(Math.round(prefs.volume * 100));
+    else if (music) music.master.gain.setTargetAtTime(prefs.volume * 0.5, music.ctx.currentTime, 0.1);
   });
 
   // Periodic refreshes must not replace the numbers while their details are open...

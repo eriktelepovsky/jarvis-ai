@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Music · Jarvis{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Music</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="music-title">
+  <div class="panel-header"><h2 class="label" id="music-title">Background music on the welcome screen</h2></div>
+  <form method="post" action="/integrations/music" class="panel-section form">
+    <fieldset class="choices">
+      <legend class="visually-hidden">Source</legend>
+      <label class="choice"><input type="radio" name="source" value="ambient" {% if source != "youtube" %}checked{% endif %}><span><strong>Built-in ambient</strong><span class="muted">A calm synthesized pad, made in your browser. Works offline.</span></span></label>
+      <label class="choice"><input type="radio" name="source" value="youtube" {% if source == "youtube" %}checked{% endif %}><span><strong>YouTube</strong><span class="muted">A video, playlist or live stream in a small player in the corner of the screen.</span></span></label>
+    </fieldset>
+    <div class="field">
+      <label class="label" for="music-url">YouTube link</label>
+      <input class="input" id="music-url" name="url" type="url" value="{{ url }}" placeholder="https://www.youtube.com/watch?v=… or …/playlist?list=…" {% if error %}aria-invalid="true" aria-describedby="music-error"{% endif %}>
+      <span class="muted" style="font-size: 12.5px">YouTube's rules require its player to stay visible, so the music plays in a small player rather than hidden. It loads only when you start the music, from youtube-nocookie.com; ads may play unless you have YouTube Premium.</span>
+    </div>
+    {% if error %}<div class="alert alert-error" role="alert" id="music-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+</section>
+{% endblock %}

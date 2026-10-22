@@ -48,7 +48,8 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-on" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="sound-off" d="M16 9l5 6M21 9l-5 6"/></svg>
       </button>
       <div class="music">
-        <button type="button" class="btn btn-small" data-toggle="music" aria-pressed="false">
+        <button type="button" class="btn btn-small" data-toggle="music" aria-pressed="false"
+                data-source="{{ music.source }}" data-video="{{ music.video or '' }}" data-playlist="{{ music.playlist or '' }}">
           <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span data-music-label>Ambient off</span>
         </button>
         <label class="label volume" hidden>Vol <input type="range" min="0" max="100" value="45" data-volume aria-label="Music volume"></label>
@@ -104,6 +105,11 @@
     <div class="side side-right" aria-hidden="true"></div>
   </main>
   <footer class="label welcome-footer">Click a number to open its details</footer>
+
+  <div class="music-player" hidden>
+    <div class="music-player-head"><span class="label">YouTube</span><button type="button" class="icon-btn" data-toggle="music" aria-label="Stop music"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div id="youtube-player"></div>
+  </div>
 
   <dialog class="modal modal-report" id="report" aria-labelledby="report-title">
     <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, jarvis:brief from:body">

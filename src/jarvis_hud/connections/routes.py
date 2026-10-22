@@ -33,6 +33,7 @@ MESSAGES = {
     "claude-saved": "Claude is connected. Jarvis will write your brief every day.",
     "claude-removed": "Claude was disconnected.",
     "removed": "The connection was removed.",
+    "music-saved": "The music settings were saved.",
 }
 
 

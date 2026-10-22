@@ -233,6 +233,10 @@ Jarvis is distributed as a Docker image, `ghcr.io/eriktelepovsky/jarvis-hud`, bu
 - **CI:** every pull request builds the image and checks that the container becomes healthy and redirects to setup.
 - **Plugins:** installing custom plugins with `JARVIS_PLUGINS` comes with the plugin system (phase 1).
 
+## Background music
+
+The music button on the welcome screen plays either the built-in ambient pad (synthesized with Web Audio in `welcome.js`) or a YouTube video, playlist or live stream chosen on Integrations → Music (`music.py`). YouTube's terms require its player to stay visible, so YouTube music plays in a small player in the corner (at least 200 px tall) through the official IFrame Player API. The API loads only when the music starts, from `youtube-nocookie.com`; volume follows Jarvis's slider.
+
 ## Installable app (PWA)
 
 Jarvis can be installed on a phone or desktop like an app: `/manifest.webmanifest` describes it (name, colors, icons in `web/static/icons/`), and `/sw.js` is a small service worker served from the root so it controls every page. The service worker never caches pages or data, only static files (network first, so updates arrive at once) and an offline page shown when the server cannot be reached. Both URLs and the icons are public, like `/healthz`. Pages respect the phone's safe areas (`viewport-fit=cover`, `env(safe-area-inset-*)`), since an installed app runs under the status bar.

@@ -2,11 +2,15 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from jarvis_hud import __version__
+from jarvis_hud.db import get_db
+from jarvis_hud.music import load_music
 from jarvis_hud.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
 
 router = APIRouter()
@@ -88,7 +92,7 @@ async def service_worker() -> Response:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def welcome(request: Request) -> HTMLResponse:
+async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> HTMLResponse:
     panels = [(plugin, panel) for plugin in ordered_plugins(request) for panel in plugin.panels()]
     return request.app.state.templates.TemplateResponse(
         request,
@@ -97,6 +101,7 @@ async def welcome(request: Request) -> HTMLResponse:
             "now": datetime.now(request.app.state.timezone),
             "side_panels": [(p, panel) for p, panel in panels if panel.placement == "side"],
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
+            "music": await load_music(request, db),
         },
     )
 
