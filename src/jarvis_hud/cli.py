@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 from jarvis_hud import __version__
 
@@ -35,6 +36,9 @@ def main() -> None:
             port=args.port or settings.port,
             log_access=True,
             reload=args.reload,
+            # Only code: the data directory (database, plugins) may be inside the project, and
+            # a restart on every database write would cut off work in progress, like the brief.
+            reload_paths=[Path(__file__).parent],
         ).serve()
 
 
