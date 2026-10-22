@@ -40,6 +40,8 @@ class ClaudeSettings:
     language: str = "en"
     brief_time: str = DEFAULT_TIME
     model: str = DEFAULT_MODEL
+    # Needed for API keys that are not scoped to a workspace (organization-wide keys).
+    workspace_id: str = ""
 
     @property
     def brief_clock(self) -> clock:
@@ -72,13 +74,16 @@ class BriefService:
     def generating(self) -> bool:
         return self._lock.locked()
 
-    def client(self, api_key: str) -> anthropic.AsyncAnthropic:
+    def client(self, api_key: str, workspace_id: str = "") -> anthropic.AsyncAnthropic:
         http_client = (
             anthropic.DefaultAsyncHttpxClient(transport=self._transport)
             if self._transport is not None
             else None
         )
-        return anthropic.AsyncAnthropic(api_key=api_key, http_client=http_client)
+        headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
+        return anthropic.AsyncAnthropic(
+            api_key=api_key, http_client=http_client, default_headers=headers
+        )
 
     async def settings(self) -> ClaudeSettings | None:
         async with self._sessionmaker() as db:
@@ -95,10 +100,12 @@ class BriefService:
             await store.delete_provider_settings(db, PROVIDER)
         self.error = None
 
-    async def check_key(self, api_key: str, model: str = DEFAULT_MODEL) -> str | None:
+    async def check_key(
+        self, api_key: str, model: str = DEFAULT_MODEL, workspace_id: str = ""
+    ) -> str | None:
         """Return why the API key does not work, or None if it does. Costs no tokens."""
         try:
-            await self.client(api_key).models.retrieve(model)
+            await self.client(api_key, workspace_id).models.retrieve(model)
         except anthropic.AuthenticationError:
             return "Claude rejected this API key."
         except anthropic.PermissionDeniedError:
@@ -137,7 +144,7 @@ class BriefService:
             sections = await self._sections(context)
             try:
                 written = await write_brief(
-                    self.client(settings.api_key),
+                    self.client(settings.api_key, settings.workspace_id),
                     sections,
                     context.now,
                     settings.language,

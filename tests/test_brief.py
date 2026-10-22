@@ -309,3 +309,13 @@ def test_facts_prompt():
     assert "Thursday 22 October 2026, 07:42" in prompt
     assert "Write the brief in Slovak." in prompt
     assert "## Calendar\n- Today 09:00: Standup" in prompt
+
+
+def test_workspace_id_is_sent_for_organization_keys(client: TestClient, claude: FakeClaude):
+    response = connect(client, workspace_id="my workspace")
+    assert response.status_code == 400
+    assert "wrkspc_" in response.text
+    connect(client, workspace_id="wrkspc_01AbCdEf234")
+    assert 'value="wrkspc_01AbCdEf234"' in client.get("/integrations/claude").text
+    client.post("/brief/generate")
+    assert claude.headers[0]["anthropic-workspace-id"] == "wrkspc_01AbCdEf234"

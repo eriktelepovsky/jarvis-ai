@@ -21,6 +21,11 @@
       <input class="input" id="api-key" type="password" name="api_key" autocomplete="off" placeholder="{{ 'Saved; leave empty to keep it' if settings else 'sk-ant-…' }}" {% if not settings %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="claude-error"{% endif %}>
     </div>
     <div class="field">
+      <label class="label" for="workspace-id">Workspace ID <span style="text-transform: none">(optional)</span></label>
+      <input class="input" id="workspace-id" name="workspace_id" value="{{ workspace_id if workspace_id is defined else (settings.workspace_id if settings else '') }}" autocomplete="off" placeholder="wrkspc_…" spellcheck="false">
+      <span class="muted" style="font-size: 12.5px">Only for an API key created for the whole organization rather than in a workspace. Find the ID in the Console under Settings → Workspaces.</span>
+    </div>
+    <div class="field">
       <label class="label" for="language">Language of the brief</label>
       <select class="input" id="language" name="language">
         {% set current = language or (settings.language if settings else "en") %}

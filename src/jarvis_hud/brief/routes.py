@@ -11,6 +11,7 @@ router = APIRouter()
 
 REFRESH = {"HX-Trigger": "jarvis:brief"}
 TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+WORKSPACE = re.compile(r"^wrkspc_[A-Za-z0-9]{8,64}$")
 
 
 def _service(request: Request) -> BriefService:
@@ -47,10 +48,12 @@ async def save_claude(
     language: Annotated[str, Form()] = "en",
     brief_time: Annotated[str, Form()] = DEFAULT_TIME,
     model: Annotated[str, Form()] = DEFAULT_MODEL,
+    workspace_id: Annotated[str, Form()] = "",
 ) -> Response:
     service = _service(request)
     existing = await service.settings()
     api_key = api_key.strip() or (existing.api_key if existing else "")
+    workspace_id = workspace_id.strip()
     error = None
     if not api_key:
         error = "Enter an API key."
@@ -60,14 +63,26 @@ async def save_claude(
         error = "Enter the time as HH:MM."
     elif model not in MODELS:
         error = "Choose a model."
-    elif not existing or api_key != existing.api_key or model != existing.model:
-        error = await service.check_key(api_key, model)
+    elif workspace_id and not WORKSPACE.match(workspace_id):
+        error = "A workspace ID looks like wrkspc_… — copy it from the Anthropic Console."
+    elif (
+        not existing
+        or api_key != existing.api_key
+        or model != existing.model
+        or workspace_id != existing.workspace_id
+    ):
+        error = await service.check_key(api_key, model, workspace_id)
     if error:
         context = _form_context(
-            existing, error=error, language=language, brief_time=brief_time, model=model
+            existing,
+            error=error,
+            language=language,
+            brief_time=brief_time,
+            model=model,
+            workspace_id=workspace_id,
         )
         return _render(request, "brief/settings.html", context, status_code=400)
-    await service.save_settings(ClaudeSettings(api_key, language, brief_time, model))
+    await service.save_settings(ClaudeSettings(api_key, language, brief_time, model, workspace_id))
     return RedirectResponse("/integrations?status=claude-saved", status_code=303)
 
 
