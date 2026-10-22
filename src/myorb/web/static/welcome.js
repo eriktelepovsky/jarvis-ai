@@ -217,13 +217,38 @@
     const subgroup = chosen?.dataset.subgroupValue || "";
     const words = fold(dialog.querySelector("[data-list-search]")?.value || "").split(/\s+/).filter(Boolean);
     let shown = 0;
+    // The numbers follow the other filters: a group counts what the pressed number and the
+    // search leave, a number what the chosen group and the search leave.
+    const groupCounts = new Map();
+    const tagCounts = new Map();
     dialog.querySelectorAll(".modal-row").forEach((row) => {
-      const tagged = !pressed || row.dataset.tags.split(" ").includes(pressed.dataset.filter);
+      const tags = row.dataset.tags.split(" ");
+      const tagged = !pressed || tags.includes(pressed.dataset.filter);
       row.dataset.text ??= fold(row.textContent);
       const found = words.every((word) => row.dataset.text.includes(word));
       const inGroup = (!group || row.dataset.group === group) && (!subgroup || row.dataset.subgroup === subgroup);
       row.hidden = !tagged || !inGroup || !found;
       if (!row.hidden) shown += 1;
+      if (tagged && found) {
+        for (const key of ["", row.dataset.group, `${row.dataset.group}\n${row.dataset.subgroup}`]) {
+          groupCounts.set(key, (groupCounts.get(key) || 0) + 1);
+        }
+      }
+      if (inGroup && found) tags.forEach((tag) => tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1));
+    });
+    dialog.querySelectorAll("[data-group-value]").forEach((button) => {
+      const { groupValue, subgroupValue } = button.dataset;
+      const count = groupCounts.get(subgroupValue ? `${groupValue}\n${subgroupValue}` : groupValue) || 0;
+      button.querySelector(".group-count").textContent = count;
+      button.classList.toggle("is-empty", !count);
+    });
+    // Without a group or search, a number shows what the service said (it may count more
+    // than the list holds, e.g. Gmail's unread beyond the newest listed).
+    const narrowed = Boolean(group || words.length);
+    dialog.querySelectorAll("[data-filter]").forEach((button) => {
+      const number = button.querySelector(".num");
+      number.dataset.total ??= number.textContent;
+      number.textContent = narrowed ? tagCounts.get(button.dataset.filter) || 0 : number.dataset.total;
     });
     const empty = dialog.querySelector("[data-list-empty]");
     if (empty) empty.hidden = shown > 0;
