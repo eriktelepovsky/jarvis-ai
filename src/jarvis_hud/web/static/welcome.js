@@ -398,6 +398,44 @@
     });
   });
 
+  // While the numbers load (the first time after a start, the services are asked), the orb
+  // shows as many dimmed, spinning circles as it had last time, where the numbers will appear.
+  const NODES_KEY = "jarvis.nodes";
+
+  function showLoadingNodes() {
+    const widgets = document.getElementById("orb-widgets");
+    if (!widgets || widgets.querySelector(".node")) return;
+    let count = 6;
+    try {
+      count = Number(localStorage.getItem(NODES_KEY)) || count;
+    } catch {
+      // Storage unavailable: the default count.
+    }
+    widgets.replaceChildren(
+      ...Array.from({ length: count }, (_, index) => {
+        const place = document.createElement("div");
+        place.className = "place";
+        place.style.setProperty("--angle", `${(360 / count) * index}deg`);
+        const node = document.createElement("span");
+        node.className = "node node-loading";
+        node.innerHTML = '<span class="spinner"></span>';
+        place.append(node);
+        return place;
+      }),
+    );
+    widgets.setAttribute("aria-busy", "true");
+  }
+
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target.id !== "orb-widgets") return;
+    event.detail.target.removeAttribute("aria-busy");
+    try {
+      localStorage.setItem(NODES_KEY, String(event.detail.target.querySelectorAll(".node").length));
+    } catch {
+      // Storage unavailable: the default count next time.
+    }
+  });
+
   let clockTimer = null;
   let welcomePage = null;
 
@@ -406,6 +444,7 @@
     // A page restored from history is a new element, even with the same id.
     if (!page || page === welcomePage) return;
     welcomePage = page;
+    showLoadingNodes();
     tick();
     clockTimer ??= setInterval(tick, 1000);
     startOrb();

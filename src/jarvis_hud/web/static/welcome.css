@@ -1427,3 +1427,23 @@ button.row-btn {
 .icon-btn.brief-generate.htmx-request svg {
   animation: spin 1s linear infinite;
 }
+
+/* Circles shown while the numbers load */
+
+.node.node-loading {
+  color: var(--accent);
+  cursor: default;
+  animation: node-loading 1.6s ease-in-out infinite;
+}
+
+@keyframes node-loading {
+  0%,
+  100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}
+
+.node-loading .spinner {
+  width: calc(var(--sz) * 0.22);
+  height: calc(var(--sz) * 0.22);
+  border-width: 2px;
+}
