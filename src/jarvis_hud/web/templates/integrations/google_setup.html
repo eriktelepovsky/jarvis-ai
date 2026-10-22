@@ -34,13 +34,13 @@
     </li>
     <li>
       <h3>Create an OAuth client</h3>
-      <p>Go to <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clients</a> → <strong>Create client</strong>. Choose <strong>Web application</strong>, name it <code>Jarvis</code> and add this <strong>Authorized redirect URI</strong>:</p>
+      <p>Go to <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Clients</a> → <strong>Create client</strong>. Choose <strong>Web application</strong> and name it <code>Jarvis</code>. Leave <strong>Authorized JavaScript origins</strong> empty. Under <strong>Authorized redirect URIs</strong>, click <strong>Add URI</strong> and paste:</p>
       <div class="copy">
         <code id="redirect-uri">{{ redirect_uri }}</code>
         <button type="button" class="secondary" data-copy="#redirect-uri">Copy</button>
       </div>
       {% if not (redirect_uri.startswith("https://") or "://localhost" in redirect_uri or "://127.0.0.1" in redirect_uri) %}
-      <p class="error">Google accepts redirect URIs only over HTTPS or on <code>localhost</code>. {% if ".localhost" in redirect_uri %}If Google rejects this address, open Jarvis at <code>http://localhost</code> and start this setup again.{% else %}Run Jarvis behind HTTPS and set <code>JARVIS_PUBLIC_URL</code>.{% endif %}</p>
+      <p class="error">Google accepts redirect URIs only over HTTPS or on <code>localhost</code>. {% if ".localhost" in redirect_uri %}It rejects addresses like <code>jarvis.localhost</code>, so open Jarvis at <code>http://localhost</code> and start this setup again.{% else %}Run Jarvis behind HTTPS and set <code>JARVIS_PUBLIC_URL</code>.{% endif %}</p>
       {% endif %}
       <p>Click <strong>Create</strong> and copy the client ID and client secret right away; Google shows the secret only once.</p>
     </li>
