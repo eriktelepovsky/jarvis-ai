@@ -751,7 +751,8 @@ code,
   border-top: 1px solid var(--line-soft);
 }
 
-.panel-section > * + * {
+/* Stacked content gets spacing; flex rows (.actions) and forms space their items with gap. */
+.panel-section:not(.actions, .form) > * + * {
   margin-top: var(--s-3);
 }
 
