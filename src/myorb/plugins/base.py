@@ -83,6 +83,8 @@ class Row:
     tags: tuple[str, ...] = ()
     # Where it belongs, e.g. a Jira workspace or a repository; see WidgetData.group_label.
     group: str = ""
+    # A finer group within it, e.g. a Jira project: listed under its group to narrow further.
+    subgroup: str = ""
 
 
 @dataclass(frozen=True)

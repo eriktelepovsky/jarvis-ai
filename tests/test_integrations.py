@@ -251,28 +251,47 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
 # Jira
 
 
-def jira_site(apis: FakeApis, name: str, issues: list[dict[str, Any]]) -> None:
+def jira_site(
+    apis: FakeApis,
+    name: str,
+    issues: list[dict[str, Any]],
+    in_sprint: set[str] | None = None,
+    scrum: set[str] = frozenset(),
+) -> None:
     host = f"{name}.atlassian.net"
     auth = ("tony@stark.example", "jira-token")
     apis.routes[(host, "/rest/api/3/myself")] = basic(*auth, {"displayName": "Tony"})
 
     def search(request: httpx2.Request) -> httpx2.Response:
         # Pages as Jira's /search/jql does: maxResults per page, then nextPageToken.
-        assert "assignee = currentUser()" in request.url.params["jql"]
+        jql = request.url.params["jql"]
+        assert "assignee = currentUser()" in jql
+        found = issues
+        if "sprint in openSprints()" in jql:
+            if in_sprint is None:  # no Jira Software: the JQL function does not exist
+                return httpx2.Response(400, json={"errorMessages": ["Unknown function"]})
+            found = [i for i in issues if i["key"] in in_sprint]
         start = int(request.url.params.get("nextPageToken", 0))
         end = start + int(request.url.params["maxResults"])
-        page = {"issues": issues[start:end], "isLast": end >= len(issues)}
+        page = {"issues": found[start:end], "isLast": end >= len(found)}
         if end < len(issues):
             page["nextPageToken"] = str(end)
         return httpx2.Response(200, json=page)
 
     apis.routes[(host, "/rest/api/3/search/jql")] = search
 
+    def boards(request: httpx2.Request) -> httpx2.Response:
+        project = request.url.params["projectKeyOrId"]
+        return httpx2.Response(200, json={"values": [{"id": 1}] if project in scrum else []})
+
+    apis.routes[(host, "/rest/agile/1.0/board")] = boards
+
 
 def issue(key: str, category: str, due: date | None = None, priority: str = "Medium") -> dict:
     return {
         "key": key,
         "fields": {
+            "project": {"key": key.split("-")[0], "name": f"Project {key.split('-')[0]}"},
             "summary": f"Summary of {key}",
             "status": {"name": category.title(), "statusCategory": {"key": category}},
             "priority": {"name": priority},
@@ -296,12 +315,15 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
     text = client.get("/welcome/widgets").text
     assert '<span class="trunc">All workspaces</span><span class="group-count">3</span>' in text
     assert 'data-group-value="dev"' in text and '<span class="group-count">2</span>' in text
+    # Within a workspace, its projects narrow further (dev has TRP only, so none are listed).
+    assert 'data-subgroup="Project TRP"' in text
+    assert "data-subgroup-value" not in text
     assert 'data-group="support"' in text
 
     text = client.get("/welcome/widgets").text
     assert "assigned to you · 1 overdue" in text
-    workspaces = re.search(r'num" style="font-size: 24px">(\d+)</div><div [^>]*>Workspaces', text)
-    assert workspaces and workspaces.group(1) == "2"
+    active = re.search(r'num" style="font-size: 24px">(\d+)</div><div [^>]*>Active', text)
+    assert active and active.group(1) == "3"
     assert text.index("SUP-88") < text.index("TRP-412") < text.index("TRP-409")
     assert "https://support.atlassian.net/browse/SUP-88" in text
 
@@ -366,3 +388,38 @@ def test_next_step(fields: dict[str, Any], yours: bool, label: str):
     pr = PullRequest("#1", "t", "r", "u", ci=None, draft=False, updated="")
     pr = PullRequest(**{**pr.__dict__, **fields})
     assert next_step(pr, yours).label == label
+
+
+def test_jira_projects_within_a_workspace(client: TestClient, apis: FakeApis):
+    jira_site(apis, "acme", [issue("WEB-1", "new"), issue("WEB-2", "new"), issue("API-7", "new")])
+    connect_jira(client, "acme")
+    text = client.get("/welcome/widgets").text
+    assert (
+        'data-subgroup-value="Project WEB"' in text and 'data-subgroup-value="Project API"' in text
+    )
+    assert '<span class="trunc">All workspaces</span>' in text  # shown for one workspace too
+
+
+def test_jira_backlog_is_not_counted(client: TestClient, apis: FakeApis):
+    backlog_status = issue("WEB-3", "new")
+    backlog_status["fields"]["status"]["name"] = "Backlog"
+    jira_site(
+        apis,
+        "acme",
+        [
+            issue("APP-1", "indeterminate"),
+            issue("APP-2", "new"),
+            issue("APP-3", "indeterminate"),  # in progress outside the sprint: still active
+            issue("WEB-1", "new"),
+            backlog_status,
+        ],
+        in_sprint={"APP-1"},
+        scrum={"APP"},  # APP plans in sprints: APP-2 is not in the active one
+    )
+    connect_jira(client, "acme")
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">3</span>' in text  # APP-1, APP-3 and WEB-1
+    assert "assigned to you · 2 more in the backlog" in text
+    assert 'data-filter="backlog"' in text
+    assert text.index("WEB-1") < text.index("APP-2")  # the backlog comes last
+    assert ">Backlog</span>" in text
