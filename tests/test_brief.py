@@ -52,7 +52,11 @@ class FakeClaude:
             model = request.url.path.removeprefix("/v1/models/")
             if model not in self.models:
                 return httpx2.Response(
-                    404, json={"type": "error", "error": {"type": "not_found_error"}}
+                    404,
+                    json={
+                        "type": "error",
+                        "error": {"type": "not_found_error", "message": f"model: {model}"},
+                    },
                 )
             return httpx2.Response(
                 200,
@@ -227,7 +231,7 @@ def test_model_change_is_checked(client: TestClient, claude: FakeClaude):
     claude.models.discard("claude-opus-5-5")
     response = connect(client, api_key="", model="claude-opus-5-5")
     assert response.status_code == 400
-    assert "HTTP 404" in response.text
+    assert "HTTP 404): model: claude-opus-5-5" in response.text
     assert connect(client, model="gpt").status_code == 400
 
 

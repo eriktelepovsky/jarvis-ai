@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from jarvis_hud.brief.models import Brief
-from jarvis_hud.brief.writer import DEFAULT_MODEL, BriefError, write_brief
+from jarvis_hud.brief.writer import DEFAULT_MODEL, BriefError, api_error, write_brief
 from jarvis_hud.connections import store
 from jarvis_hud.crypto import SecretBox
 from jarvis_hud.plugins import BriefSection, Plugin, WidgetContext
@@ -104,7 +104,8 @@ class BriefService:
         except anthropic.PermissionDeniedError:
             return "This API key has no access to the chosen model."
         except anthropic.APIStatusError as error:
-            return f"Claude returned an error (HTTP {error.status_code})."
+            logger.warning("Checking the Claude API key failed: %s", error)
+            return api_error(error)
         except anthropic.APIConnectionError:
             return "Claude could not be reached."
         return None

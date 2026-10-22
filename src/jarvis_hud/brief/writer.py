@@ -112,6 +112,14 @@ def _clean(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def api_error(error: anthropic.APIStatusError) -> str:
+    """The API's own explanation, e.g. "credit balance is too low", for the user to act on."""
+    body = error.body if isinstance(error.body, dict) else {}
+    detail = body.get("error", {}).get("message") if isinstance(body.get("error"), dict) else None
+    message = f"Claude returned an error (HTTP {error.status_code})"
+    return f"{message}: {detail}" if detail else f"{message}."
+
+
 async def write_brief(
     client: anthropic.AsyncAnthropic,
     sections: list[BriefSection],
@@ -145,7 +153,7 @@ async def write_brief(
     except anthropic.RateLimitError as error:
         raise BriefError("Claude is rate limited right now. Try again later.") from error
     except anthropic.APIStatusError as error:
-        raise BriefError(f"Claude returned an error (HTTP {error.status_code}).") from error
+        raise BriefError(api_error(error)) from error
     except anthropic.APIConnectionError as error:
         raise BriefError("Claude could not be reached.") from error
 
