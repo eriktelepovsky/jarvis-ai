@@ -471,3 +471,14 @@ def test_brief_includes_all_of_tomorrow(monkeypatch):
     assert "Tomorrow 19:00–21:00: Flight to Bratislava (2 h · VIE)" in section.lines
     assert sum(line.startswith("Tomorrow all day") for line in section.lines) == 6
     assert any(line.startswith("Later this week, Monday 09:00: Dentist") for line in section.lines)
+
+
+def test_node_size_follows_attention():
+    from jarvis_hud.plugins import WidgetData
+    from jarvis_hud.web.routes import node_size
+
+    assert node_size(1.0, WidgetData(value=60, attention=True)) == 1.25
+    assert node_size(1.0, WidgetData(value=8)) == 1.0
+    assert node_size(1.3, WidgetData(value=0)) == 0.92  # empty, even for a heavy widget
+    assert node_size(1.0, WidgetData(value=None, message="Failed", message_tone="fail")) == 1.25
+    assert node_size(2.0, WidgetData(value=1, attention=True)) == 1.4  # capped

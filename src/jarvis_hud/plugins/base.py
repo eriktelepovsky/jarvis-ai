@@ -106,8 +106,8 @@ class Widget:
     """A number around the orb on the welcome screen, with details that open on click.
 
     `label` names the number (e.g. "Unread"), `title` heads its details (e.g. "Email") and
-    `icon` is an SVG path in a 24×24 box. `weight` scales the node: more important numbers
-    are bigger.
+    `icon` is an SVG path in a 24×24 box. The node is large when its data needs
+    attention and small when it has nothing to show; `weight` adjusts that a little.
     """
 
     id: str

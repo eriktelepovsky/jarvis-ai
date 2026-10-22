@@ -117,6 +117,18 @@ async def _load_widget(context: WidgetContext, plugin: Plugin, widget: Widget) -
         return FAILED
 
 
+def node_size(weight: float, data: WidgetData) -> float:
+    """How big a widget's circle is around the orb: by what needs the user, as in the design.
+
+    Something that needs attention is large, a source with nothing to show (0 or no data) is
+    small; the plugin's weight only adjusts it a little.
+    """
+    needs = data.attention or data.message_tone in ("fail", "warn")
+    empty = data.value in (None, 0, "")
+    state = 1.25 if needs else 0.8 if empty else 1.0
+    return round(min(1.4, state * (1 + (weight - 1) * 0.5)), 3)
+
+
 async def load_widgets(request: Request) -> list[dict[str, Any]]:
     """All widgets of set-up services, with today's numbers kept for "change since yesterday"."""
     context = widget_context(request)
@@ -140,6 +152,7 @@ async def load_widgets(request: Request) -> list[dict[str, Any]]:
         await snapshots.record(db, context.now.date(), values)
     for item in items:
         item["change"] = snapshots.change_label(previous.get(item["key"]))
+        item["size"] = node_size(item["widget"].weight, item["data"])
     return items
 
 

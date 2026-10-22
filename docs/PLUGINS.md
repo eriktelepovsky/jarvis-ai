@@ -52,7 +52,7 @@ class WalletPlugin(Plugin):
 |---|---|
 | `value` | The number. `None` shows "—" and means there is no data; then set `message`. |
 | `summary` | Text next to the big number in the details. |
-| `attention` | Amber node and tile: something needs the user. |
+| `attention` | Amber node and tile: something needs the user. Such a node is drawn large, one with `0` or no value small; the widget's `weight` only adjusts the size a little. |
 | `stats` | Up to three `Stat(value, label)` boxes. |
 | `list_title`, `rows` | A list of `Row(title, subtitle, badge, tone, url, actions)`. `tone` is `ok`, `warn`, `fail`, `info` or `neutral`. `actions` are buttons that POST to a URL. |
 | `action` | The main button, a `Link(label, url)`. |
