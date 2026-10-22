@@ -38,3 +38,37 @@ def test_widget_changes_are_noted(make_client: MakeClient):
     assert "Email: Google is not reachable." in text
     assert "Email works again" in text
     assert text.count('class="activity-item"') == 3
+
+
+def test_widget_states_survive_a_restart(make_client: MakeClient):
+    client: TestClient = make_client()
+    complete_setup(client)
+    widget = Widget(id="inbox", label="Unread", title="Email", icon="", load=None)  # type: ignore[arg-type]
+
+    def note(watch: WidgetWatch, value: int) -> None:
+        item = {"key": "gmail-inbox", "widget": widget, "data": WidgetData(value=value)}
+        client.portal.call(watch.note, client.app.state.sessionmaker, [item])
+
+    note(WidgetWatch(), 10)
+    note(WidgetWatch(), 13)  # a new watch, as after a restart, still knows the 10
+    assert "Email · 3 new · unread" in client.get("/activity").text
+
+
+def test_quiet_day_still_lists_the_latest(make_client: MakeClient):
+    from datetime import UTC, datetime, timedelta
+
+    from myorb.activity.models import ActivityEvent
+
+    client: TestClient = make_client()
+    complete_setup(client)
+
+    async def add() -> None:
+        async with client.app.state.sessionmaker() as db:
+            at = datetime.now(UTC) - timedelta(days=2)
+            db.add(ActivityEvent(at=at, tone="ok", text="Brief written", url=None))
+            await db.commit()
+
+    client.portal.call(add)
+    text = client.get("/activity").text
+    assert "Brief written" in text
+    assert f"{datetime.now(UTC) - timedelta(days=2):%-d %b}" in text

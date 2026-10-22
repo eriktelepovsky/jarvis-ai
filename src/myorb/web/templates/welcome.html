@@ -86,7 +86,15 @@
           <div class="core-brief" hx-get="{{ url_for('headline') }}" hx-trigger="load, every 5m, myorb:brief from:body"></div>
         </div>
 
-        <div id="orb-widgets" class="orb-widgets" hx-get="{{ url_for('widgets') }}" hx-trigger="load, every 5m"></div>
+        {# Each number loads on its own and shows as soon as its service answers; until then a
+           spinner holds its place. Services that are not set up leave theirs empty. #}
+        <div id="orb-widgets" class="orb-widgets" aria-busy="true">
+          {% for plugin, widget in slots %}
+          <div class="slot" data-slot hx-get="/welcome/widget/{{ plugin.id }}/{{ widget.id }}" hx-trigger="load, every 5m, myorb:refresh from:body">
+            <div class="place"><span class="node node-loading"><span class="spinner"></span></span></div>
+          </div>
+          {% endfor %}
+        </div>
       </div>
 
       <div class="command">
@@ -101,7 +109,7 @@
     </div>
 
     <section class="side side-right" aria-label="Activity">
-      <div class="side-head"><span class="label strong">Activity</span><span class="label">Last 12 h</span></div>
+      <div class="side-head"><span class="label strong">Activity</span><span class="label">Latest</span></div>
       <div hx-get="/activity" hx-trigger="load, every 60s, myorb:refresh from:body, myorb:brief from:body">
         <p class="t2">Loading…</p>
       </div>

@@ -1555,7 +1555,8 @@ button.row-btn {
 }
 
 .icon-btn.brief-generate.htmx-request svg,
-.refresh-btn.htmx-request svg {
+.refresh-btn.htmx-request svg,
+dialog.is-refreshing .refresh-btn svg {
   animation: spin 1s linear infinite;
 }
 
@@ -1606,4 +1607,28 @@ button.row-btn {
 
 .activity-text a {
   color: inherit;
+}
+
+/* A dialog loading new data (Refresh): dimmed, with a note, until it is replaced */
+
+dialog.is-refreshing .modal-body {
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 0.2s;
+}
+
+dialog.is-refreshing .modal-head::after {
+  content: "Loading new data…";
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 22px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.modal-head {
+  position: relative;
 }

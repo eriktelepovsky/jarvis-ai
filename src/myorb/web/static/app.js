@@ -21,3 +21,28 @@ document.addEventListener("htmx:beforeSwap", (event) => {
   event.detail.selectOverride = "#app";
   event.detail.swapOverride = "outerHTML";
 });
+
+// Forms that wait for an answer (connecting a service checks it, saving a key verifies it):
+// the button shows that something is happening and cannot be clicked twice.
+document.addEventListener("submit", (event) => {
+  const form = event.target;
+  const button = event.submitter || form.querySelector("[type=submit]");
+  if (!button || form.hasAttribute("hx-post")) return;
+  // Afterwards: other scripts may handle the form themselves (passkeys, search), and the
+  // browser has read the button's name and value for the request by then.
+  setTimeout(() => {
+    if (event.defaultPrevented) return;
+    button.classList.add("is-loading");
+    button.setAttribute("aria-busy", "true");
+    button.disabled = true;
+  });
+});
+
+// Coming back with the browser's Back button shows the page as it was left: not loading.
+window.addEventListener("pageshow", () => {
+  document.querySelectorAll(".is-loading").forEach((button) => {
+    button.classList.remove("is-loading");
+    button.removeAttribute("aria-busy");
+    button.disabled = false;
+  });
+});
