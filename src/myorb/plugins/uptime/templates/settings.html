@@ -45,7 +45,7 @@
          so groups typed into several fields are all kept. #}
       <form method="post" action="/integrations/uptime/{{ monitor.id }}/group" class="monitor-group"
             hx-post="/integrations/uptime/{{ monitor.id }}/group" hx-trigger="change, submit" hx-swap="none"
-            hx-on::after-request="if (event.detail.successful) { this.classList.add('saved'); setTimeout(() => this.classList.remove('saved'), 1600) }">
+            hx-on::after-request="if (event.detail.successful) groupSaved(this)">
         <label class="visually-hidden" for="group-{{ monitor.id }}">Group of {{ monitor.name }}</label>
         <input class="input" id="group-{{ monitor.id }}" name="group" value="{{ monitor.group_name }}" list="monitor-groups" placeholder="No group" maxlength="60" autocomplete="off">
         <span class="label saved-note" aria-live="polite">✓ Saved</span>
@@ -59,5 +59,15 @@
 
 </section>
 </div>
+<script>
+  // After a group is saved: a short "✓ Saved", and a new group is offered in the other fields.
+  function groupSaved(form) {
+    form.classList.add("saved");
+    setTimeout(() => form.classList.remove("saved"), 1600);
+    const name = form.elements.group.value.trim().replace(/\s+/g, " ");
+    const list = document.getElementById("monitor-groups");
+    if (name && ![...list.options].some((option) => option.value === name)) list.append(new Option(name));
+  }
+</script>
 <datalist id="monitor-groups">{% for group in groups %}<option value="{{ group }}">{% endfor %}</datalist>
 {% endblock %}
