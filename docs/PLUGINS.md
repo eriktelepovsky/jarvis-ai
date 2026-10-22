@@ -67,6 +67,7 @@ class WalletPlugin(Plugin):
 | `input` | A one-line form (e.g. "Add a task") that POSTs a `text` field. |
 | `source`, `updated_at` | "Gmail · 2m ago" under the title. |
 | `message`, `message_tone`, `message_action` | A problem or an empty state, with a link to fix it. |
+| `label` | Names the number instead of the widget's label, when what it shows varies (e.g. sleep, or kilometres this week without sleep data). |
 | `connected` | `False` while the service behind the widget is not set up: the widget is then left out of the orb (the Integrations page offers the setup). Problems with a set-up service keep it visible. |
 
 After a row action or the input, answer with the `HX-Trigger: myorb:refresh` header; the welcome screen reloads its widgets and keeps the dialog open.
