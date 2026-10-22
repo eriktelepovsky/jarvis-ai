@@ -1380,3 +1380,50 @@ button.row-btn {
 .day-nav .icon-btn:disabled {
   visibility: hidden;
 }
+
+/* Writing a new brief: a spinner on the button and a status line until Claude has answered */
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.brief-writing {
+  display: none;
+}
+
+.brief-writing.is-writing,
+.brief-writing.htmx-request {
+  display: flex;
+}
+
+.brief-writing .alert-tag {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.brief-generate .spinner,
+.brief-generate .when-busy,
+.brief-generate.htmx-request .when-idle {
+  display: none;
+}
+
+.brief-generate.htmx-request .spinner,
+.brief-generate.htmx-request .when-busy {
+  display: inline-block;
+}
+
+.btn.brief-generate {
+  gap: 8px;
+}
+
+.icon-btn.brief-generate.htmx-request svg {
+  animation: spin 1s linear infinite;
+}

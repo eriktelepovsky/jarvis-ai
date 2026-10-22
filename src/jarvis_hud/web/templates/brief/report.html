@@ -14,15 +14,15 @@
   <span class="label read-error" data-read-error role="alert"></span>
   {% endif %}
   {% if configured %}
-  <button type="button" class="icon-btn" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" aria-label="Write a new brief" title="Write a new brief"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+  <button type="button" class="icon-btn brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this" aria-label="Write a new brief" title="Write a new brief"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
   {% endif %}
   <button type="button" class="icon-btn" data-close aria-label="Close report"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
 </div>
 
 <div class="report-body">
-  {% if generating %}
-  <div class="alert alert-info report-wide" role="status"><span class="alert-tag">◌ WRITING</span><span>Jarvis is writing a new brief…</span></div>
-  {% endif %}
+  {# Shown while a brief is being written: by the schedule (from the server), or after a click
+     (htmx adds .htmx-request to it until Claude has answered). #}
+  <div class="alert alert-info report-wide brief-writing{% if generating %} is-writing{% endif %}" id="brief-writing" role="status"><span class="alert-tag"><span class="spinner" aria-hidden="true"></span> WRITING</span><span>Jarvis is writing a new brief… This usually takes 20–40 seconds.</span></div>
   {% if error %}
   <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
   {% endif %}
@@ -55,7 +55,7 @@
   {% if configured and not brief %}
   <div class="report-wide">
     <p style="margin: 0 0 12px">No brief yet. Jarvis writes one every morning; you can also ask for one now.</p>
-    <button type="button" class="btn btn-primary" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this">Write a brief now</button>
+    <button type="button" class="btn btn-primary brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this"><span class="spinner" aria-hidden="true"></span><span class="when-idle">Write a brief now</span><span class="when-busy">Writing…</span></button>
   </div>
   {% elif brief %}
   <section class="report-section report-summary" aria-label="Summary">
