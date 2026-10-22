@@ -1,9 +1,10 @@
 import asyncio
 from datetime import datetime, tzinfo
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Any
 from urllib.parse import quote
 
+from myorb.connections import google as google_oauth
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
     BriefSection,
@@ -20,7 +21,8 @@ from myorb.plugins.google_data import account_status, load_accounts
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 API_NAME = "Gmail API"
 SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
-# Unread emails listed in the details (with search); the brief gets the newest BRIEF_UNREAD.
+# Unread conversations listed in the details (with search), as Gmail counts them: each by
+# its newest unread email. The brief gets the newest BRIEF_UNREAD.
 UNREAD_SHOWN = 100
 BRIEF_UNREAD = 15
 # Message headers are read this many at a time, to stay within Gmail's rate limits.
@@ -40,7 +42,30 @@ def _header(message: dict[str, Any], name: str) -> str:
     return next((h["value"] for h in headers if h["name"].lower() == name.lower()), "")
 
 
-def summarize_message(message: dict[str, Any], email: str, timezone: tzinfo) -> dict[str, Any]:
+RECIPIENT_HEADERS = ["To", "Cc", "X-Original-To", "Delivered-To"]
+
+
+def recipient(message: dict[str, Any], email: str, own: set[str]) -> str:
+    """The address the email was sent to, e.g. one of the user's other mailboxes that Gmail
+    collects: the first of the user's own addresses (`own`, Gmail's "Send mail as") among
+    the recipients; else where it was originally sent (a group address, a list)."""
+    headers = message.get("payload", {}).get("headers", [])
+
+    def addresses(*names: str) -> list[str]:
+        values = [h["value"] for name in names for h in headers if h["name"].lower() == name]
+        return [a.lower() for _, a in getaddresses(values) if "@" in a]
+
+    # The recipients first: Delivered-To is mostly the Gmail address itself.
+    for address in addresses("to", "cc", "x-original-to") + addresses("delivered-to"):
+        if address in own:
+            return address
+    found = addresses("x-original-to") + addresses("to")
+    return found[0] if found else email.lower()
+
+
+def summarize_message(
+    message: dict[str, Any], email: str, timezone: tzinfo, own: set[str] = frozenset()
+) -> dict[str, Any]:
     name, address = parseaddr(_header(message, "From"))
     received = datetime.fromtimestamp(int(message.get("internalDate", 0)) / 1000, timezone)
     return {
@@ -48,13 +73,24 @@ def summarize_message(message: dict[str, Any], email: str, timezone: tzinfo) -> 
         "subject": _header(message, "Subject") or "(no subject)",
         "received": received,
         "url": inbox_url(email, message.get("threadId")),
+        "to": recipient(message, email, own or {email.lower()}),
     }
+
+
+async def own_addresses(google: GoogleAccounts, account: GoogleAccount) -> set[str]:
+    """The user's addresses in this Gmail ("Send mail as"), e.g. other mailboxes it collects."""
+    try:
+        data = await google.get_json(account, f"{API}/settings/sendAs", API_NAME)
+    except google_oauth.GoogleError:
+        return set()  # the emails are then grouped by where they were sent
+    return {s["sendAsEmail"].lower() for s in data.get("sendAs", []) if s.get("sendAsEmail")}
 
 
 async def fetch_inbox(
     google: GoogleAccounts, account: GoogleAccount, day_start: datetime
 ) -> dict[str, Any]:
-    inbox, today, unread = await asyncio.gather(
+    own, inbox, today, unread = await asyncio.gather(
+        own_addresses(google, account),
         google.get_json(account, f"{API}/labels/INBOX", API_NAME),
         google.get_json(
             account,
@@ -64,30 +100,34 @@ async def fetch_inbox(
         ),
         google.get_json(
             account,
-            f"{API}/messages",
+            f"{API}/threads",
             API_NAME,
             {"q": "in:inbox is:unread", "maxResults": UNREAD_SHOWN},
         ),
     )
     limit = asyncio.Semaphore(PARALLEL)
 
-    async def headers(message_id: str) -> dict[str, Any]:
+    async def newest_unread(thread_id: str) -> dict[str, Any] | None:
         async with limit:
-            return await google.get_json(
+            thread = await google.get_json(
                 account,
-                f"{API}/messages/{message_id}",
+                f"{API}/threads/{thread_id}",
                 API_NAME,
-                {"format": "metadata", "metadataHeaders": ["From", "Subject"]},
+                {"format": "metadata", "metadataHeaders": ["From", "Subject", *RECIPIENT_HEADERS]},
             )
+        messages = thread.get("messages") or []
+        unread_ones = [m for m in messages if "UNREAD" in m.get("labelIds", [])]
+        return (unread_ones or messages or [None])[-1]
 
-    messages = await asyncio.gather(*(headers(m["id"]) for m in unread.get("messages", [])))
+    found = await asyncio.gather(*(newest_unread(t["id"]) for t in unread.get("threads", [])))
+    messages = [message for message in found if message]
     return {
         "unread": inbox.get("threadsUnread", 0),
         "total": inbox.get("threadsTotal", 0),
         "today": len(today.get("messages", [])),
         "today_more": "nextPageToken" in today,
         "latest_unread": [
-            summarize_message(message, account.email, day_start.tzinfo) for message in messages
+            summarize_message(message, account.email, day_start.tzinfo, own) for message in messages
         ],
         "url": inbox_url(account.email),
     }
@@ -176,11 +216,13 @@ class GmailPlugin(Plugin):
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=message["url"],
-                    group=email,
+                    # By the address it was sent to; with several accounts, under the account.
+                    group=email if several else message.get("to", email),
+                    subgroup=message.get("to", email) if several else "",
                 )
                 for email, message in messages
             ],
-            group_label="accounts",
+            group_label="accounts" if several else "recipients",
             **open_buttons("Open inbox", [(a.email, a.data["url"]) for a in loaded]),
             **status,
         )
