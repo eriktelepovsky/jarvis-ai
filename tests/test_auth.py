@@ -192,6 +192,15 @@ def test_anonymous_requests_are_sent_to_login(client: TestClient):
     assert response.status_code == 401
     assert response.headers["HX-Redirect"].startswith("/login")
 
+    # A part of a page (a panel refreshing every minute) returns to the page it is on after
+    # signing in, not to the bare part; a boosted link is a page of its own.
+    part = {"HX-Request": "true", "HX-Current-URL": "http://testserver/tasks?edit=3"}
+    response = client.get("/panels/calendar/next", headers=part)
+    assert response.headers["HX-Redirect"] == "/login?next=/tasks%3Fedit%3D3"
+    boosted = {"HX-Request": "true", "HX-Boosted": "true", "HX-Current-URL": "http://testserver/"}
+    response = client.get("/tasks", headers=boosted)
+    assert response.headers["HX-Redirect"] == "/login?next=/tasks"
+
 
 def test_login_with_password(client: TestClient):
     client.cookies.clear()

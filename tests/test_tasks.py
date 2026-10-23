@@ -131,6 +131,19 @@ def test_add_from_welcome_screen_refreshes_widgets(client: TestClient):
     assert response.headers["HX-Trigger"] == "myorb:refresh"
 
 
+def test_forms_on_the_tasks_page_go_back_to_the_list(client: TestClient):
+    # Boosted by htmx: a 204 alone would leave /tasks/<id> (POST only) in the address bar.
+    client.post("/tasks", data={"text": "Book tyres"})
+    task_id = tasks_in_db(client)[0].id
+    boosted = {"HX-Request": "true", "HX-Boosted": "true"}
+    data = {"title": "Book winter tyres", "due_date": "", "due_time": ""}
+    for path, form in [(f"/tasks/{task_id}", data), (f"/tasks/{task_id}/done", {})]:
+        response = client.post(path, data=form, headers=boosted)
+        assert response.status_code == 204
+        assert response.headers["HX-Location"] == "/tasks"
+    assert tasks_in_db(client)[0].title == "Book winter tyres"
+
+
 def test_empty_task_is_rejected(client: TestClient):
     assert client.post("/tasks", data={"text": "   "}).status_code == 400
     assert tasks_in_db(client) == []

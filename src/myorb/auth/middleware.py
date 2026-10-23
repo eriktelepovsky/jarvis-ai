@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -18,6 +18,22 @@ def _redirect(request: Request, url: str) -> Response:
     if request.method not in ("GET", "HEAD"):
         return PlainTextResponse("Authentication required.", status_code=401)
     return RedirectResponse(url, status_code=303)
+
+
+def _return_to(request: Request) -> str:
+    """Where to go after signing in: the page the user is on.
+
+    For a part of a page that HTMX loads (a panel refreshing every minute, a widget), that
+    is the page in the address bar (HX-Current-URL), not the part itself, which would show
+    as a bare fragment after signing in. A boosted link or form is a page of its own.
+    """
+    url = request.url
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        current = urlsplit(request.headers.get("HX-Current-URL", ""))
+        if not current.path:
+            return "/"
+        return current.path + (f"?{current.query}" if current.query else "")
+    return url.path + (f"?{url.query}" if url.query else "")
 
 
 async def auth_middleware(
@@ -48,7 +64,6 @@ async def auth_middleware(
         case Decision.SETUP:
             return _redirect(request, "/setup")
         case Decision.LOGIN:
-            target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
-            return _redirect(request, f"/login?next={quote(target)}")
+            return _redirect(request, f"/login?next={quote(_return_to(request))}")
         case Decision.REJECT_ORIGIN:
             return PlainTextResponse("Cross-site request rejected.", status_code=403)

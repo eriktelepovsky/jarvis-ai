@@ -403,6 +403,16 @@ a.ti:hover .t1 {
   text-align: center;
 }
 
+/* The running version, inside the bottom-left corner bracket. */
+.welcome-version {
+  position: absolute;
+  bottom: 22px;
+  left: 24px;
+  z-index: 1;
+  font-size: 9.5px;
+  text-transform: none;
+}
+
 /* The orb */
 
 /* The orb is centered on its own; the greeting sits just above it without pushing it down. */
@@ -723,6 +733,16 @@ a.ti:hover .t1 {
 
   .welcome-main {
     padding: 0 8px 6px;
+  }
+
+  /* The version goes centered under the footer's hint, between the corner brackets. */
+  .welcome-footer {
+    padding-bottom: 40px;
+  }
+
+  .welcome-version {
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 

@@ -5,6 +5,7 @@ import pytest
 from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 
+from myorb import __version__
 from myorb.plugins import (
     Panel,
     Plugin,
@@ -114,7 +115,10 @@ def test_unknown_panel_returns_404(make_client: MakeClient, echo: Path, path: st
 def test_welcome_screen_without_plugins(make_client: MakeClient):
     client = make_client()
     complete_setup(client)
-    assert "Connect a service" in client.get("/").text
+    text = client.get("/").text
+    assert "Connect a service" in text
+    # The running version, in the bottom-left corner.
+    assert f'<span class="label welcome-version">myOrb v{__version__}</span>' in text
     assert "Online · 0/0 sources" in client.get("/welcome/widgets").text
 
 

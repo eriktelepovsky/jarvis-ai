@@ -152,6 +152,7 @@
     </section>
   </main>
   <footer class="label welcome-footer">Click a number to open its details</footer>
+  <span class="label welcome-version">myOrb v{{ version }}</span>
 
   <dialog class="modal modal-report" id="report" aria-labelledby="report-title">
     <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, myorb:brief from:body">
