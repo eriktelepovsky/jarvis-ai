@@ -120,7 +120,11 @@ async def _integrations_page(
     context = {
         "client": await oauth_client(request, db),
         "connections": await store.list_connections(db, google.PROVIDER),
-        "claude": await request.app.state.brief.settings(),
+        "claude": (claude := await request.app.state.brief.settings()),
+        # What myOrb spent on Claude in the last 30 days, shown next to it.
+        "claude_spent": (
+            await request.app.state.brief.spent_eur(request.app.state.http) if claude else None
+        ),
         "voice": await load_voice(request, db),
         "plugin_settings": [
             (plugin.name, plugin.settings)

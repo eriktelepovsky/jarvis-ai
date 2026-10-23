@@ -217,6 +217,14 @@ class GmailPlugin(Plugin):
         )
         more = any(account.data.get("unread_more", False) for account in loaded)
         important_label = f"{important}+" if more else str(important)
+        # Unread conversations received today: what the list shows when the number is
+        # clicked. (Every email today, read or not, is in the summary line.)
+        unread_today = sum(
+            message["received"].date() == context.now.date()
+            for account in loaded
+            for message in account.data["latest_unread"]
+        )
+        unread_today_label = f"{unread_today}+" if more else str(unread_today)
         messages = sorted(
             (
                 (account.email, message)
@@ -229,10 +237,9 @@ class GmailPlugin(Plugin):
         several = len(accounts) > 1
         return WidgetData(
             value=unread,
-            summary=f"unread · {today_label} new today",
+            summary=f"unread · {today_label} emails today",
             stats=[
-                # The count is every email today, read or not; the list it narrows is unread.
-                Stat(today_label, "New today", filter="today"),
+                Stat(unread_today_label, "New today", filter="today"),
                 Stat(unread, "Unread"),
                 Stat(important_label, "Important", filter="important"),
             ],

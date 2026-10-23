@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from datetime import time as clock
+from typing import Any
 
 import anthropic
 import httpx2
@@ -12,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from myorb.activity.store import record
+from myorb.brief import spend
 from myorb.brief.models import Brief
 from myorb.brief.writer import (
     DEFAULT_MODEL,
@@ -78,21 +80,36 @@ class BriefService:
         self._lock = asyncio.Lock()
         self._last_attempt: float | None = None
         self.error: str | None = None
+        self._eur = spend.EurRate()
 
     @property
     def generating(self) -> bool:
         return self._lock.locked()
 
     def client(self, api_key: str, workspace_id: str = "") -> anthropic.AsyncAnthropic:
+        # Every answer that is not streamed is counted on its way in (see spend.py).
+        hooks = {"response": [spend.response_hook(self._sessionmaker)]}
         http_client = (
-            anthropic.DefaultAsyncHttpxClient(transport=self._transport)
+            anthropic.DefaultAsyncHttpxClient(transport=self._transport, event_hooks=hooks)
             if self._transport is not None
-            else None
+            else anthropic.DefaultAsyncHttpxClient(event_hooks=hooks)
         )
         headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
         return anthropic.AsyncAnthropic(
             api_key=api_key, http_client=http_client, default_headers=headers
         )
+
+    async def record_usage(self, model: str, usage: Any) -> None:
+        """Count a streamed answer, which the client's response hook leaves alone."""
+        await spend.record(self._sessionmaker, model, usage)
+
+    async def spent_eur(self, http: httpx2.AsyncClient, days: int = 30) -> tuple[float, str]:
+        """What myOrb spent on Claude in the last `days`: in euros, or in dollars when the
+        exchange rate cannot be read."""
+        async with self._sessionmaker() as db:
+            usd = await spend.last_days_usd(db, days)
+        rate = await self._eur.usd_to_eur(http)
+        return (usd * rate, "€") if rate else (usd, "$")
 
     async def settings(self) -> ClaudeSettings | None:
         async with self._sessionmaker() as db:

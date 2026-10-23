@@ -9,14 +9,19 @@ from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from myorb.brief.models import Brief
+from myorb.brief.models import Brief, ClaudeUsage
 from myorb.brief.service import kind_for
+from myorb.brief.spend import cost_usd, tokens
 from myorb.brief.writer import BriefError, facts_prompt
 from myorb.connections.models import ProviderSettings
 from myorb.plugins import BriefSection
 from myorb.tasks.plugin import TasksPlugin
 
 API_KEY = "sk-ant-test-key"
+ECB_RATES = """<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01"
+ xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref"><Cube><Cube time="2026-10-23">
+<Cube currency="USD" rate="1.25"/><Cube currency="JPY" rate="160.1"/></Cube></Cube>
+</gesmes:Envelope>"""
 TZ = ZoneInfo("Europe/Bratislava")
 
 BRIEF = {
@@ -45,6 +50,9 @@ class FakeClaude:
         self.tool_calls: list[tuple[str, dict[str, Any]]] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        if request.url.host == "www.ecb.europa.eu":
+            # One euro buys 1.25 dollars, so a dollar is 0.80 euros.
+            return httpx2.Response(200, text=ECB_RATES)
         key = request.headers.get("x-api-key") or request.headers.get(
             "authorization", ""
         ).removeprefix("Bearer ")
@@ -411,3 +419,66 @@ def test_brief_is_translated_once_for_reading_aloud(client: TestClient, claude: 
 
     bad = client.post(f"/brief/{brief.id}/translation", data={"language": "xx"})
     assert bad.status_code == 400 and bad.json()["error"] == "Choose a language."
+
+
+# What myOrb spends on Claude
+
+
+def usage_rows(client: TestClient) -> list[ClaudeUsage]:
+    async def query() -> list[ClaudeUsage]:
+        async with client.app.state.sessionmaker() as db:
+            return list(await db.scalars(select(ClaudeUsage)))
+
+    return client.portal.call(query)
+
+
+def test_cost_counts_each_kind_of_token():
+    usage = {
+        "input_tokens": 1_000,
+        "cache_creation_input_tokens": 3_000,
+        "cache_creation": {"ephemeral_5m_input_tokens": 2_000, "ephemeral_1h_input_tokens": 1_000},
+        "cache_read_input_tokens": 10_000,
+        "output_tokens": 500,
+    }
+    counted = tokens(usage)
+    assert counted == {
+        "input_tokens": 1_000,
+        "cache_write_5m": 2_000,
+        "cache_write_1h": 1_000,
+        "cache_read": 10_000,
+        "output_tokens": 500,
+    }
+    # Sonnet 5.5: $2 input, $2.50 / $4 cache writes, $0.10 cache reads, $10 output per MTok.
+    assert cost_usd("claude-sonnet-5-5", counted) == pytest.approx(
+        (1_000 * 2 + 2_000 * 2.5 + 1_000 * 4 + 10_000 * 0.1 + 500 * 10) / 1e6
+    )
+    # Without the split, cache writes count as 5-minute ones.
+    assert tokens({"input_tokens": 1, "cache_creation_input_tokens": 7})["cache_write_5m"] == 7
+    # Haiku 5.5 costs five times as much past 100,000 prompt tokens.
+    short = cost_usd("claude-haiku-5-5", tokens({"input_tokens": 100_000, "output_tokens": 0}))
+    long = cost_usd("claude-haiku-5-5", tokens({"input_tokens": 100_001, "output_tokens": 0}))
+    assert long == pytest.approx(short * 5, rel=1e-4)
+
+
+def test_spend_is_counted_and_shown_in_euros(client: TestClient, claude: FakeClaude):
+    connect(client)
+    assert "in the last 30 days" in client.get("/integrations").text
+    assert "€0.00 in the last 30 days" in client.get("/integrations").text
+
+    client.post("/brief/generate", headers={"HX-Request": "true"})
+    [row] = usage_rows(client)
+    assert (row.model, row.input_tokens, row.output_tokens) == ("claude-sonnet-5-5", 100, 50)
+    assert row.cost_usd == pytest.approx((100 * 2 + 50 * 10) / 1e6)
+
+    # Answers priced at $40 in all: €32.00 at 1.25 dollars a euro.
+    async def add() -> None:
+        async with client.app.state.sessionmaker() as db:
+            fields = {k: 0 for k in ("input_tokens", "cache_write_5m", "cache_write_1h")}
+            fields |= {"cache_read": 0, "output_tokens": 0, "model": "claude-opus-5-5"}
+            db.add(ClaudeUsage(at=datetime.now(UTC), cost_usd=40 - row.cost_usd, **fields))
+            # Older than 30 days: not counted.
+            db.add(ClaudeUsage(at=datetime.now(UTC) - timedelta(days=31), cost_usd=99, **fields))
+            await db.commit()
+
+    client.portal.call(add)
+    assert "€32.00 in the last 30 days" in client.get("/integrations").text
