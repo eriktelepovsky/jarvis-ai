@@ -659,7 +659,7 @@ a.ti:hover .t1 {
 @media (max-width: 720px) {
   /* The circles reach about 5% past the orb on each side (more for a large one with its
      warning badge), so the orb leaves that much of the screen free. */
-  .stage { --d: min(86vw, calc(100dvh - 120px)); }
+  .stage { --d: min(86vw, calc(var(--screen) - 120px)); }
 
   /* Installed on the home screen, a drag past the top or bottom bounced the whole page, which
      looked like it scrolled. The visible height (dvh) leaves out Safari's own bars. */
@@ -669,7 +669,7 @@ a.ti:hover .t1 {
   }
 
   .welcome {
-    min-height: 100dvh;
+    min-height: var(--screen);
   }
 
   /* Under the status bar and the home indicator when installed (the --safe-* edges, 0 in a
@@ -1020,7 +1020,7 @@ a.ti:hover .t1 {
   /* Clear of the status bar and the home indicator when installed, so the close button is
      not under the Dynamic Island. */
   .modal {
-    --modal-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
+    --modal-height: calc(var(--screen) - 32px - var(--safe-top) - var(--safe-bottom));
 
     width: calc(100% - 24px);
     margin: calc(16px + var(--safe-top)) auto calc(16px + var(--safe-bottom));
@@ -1677,7 +1677,7 @@ button.row-btn {
 
   .modal-report,
   .modal-report .report {
-    max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
+    max-height: calc(var(--screen) - 32px - var(--safe-top) - var(--safe-bottom));
   }
 }
 
