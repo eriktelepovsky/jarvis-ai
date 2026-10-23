@@ -1,3 +1,5 @@
+import asyncio
+
 from conftest import MakeClient, complete_setup
 from fastapi.testclient import TestClient
 
@@ -52,6 +54,21 @@ def test_widget_states_survive_a_restart(make_client: MakeClient):
     note(WidgetWatch(), 10)
     note(WidgetWatch(), 13)  # a new watch, as after a restart, still knows the 10
     assert "Email · 3 new · unread" in client.get("/activity").text
+
+
+def test_a_widget_first_loaded_twice_at_once_is_remembered_once(make_client: MakeClient):
+    client: TestClient = make_client()
+    complete_setup(client)
+    watch = WidgetWatch()
+    widget = Widget(id="today", label="Steps", title="Health", icon="", load=None)  # type: ignore[arg-type]
+    item = {"key": "health-today", "widget": widget, "data": WidgetData(value=None)}
+
+    async def both() -> None:
+        # Two tabs, or a refresh racing the first load: neither has seen the widget yet.
+        sessionmaker = client.app.state.sessionmaker
+        await asyncio.gather(watch.note(sessionmaker, [item]), watch.note(sessionmaker, [item]))
+
+    client.portal.call(both)
 
 
 def test_quiet_day_still_lists_the_latest(make_client: MakeClient):
