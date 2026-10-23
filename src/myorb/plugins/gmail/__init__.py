@@ -81,6 +81,8 @@ def summarize_message(
         "to": recipient(message, email, own or {email.lower()}),
         # The start of the text, as Gmail shows it in the list: for the AI summary.
         "snippet": html.unescape(message.get("snippet", "")),
+        # Gmail's own "important" marker, which it learns from what the user reads and answers.
+        "important": "IMPORTANT" in message.get("labelIds", []),
     }
 
 
@@ -130,7 +132,8 @@ async def fetch_inbox(
     messages = [message for message in found if message]
     return {
         "unread": inbox.get("threadsUnread", 0),
-        "total": inbox.get("threadsTotal", 0),
+        # More unread conversations than were read: counts from them are a lower bound.
+        "unread_more": "nextPageToken" in unread,
         "today": len(today.get("messages", [])),
         "today_more": "nextPageToken" in today,
         "latest_unread": [
@@ -204,6 +207,16 @@ class GmailPlugin(Plugin):
         unread = sum(account.data["unread"] for account in loaded)
         today = sum(account.data["today"] for account in loaded)
         today_label = f"{today}+" if any(a.data["today_more"] for a in loaded) else str(today)
+        # Among the unread conversations read (up to UNREAD_SHOWN per account), those Gmail
+        # marks as important; with more unread than that, at least this many. Data cached by
+        # an earlier version has no marker and counts none.
+        important = sum(
+            message.get("important", False)
+            for account in loaded
+            for message in account.data["latest_unread"]
+        )
+        more = any(account.data.get("unread_more", False) for account in loaded)
+        important_label = f"{important}+" if more else str(important)
         messages = sorted(
             (
                 (account.email, message)
@@ -220,7 +233,7 @@ class GmailPlugin(Plugin):
             stats=[
                 Stat(today_label, "New today"),
                 Stat(unread, "Unread"),
-                Stat(sum(account.data["total"] for account in loaded), "In inbox"),
+                Stat(important_label, "Important", filter="important"),
             ],
             list_title="Latest unread",
             rows=[
@@ -229,6 +242,7 @@ class GmailPlugin(Plugin):
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=message["url"],
+                    tags=("important",) if message.get("important") else (),
                     # By the address it was sent to; with several accounts, under the account.
                     group=email if several else message.get("to", email),
                     subgroup=message.get("to", email) if several else "",
