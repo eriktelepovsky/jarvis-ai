@@ -502,12 +502,17 @@
     const list = document.querySelector('.side-right [hx-get="/activity"]');
     if (!list) return;
     const items = [...list.querySelectorAll(".activity-item")];
+    const column = list.closest(".side-right");
     items.forEach((item) => (item.hidden = false));
     const dock = document.getElementById("media-dock")?.getBoundingClientRect();
-    const box = list.getBoundingClientRect();
+    const box = column.getBoundingClientRect();
     const overlaps = dock && dock.height && dock.left < box.right && dock.right > box.left;
     const limit = (overlaps ? dock.top : window.innerHeight) - 16;
-    items.forEach((item) => (item.hidden = item.getBoundingClientRect().bottom > limit));
+    // The column is centred beside the orb, so it moves as it shrinks: the oldest events go
+    // one by one until the whole column (its line too) ends above the dock.
+    for (let shown = items.length; shown > 0 && column.getBoundingClientRect().bottom > limit; shown--) {
+      items[shown - 1].hidden = true;
+    }
   }
 
   document.addEventListener("htmx:afterSwap", (event) => {
