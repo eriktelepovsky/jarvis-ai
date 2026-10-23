@@ -463,7 +463,7 @@ def test_integrations_say_how_often_a_service_is_asked(client: TestClient, apis:
     client.get("/welcome/widgets")
     text = client.get("/integrations").text
     # Jira: its widget refreshes every 3 minutes; the connecting and the widget asked its site.
-    assert '<span class="num">3 min</span><span class="label">Refreshes every</span>' in text
+    assert 'class="num">3 min <span class="pace-caret"' in text
     requests = re.search(r'<span class="num">(\d+)</span><span class="label">Requests', text)
     assert requests and int(requests.group(1)) >= 2
     assert "× limited" not in text
@@ -551,3 +551,23 @@ def test_bitbucket_asks_only_active_repositories_and_rereads_only_what_changed()
     assert "repositories/acme/app/pullrequests/7" in read()
     clock[0] += 31 * 60
     assert "repositories/acme/app/pullrequests/7" in read()
+
+
+def test_a_service_pace_is_chosen(client: TestClient, apis: FakeApis):
+    jira_site(apis, "dev", [issue("TRP-1", "new")])
+    connect_jira(client, "dev")
+    assert 'data-refresh="180"' in client.get("/welcome/widget/jira/assigned").text
+    response = client.post("/integrations/jira/pace", data={"seconds": "600"})
+    assert "The numbers on the welcome screen follow the new pace." in response.text
+    assert 'class="num">10 min <span class="pace-caret"' in response.text
+    assert 'value="600" class="menu-item is-chosen"' in response.text
+    # The number's border and the cache follow it.
+    assert 'data-refresh="600"' in client.get("/welcome/widget/jira/assigned").text
+    assert client.app.state.cache._pace("jira:1:issues") == 600
+    # Bitbucket's limit allows no less than 5 minutes; other values are refused.
+    assert client.post("/integrations/bitbucket/pace", data={"seconds": "60"}).status_code == 400
+    assert client.post("/integrations/jira/pace", data={"seconds": "7"}).status_code == 400
+    assert client.post("/integrations/custom/pace", data={"seconds": "600"}).status_code == 404
+    # Back to the default.
+    client.post("/integrations/jira/pace", data={"seconds": "default"})
+    assert 'data-refresh="180"' in client.get("/welcome/widget/jira/assigned").text

@@ -79,6 +79,8 @@ class Provider(ABC):
     # How often its data is fetched, when it keeps a pace of its own (seconds); otherwise
     # its plugin's widgets decide.
     refresh: ClassVar[float | None] = None
+    # The shortest pace the user may choose for it (seconds), e.g. for a strict rate limit.
+    min_refresh: ClassVar[float] = 60
 
     def hosts(self, credentials: dict[str, Any]) -> set[str]:
         """The hosts an account's requests go to (e.g. its own Jira site)."""

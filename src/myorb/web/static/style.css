@@ -984,7 +984,15 @@ code,
   gap: 8px 14px;
   align-items: center;
   padding: 10px 18px 10px 72px;
+  /* A shade lighter than the service above, so its accounts read as one group under it. */
+  background: var(--surface-2);
   border-top: 1px solid var(--line-soft);
+}
+
+/* The last account follows the panel's rounded corners (the panel does not clip: menus open
+   beyond it). */
+.service > .account:last-child {
+  border-radius: 0 0 calc(var(--r-card) - 1px) calc(var(--r-card) - 1px);
 }
 
 .account .capabilities {
@@ -1921,4 +1929,43 @@ form.htmx-request .btn[type="submit"]::before {
   background: currentColor;
   -webkit-mask: var(--icon) center / contain no-repeat;
   mask: var(--icon) center / contain no-repeat;
+}
+
+/* The pace tile as a choice: it opens the paces to choose from */
+
+.pace-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.pace-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pace-stat.is-choice:hover,
+.pace-menu[open] > .pace-stat {
+  border-color: var(--accent);
+}
+
+.pace-caret {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.pace-menu .menu-panel {
+  right: auto;
+  left: 0;
+  min-width: 100%;
+}
+
+.menu-item.is-default {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+}
+
+.menu-item.is-chosen::after {
+  float: right;
+  color: var(--accent);
+  content: "✓";
 }

@@ -14,6 +14,7 @@ from myorb.connections.form_routes import providers as form_providers
 from myorb.connections.models import Connection
 from myorb.connections.providers import Provider
 from myorb.db import get_db
+from myorb.paces import FIXED, GOOGLE, GOOGLE_PLUGINS, OPTIONS
 from myorb.plugins import Plugin
 from myorb.voice import load_voice
 
@@ -38,6 +39,7 @@ MESSAGES = {
     "removed": "The connection was removed.",
     "choices": "Saved. The numbers show only what you chose.",
     "saved-connection": "Saved and tested again.",
+    "pace": "Saved. The numbers on the welcome screen follow the new pace.",
     "music-saved": "The music settings were saved.",
 }
 
@@ -80,24 +82,36 @@ def every(seconds: list[float]) -> str:
     return f"every {words(low)} to {words(high)}"
 
 
+def _choices(
+    request: Request, service: str, default: list[float], shortest: float
+) -> dict[str, Any]:
+    """What the pace tile offers: the paces to choose from, the chosen one, the default."""
+    chosen = request.app.state.paces.chosen(service)
+    return {
+        "service": service,
+        "chosen": chosen,
+        "default": every(default),
+        "options": [
+            (s, every([s]).removeprefix("every ").replace("hour", "1 hour"))
+            for s in OPTIONS
+            if s >= shortest
+        ],
+    }
+
+
 async def _pace(request: Request, plugin: Plugin, provider: Provider) -> dict[str, Any]:
     """How often a service's data is fetched and how many requests it got in the last hour
     (and how many of them it refused as too many), for its panel on this page."""
     accounts = await request.app.state.connections.list(provider.id)
     hosts = {host for account in accounts for host in provider.hosts(account.credentials)}
     requests, limited = request.app.state.request_log.last_hour(hosts)
-    if hasattr(provider, "refresh_every"):
-        paces = [provider.refresh_every(account.credentials) for account in accounts]
-    elif provider.refresh is not None:
-        paces = [provider.refresh]
-    else:
-        paces = [widget.refresh for widget in plugin.widgets()]
-    return {
-        "every": every(paces),
-        "requests": requests,
-        "limited": limited,
-        "shown": bool(accounts),
-    }
+    stats: dict[str, Any] = {"requests": requests, "limited": limited, "shown": bool(accounts)}
+    if hasattr(provider, "refresh_every"):  # paced per source (custom sources)
+        return {**stats, "every": every([provider.refresh_every(a.credentials) for a in accounts])}
+    default = [provider.refresh] if provider.refresh else [w.refresh for w in plugin.widgets()]
+    choice = _choices(request, provider.id, default, provider.min_refresh)
+    paces = [choice["chosen"]] if choice["chosen"] else default
+    return {**stats, **choice, "every": every(paces)}
 
 
 async def _integrations_page(
@@ -137,9 +151,33 @@ async def _integrations_page(
 def _google_pace(request: Request) -> dict[str, Any]:
     requests, limited = request.app.state.request_log.last_hour(GOOGLE_HOSTS)
     plugins = request.app.state.plugins.values()
-    google = [p for p in plugins if p.id in ("gmail", "calendar", "youtube")]
-    paces = [widget.refresh for plugin in google for widget in plugin.widgets()]
-    return {"every": every(paces), "requests": requests, "limited": limited, "shown": True}
+    google_plugins = [p for p in plugins if p.id in GOOGLE_PLUGINS]
+    default = [widget.refresh for plugin in google_plugins for widget in plugin.widgets()]
+    choice = _choices(request, GOOGLE, default, 60)
+    paces = [choice["chosen"]] if choice["chosen"] else default
+    return {
+        "requests": requests,
+        "limited": limited,
+        "shown": True,
+        **choice,
+        "every": every(paces),
+    }
+
+
+@router.post("/integrations/{service}/pace")
+async def choose_pace(request: Request, service: str) -> Response:
+    """How often a service's data is fetched, as chosen on its tile; "default" goes back."""
+    providers = {p.id: p for _, p in form_providers(request) if p.id not in FIXED}
+    if service not in providers and service != GOOGLE:
+        raise HTTPException(status_code=404, detail="No such service")
+    shortest = providers[service].min_refresh if service in providers else 60
+    value = str((await request.form()).get("seconds", "default"))
+    seconds = None if value == "default" else float(value) if value.isdigit() else -1.0
+    if seconds is not None and (seconds not in OPTIONS or seconds < shortest):
+        raise HTTPException(status_code=400, detail="Choose one of the paces offered")
+    state = request.app.state
+    await state.paces.choose(state.sessionmaker, state.secret_box, service, seconds)
+    return RedirectResponse("/integrations?status=pace", status_code=303)
 
 
 def forget_cached(request: Request, connection_id: int) -> None:

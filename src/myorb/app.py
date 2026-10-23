@@ -33,6 +33,7 @@ from myorb.connections.google_accounts import GoogleAccounts
 from myorb.crypto import SecretBox, load_secret_key
 from myorb.db import create_engine, create_sessionmaker, run_migrations
 from myorb.http_log import RequestLog
+from myorb.paces import Paces
 from myorb.plugins import Plugin, discover_plugins
 from myorb.plugins.install import add_to_path, plugins_dir
 from myorb.profile import DEFAULT_ASSISTANT, DEFAULT_COLOR, load_profile, orb_hue
@@ -110,6 +111,7 @@ def create_app(
             app.state.sessionmaker, app.state.secret_box, app.state.http
         )
         app.state.connections = Connections(app.state.sessionmaker, app.state.secret_box)
+        await app.state.paces.load(app.state.sessionmaker, app.state.secret_box)
         for plugin in plugins.values():
             await plugin.connections_changed(app.state.connections)
         app.state.brief = BriefService(
@@ -148,7 +150,8 @@ def create_app(
     app.state.settings = settings
     app.state.plugins = plugins
     app.state.timezone = resolve_timezone(settings.timezone)
-    app.state.cache = Cache()
+    app.state.paces = Paces()
+    app.state.cache = Cache(pace=app.state.paces.for_key)
     app.state.request_log = RequestLog()
     app.state.widget_watch = WidgetWatch()
     app.state.ask_conversations = Conversations()

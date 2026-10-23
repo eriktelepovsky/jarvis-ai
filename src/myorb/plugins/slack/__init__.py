@@ -93,6 +93,7 @@ async def slack(http: httpx2.AsyncClient, method: str, token: str, **params: Any
 
 
 class SlackWorkspace(Provider):
+    icon = "hash"  # a channel's "#": Slack's own logo is not available to use
     id = "slack"
     name = "Slack"
     logo = "S"

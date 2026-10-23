@@ -283,6 +283,7 @@ class Bitbucket(CodeHost):
 
     # Asked repository by repository and limited per user and hour: its own, slower pace.
     refresh = 5 * 60
+    min_refresh = 5 * 60
     id = "bitbucket"
     name = "Bitbucket"
     logo = "BB"

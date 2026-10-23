@@ -155,6 +155,7 @@ async def _finish(
     for item in items:
         item["change"] = snapshots.change_label(previous.get(item["key"]))
         item["size"] = node_size(item["widget"].weight, item["data"])
+        item["refresh"] = request.app.state.paces.widget_refresh(item["plugin"], item["widget"])
         # How old the data is, by the server's clock: the node's border shows it filling up.
         updated = item["data"].updated_at
         item["age"] = round(max(0.0, time.time() - updated), 1) if updated else 0
