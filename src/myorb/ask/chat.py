@@ -3,7 +3,7 @@ proposing actions (e.g. adding a task) that run only after the user confirms the
 
 import logging
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 import anthropic
@@ -101,6 +101,7 @@ async def turn(
     model: str,
     conversation: Conversation,
     context: WidgetContext,
+    on_usage: Callable[[str, Any], Awaitable[None]] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Claude's answer to the last message: {"text": …} pieces, then {"proposal": …} for each
     action it wants to take (they wait for the user). Raises BriefError for the user."""
@@ -128,6 +129,8 @@ async def turn(
         except anthropic.APIConnectionError as error:
             raise BriefError("Claude could not be reached.") from error
         usage = final.usage
+        if on_usage is not None:  # streamed, so the client's hook did not count it
+            await on_usage(final.model, usage)
         # What the turn cost, for the server log: the dashboard is read from the cache after
         # the conversation's first question.
         logger.info(

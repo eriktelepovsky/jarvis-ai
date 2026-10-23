@@ -149,7 +149,7 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
     text = client.get("/welcome/widgets").text
     assert '<span class="node-value">7</span>' in text
-    assert "unread · 3 new today" in text
+    assert "unread · 3 emails today" in text
     assert "Board meeting &lt;today&gt;" in text
     assert "Pepper Potts" in text and "Tony" not in text
     assert text.count('class="modal-row"') == 1  # one per unread conversation

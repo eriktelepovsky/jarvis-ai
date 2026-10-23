@@ -92,7 +92,13 @@ async def ask(request: Request) -> StreamingResponse:
             conversation = await _start(request, history)
         yield {"conversation": conversation.id}
         ask_question(conversation, question)
-        async for event in turn(client, model, conversation, widget_context(request)):
+        async for event in turn(
+            client,
+            model,
+            conversation,
+            widget_context(request),
+            on_usage=request.app.state.brief.record_usage,
+        ):
             yield event
 
     return _stream(_guarded(events()))
@@ -113,7 +119,13 @@ async def decide_actions(request: Request) -> StreamingResponse:
         async for event in decide(widget_context(request), conversation, approved):
             yield event
         yield {"refresh": True}
-        async for event in turn(client, model, conversation, widget_context(request)):
+        async for event in turn(
+            client,
+            model,
+            conversation,
+            widget_context(request),
+            on_usage=request.app.state.brief.record_usage,
+        ):
             yield event
 
     return _stream(_guarded(events()))

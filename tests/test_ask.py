@@ -83,6 +83,17 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert "Call mom" in claude.requests[-1]["system"][1]["text"]
 
 
+def test_streamed_answers_are_counted(client: TestClient, claude: FakeClaude):
+    # Streamed, so the client's response hook leaves them to Ask.
+    from test_brief import usage_rows
+
+    connect(client)
+    ask(client, [{"role": "user", "content": "What is on today?"}])
+    [row] = usage_rows(client)
+    assert row.model == claude.requests[-1]["model"]
+    assert row.output_tokens > 0
+
+
 def test_ask_explains_what_went_wrong(client: TestClient, claude: FakeClaude):
     assert ask(client, [{"role": "user", "content": "Hi?"}]) == [
         {"error": "Connect Claude in Integrations to ask questions."}
