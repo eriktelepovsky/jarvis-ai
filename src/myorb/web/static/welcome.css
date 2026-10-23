@@ -1882,8 +1882,25 @@ dialog.is-refreshing .modal-head::after {
   cursor: progress;
 }
 
-/* Events that do not fit above the media dock (welcome.js) */
+/* The activity column: as tall as the events that fit above the YouTube window (welcome.js
+   sets max-height); it grows and shrinks smoothly, events below it fade out. */
 
-.activity-item[hidden] {
-  display: none;
+.side-right {
+  overflow: hidden;
+  transition: max-height 0.45s ease;
+}
+
+.activity-item {
+  transition: opacity 0.3s ease;
+}
+
+.activity-item.is-cut {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-right,
+  .activity-item {
+    transition: none;
+  }
 }

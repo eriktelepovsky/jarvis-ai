@@ -499,12 +499,12 @@
   // The activity list shows only as many events as fit above the YouTube window (or the music
   // search) while it is shown, so none hides behind it; the rest are the oldest. The dock's
   // small controls alone leave the list as it is.
+  // After the column's height has moved, check once more: the orb may have changed meanwhile.
   function fitActivity() {
     const list = document.querySelector('.side-right [hx-get="/activity"]');
     if (!list) return;
     const items = [...list.querySelectorAll(".activity-item")];
     const column = list.closest(".side-right");
-    items.forEach((item) => (item.hidden = false));
     // Shown or not: the video is only made invisible (the music plays on), the search removed.
     const panels = [...document.querySelectorAll("#media-dock .music-player, #media-dock .music-finder")]
       .filter((panel) => getComputedStyle(panel).visibility !== "hidden")
@@ -512,19 +512,30 @@
       .filter((rect) => rect.height);
     const box = column.getBoundingClientRect();
     const covering = panels.filter((rect) => rect.left < box.right && rect.right > box.left);
-    if (!covering.length) return;
-    const limit = Math.min(...covering.map((rect) => rect.top)) - 16;
-    // The column is centred beside the orb, so it moves as it shrinks: the oldest events go
-    // one by one until the whole column (its line too) ends above the dock.
-    for (let shown = items.length; shown > 0 && column.getBoundingClientRect().bottom > limit; shown--) {
-      items[shown - 1].hidden = true;
+    // The column's height animates (CSS) to what fits; events below it fade out. It is centred
+    // beside the orb, so it may be as tall as twice the room between its centre and the dock.
+    const padding = parseFloat(getComputedStyle(column).paddingBottom) || 0;
+    let height = column.scrollHeight;
+    if (covering.length) {
+      const limit = Math.min(...covering.map((rect) => rect.top)) - 16;
+      const room = 2 * (limit - (box.top + box.height / 2));
+      const fitting = items.filter((item) => item.getBoundingClientRect().bottom - box.top + padding <= room);
+      const last = fitting.at(-1);
+      height = last ? last.getBoundingClientRect().bottom - box.top + padding : list.getBoundingClientRect().top - box.top;
     }
+    items.forEach((item) => {
+      item.classList.toggle("is-cut", item.getBoundingClientRect().bottom - box.top + padding > height + 1);
+    });
+    column.style.maxHeight = `${Math.ceil(height)}px`;
   }
 
   document.addEventListener("htmx:afterSwap", (event) => {
     if (event.detail.target.matches?.('[hx-get="/activity"]')) fitActivity();
   });
   window.addEventListener("resize", fitActivity);
+  document.querySelector(".side-right")?.addEventListener("transitionend", (event) => {
+    if (event.propertyName === "max-height") fitActivity();
+  });
   document.fonts?.ready.then(fitActivity);
   // The YouTube window appears once its video loads, and is hidden and shown from the dock
   // (by a class: its size stays).
