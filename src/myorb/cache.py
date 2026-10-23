@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 # Set while the user asks for new data (the Refresh button): values are fetched now, not
 # taken from the cache. Plugins that keep their own data can check it too (e.g. Uptime).
 refreshing: ContextVar[bool] = ContextVar("refreshing", default=False)
+# Set while a number's time to refresh has come (its border filled up): stale values are
+# fetched now instead of in the background, but values still fresh are kept, so a source
+# that must not be asked often (e.g. Bitbucket's rate limit) keeps its own pace.
+due: ContextVar[bool] = ContextVar("due", default=False)
 
 
 @dataclass(frozen=True)
@@ -40,7 +44,7 @@ class Cache:
     ) -> Cached:
         entry = self._entries.get(key)
         age = self._clock() - entry.fetched_at if entry else None
-        if refreshing.get():
+        if refreshing.get() or (due.get() and age is not None and age >= fresh):
             age = None if entry is None else max_age  # fetch now, keep the old value on failure
         if entry is not None and age is not None and age < fresh:
             return entry

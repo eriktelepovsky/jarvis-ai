@@ -246,6 +246,7 @@ class CountingPlugin(Plugin):
 
     def __init__(self) -> None:
         self.fetches = 0
+        self.fresh = 60
 
     def widgets(self) -> list[Widget]:
         return [Widget(id="n", label="N", title="N", icon="M0 0", load=self._widget, refresh=120)]
@@ -255,7 +256,7 @@ class CountingPlugin(Plugin):
             self.fetches += 1
             return self.fetches
 
-        cached = await context.cache.get("counting", fetch, 60, 3600)
+        cached = await context.cache.get("counting", fetch, self.fresh, 3600)
         return WidgetData(value=cached.value, updated_at=cached.fetched_at)
 
 
@@ -267,8 +268,9 @@ def test_due_widget_is_fetched_again(make_client: MakeClient):
     assert 'data-refresh="120"' in text and 'data-age="0' in text
     client.get("/welcome/widget/counting/n")
     assert plugin.fetches == 1  # fresh: from memory
-    # Its border filled up: the service is asked again now.
-    assert (
-        '<span class="node-value">2</span>'
-        in client.get("/welcome/widget/counting/n?due=true").text
-    )
+    due = "/welcome/widget/counting/n?due=true"
+    # Due while the data is still fresh (a source with its own slower pace): kept.
+    assert '<span class="node-value">1</span>' in client.get(due).text
+    # Due and stale: the service is asked again now, not in the background.
+    plugin.fresh = 0
+    assert '<span class="node-value">2</span>' in client.get(due).text

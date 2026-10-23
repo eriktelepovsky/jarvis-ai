@@ -582,9 +582,9 @@
     document.getElementById("ask-input")?.focus();
   });
 
-  // The activity list shows only as many events as fit above the YouTube window (or the music
-  // search) while it is shown, so none hides behind it; the rest are the oldest. The dock's
-  // small controls alone leave the list as it is.
+  // The activity list shows only as many events as fit on screen: under the clock, above the
+  // YouTube window (or the music search) while it is shown, else above the dock's controls or
+  // the window's edge. The rest, the oldest, fade out.
   // After the column's height has moved, check once more: the orb may have changed meanwhile.
   function fitActivity() {
     const list = document.querySelector('.side-right [hx-get="/activity"]');
@@ -597,14 +597,25 @@
       .map((panel) => panel.getBoundingClientRect())
       .filter((rect) => rect.height);
     const box = column.getBoundingClientRect();
-    const covering = panels.filter((rect) => rect.left < box.right && rect.right > box.left);
-    // The column's height animates (CSS) to what fits; events below it fade out. It is centred
-    // beside the orb, so it may be as tall as twice the room between its centre and the dock.
+    const across = (rect) => rect.height && rect.left < box.right && rect.right > box.left;
+    const covering = panels.filter(across);
+    // The column is centred beside the orb: it may grow as far as the nearer of the clock
+    // above (with the next event) and, below, the YouTube window or the dock's controls (or
+    // the window's edge); events that do not fit fade out (CSS animates the height).
+    // Every part of the header above it: the next event's pill sits outside the clock's box.
+    const above = [...document.querySelectorAll(".welcome-header *")]
+      .map((el) => el.getBoundingClientRect())
+      .filter(across);
+    const top = Math.max(0, ...above.map((rect) => rect.bottom)) + 16;
+    const controls = [...document.querySelectorAll("#media-dock .dock-controls")]
+      .map((el) => el.getBoundingClientRect())
+      .filter(across);
+    const bottom = Math.min(window.innerHeight, ...[...covering, ...controls].map((rect) => rect.top)) - 16;
+    const centre = box.top + box.height / 2;
+    const room = 2 * Math.min(bottom - centre, centre - top);
     const padding = parseFloat(getComputedStyle(column).paddingBottom) || 0;
     let height = column.scrollHeight;
-    if (covering.length) {
-      const limit = Math.min(...covering.map((rect) => rect.top)) - 16;
-      const room = 2 * (limit - (box.top + box.height / 2));
+    if (height > room) {
       const fitting = items.filter((item) => item.getBoundingClientRect().bottom - box.top + padding <= room);
       const last = fitting.at(-1);
       height = last ? last.getBoundingClientRect().bottom - box.top + padding : list.getBoundingClientRect().top - box.top;
@@ -805,12 +816,65 @@
           ? `${needs} ${sources} attention`
           : "All systems nominal";
     }
+    // The header says that something needs attention; a click lists what and how to fix it.
     const attention = document.getElementById("attention");
     if (attention && !loading) {
       attention.hidden = !needs;
       attention.textContent = `▲ ${needs} ${sources} attention`;
     }
   }
+
+  function showAttention() {
+    const dialog = document.getElementById("attention-dialog");
+    const troubled = [...document.querySelectorAll('#orb-widgets .node[data-needs="true"]')];
+    if (!dialog || !troubled.length) return false;
+    const list = dialog.querySelector("[data-attention-list]");
+    list.replaceChildren(
+      ...troubled.map((node) => {
+        const item = document.createElement("div");
+        item.className = `attention-item ${node.dataset.tone === "fail" ? "is-fail" : "is-warn"}`;
+        item.innerHTML = `<div class="attention-text"><strong></strong><span class="muted"></span>
+          <span class="label attention-note"></span></div><div class="attention-actions"></div>`;
+        item.querySelector("strong").textContent = node.dataset.title;
+        item.querySelector(".muted").textContent = node.dataset.problem;
+        item.querySelector(".attention-note").textContent =
+          node.dataset.tone === "fail" ? "No data from it right now" : "Showing its last data";
+        const actions = item.querySelector(".attention-actions");
+        const details = document.createElement("button");
+        details.type = "button";
+        details.className = "btn btn-small";
+        details.textContent = "Open details";
+        details.addEventListener("click", () => {
+          dialog.close();
+          openDialog(document.getElementById(`detail-${node.dataset.key}`));
+        });
+        actions.append(details);
+        if (node.dataset.fixUrl) {
+          const fix = document.createElement("a");
+          fix.className = "btn btn-primary btn-small";
+          fix.href = node.dataset.fixUrl;
+          fix.textContent = node.dataset.fixLabel || "Fix it";
+          actions.append(fix);
+        }
+        return item;
+      }),
+    );
+    dialogs().forEach((other) => other.open && other.close());
+    dialog.showModal();
+    return true;
+  }
+
+  // In the capture phase, before htmx follows the link (boosted) to Integrations.
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!event.target.closest("#attention")) return;
+      if (!showAttention()) return; // nothing to list: the link goes to Integrations
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
 
   // Refresh in a dialog: it shows loading until the new data replaces the dialog (the class
   // goes with the old one); if the request fails, the dialog is usable again.

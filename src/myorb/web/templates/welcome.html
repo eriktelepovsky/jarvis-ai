@@ -109,6 +109,19 @@
         <div class="label command-result" id="command-result" role="status" aria-live="polite"></div>
       </div>
 
+      {# What needs attention, from the header's warning: each source's problem and its fix. #}
+      <dialog class="modal attention-modal" id="attention-dialog" aria-labelledby="attention-title">
+        <div class="modal-head">
+          <span class="tile warn" aria-hidden="true">▲</span>
+          <div style="min-width: 0; flex: 1">
+            <h2 id="attention-title">Sources that need attention</h2>
+            <span class="label">What went wrong and what to do</span>
+          </div>
+          <button type="button" class="icon-btn" data-close aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="attention-list" data-attention-list></div>
+      </dialog>
+
       {% if can_ask %}
       {# Questions and answers; the conversation stays until "New conversation" or the tab closes. #}
       <dialog class="modal ask-modal" id="ask" aria-labelledby="ask-title">

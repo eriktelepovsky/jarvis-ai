@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from myorb import __version__
+from myorb.cache import due as due_now
 from myorb.cache import refreshing
 from myorb.db import get_db
 from myorb.overview import snapshots
@@ -194,11 +195,11 @@ async def one_widget(
     if not widget:
         raise HTTPException(status_code=404, detail="Widget not found")
     context = widget_context(request)
-    token = refreshing.set(due)
+    token = due_now.set(due)
     try:
         data = await _load_widget(context, plugin, widget)
     finally:
-        refreshing.reset(token)
+        due_now.reset(token)
     if not data.connected:
         return HTMLResponse("")
     [item] = await _finish(
