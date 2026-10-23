@@ -495,6 +495,9 @@
   // Music that was playing before a reload starts again. Browsers allow sound only after the
   // user has interacted with the page, so if it is blocked, it starts with the first click or key.
   async function resumeMusic() {
+    // Music belongs to the signed-in pages, which are the ones with the dock: never the
+    // sign-in screen. The preference stays, so it plays again once signed in.
+    if (!document.getElementById("media-dock")) return;
     const config = await loadMusicConfig();
     if (!prefs.musicOn || music) return;
     if (config.source === "youtube" && (config.video || config.playlist)) startYouTube(config);
@@ -509,8 +512,16 @@
   }
 
   document.addEventListener("DOMContentLoaded", resumeMusic);
-  // After moving to another page, the dock is the same element; show the page's state.
-  document.addEventListener("htmx:load", () => render());
+  // After moving to another page, the dock is the same element; show the page's state. A page
+  // without it (a session that ran out leads to the sign-in screen) silences the music; a
+  // YouTube player went away with the dock.
+  document.addEventListener("htmx:load", () => {
+    if (!document.getElementById("media-dock") && music) {
+      if (music.youtube) music = null;
+      else stopMusic();
+    }
+    render();
+  });
 
   window.myorbMedia = { prefs, sound };
 })();

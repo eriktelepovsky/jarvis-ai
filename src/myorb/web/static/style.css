@@ -1320,6 +1320,14 @@ code,
   backdrop-filter: blur(8px);
 }
 
+/* On a phone the controls would cover the page; a video started from the details still
+   shows. After .dock-controls, so it wins over it. */
+@media (max-width: 720px) {
+  .dock-controls {
+    display: none;
+  }
+}
+
 .page {
   padding-bottom: 72px;
 }

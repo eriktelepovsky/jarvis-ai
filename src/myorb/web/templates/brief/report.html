@@ -1,7 +1,7 @@
 {% from "icons.html" import icon %}
 <div class="modal-head">
   <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7M9 8h2"/></svg></span>
-  <div style="min-width: 0; flex: 1">
+  <div class="modal-title">
     <span class="label" style="color: var(--info)">{{ kicker or "Daily brief" }}</span>
     <h2 id="report-title" class="report-title">{% if brief %}{{ brief.created_at | localtime("%A, %-d %B") }}{% else %}Daily brief{% endif %}</h2>
     {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · {{ model_name(brief.model) }}</span>{% endif %}

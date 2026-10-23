@@ -785,7 +785,6 @@
     const widgets = document.getElementById("orb-widgets");
     if (!widgets) return;
     const places = [...widgets.querySelectorAll(".place")];
-    places.forEach((place, index) => place.style.setProperty("--angle", `${(360 / places.length) * index}deg`));
     const all = dialogs();
     all.forEach((dialog, index) => {
       const counter = dialog.querySelector("[data-counter]");
@@ -801,6 +800,15 @@
     nodes.forEach((node, index) => {
       const bonus = most ? (0.2 * Math.log1p(numbers[index])) / most : 0;
       node.style.setProperty("--s", Math.min(1.5, Number(node.dataset.size) * (1 + bonus)).toFixed(3));
+    });
+    // Each circle gets a share of the ring as large as itself, so large neighbours (several
+    // that need attention) do not overlap while small ones sit closer. The first stays on top.
+    const sizes = places.map((place) => Number(place.querySelector(".node")?.style.getPropertyValue("--s")) || 1);
+    const total = sizes.reduce((sum, size) => sum + size, 0);
+    let along = 0;
+    places.forEach((place, index) => {
+      place.style.setProperty("--angle", `${(360 * along) / total}deg`);
+      along += (sizes[index] + (sizes[index + 1] ?? sizes[0])) / 2;
     });
     const loaded = nodes.filter((node) => node.dataset.hasValue === "true").length;
     const needs = nodes.filter((node) => node.dataset.needs === "true").length;
