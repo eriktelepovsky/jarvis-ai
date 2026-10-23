@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from myorb.connections.providers import ConnectedAccount, Provider, ProviderError
+from myorb.connections.providers import ConnectedAccount, Provider, ProviderError, RateLimited
 from myorb.plugins.base import Link, WidgetContext
 
 CHECK = Link("Check the connection", "/integrations")
@@ -18,6 +18,8 @@ class AccountResult:
     data: Any = None
     updated_at: float | None = None
     error: str | None = None
+    # The error is the service asking to wait (rate limit): nothing for the user to fix.
+    waiting: bool = False
 
 
 async def load_connected(
@@ -35,11 +37,15 @@ async def load_connected(
         try:
             cached = await context.cache.get(key, lambda: fetch(provider, account), fresh, max_age)
         except ProviderError as error:
-            return AccountResult(provider, account.account, error=str(error))
+            waiting = isinstance(error, RateLimited)
+            return AccountResult(provider, account.account, error=str(error), waiting=waiting)
         error = str(cached.error) if isinstance(cached.error, ProviderError) else None
         if cached.error and not error:
             error = "The last update failed."
-        return AccountResult(provider, account.account, cached.value, cached.fetched_at, error)
+        waiting = isinstance(cached.error, RateLimited)
+        return AccountResult(
+            provider, account.account, cached.value, cached.fetched_at, error, waiting
+        )
 
     pairs = [(p, a) for p in providers for a in await context.connections.list(p.id)]
     return list(await asyncio.gather(*(load(p, a) for p, a in pairs)))
@@ -58,6 +64,11 @@ def connected_status(results: list[AccountResult], source: str, setup: Link) -> 
     status: dict[str, Any] = {"source": source, "updated_at": min(times) if times else None}
     if problem := next((r for r in results if r.error), None):
         status["message"] = f"{problem.provider.name} · {problem.account}: {problem.error}"
-        status["message_tone"] = "warn" if problem.data is not None else "fail"
-        status["message_action"] = CHECK
+        # A service that only asks to wait is not broken: a note, nothing to check, and it does
+        # not count as needing attention.
+        if problem.waiting:
+            status["message_tone"] = "info"
+        else:
+            status["message_tone"] = "warn" if problem.data is not None else "fail"
+            status["message_action"] = CHECK
     return status
