@@ -651,8 +651,9 @@ a.ti:hover .t1 {
      warning badge), so the orb leaves that much of the screen free. */
   .stage { --d: min(86vw, calc(100vh - 120px)); }
 
+  /* Clear of the corner brackets (12px in, 30px long), so the links do not touch them. */
   .welcome-header {
-    padding: max(20px, env(safe-area-inset-top)) 16px 8px;
+    padding: max(24px, env(safe-area-inset-top)) 26px 8px;
   }
 
   /* The clock goes under the links, full width and on one line with its date, so it neither
@@ -691,15 +692,17 @@ a.ti:hover .t1 {
   }
 
   /* On a phone there is little room: the greeting goes back in the flow above the orb. */
+  /* The circles at the top and bottom of the ring reach past the orb (a large one by about
+     6% of it), so the space above and below grows with the orb. */
   .greeting {
     position: static;
-    margin-bottom: 12px;
+    margin-bottom: calc(var(--d) * 0.08);
   }
 
   .command {
     position: static;
     width: 100%;
-    margin-top: 16px;
+    margin-top: calc(var(--d) * 0.1);
     transform: none;
   }
 
@@ -720,12 +723,6 @@ a.ti:hover .t1 {
 
   .welcome-main {
     padding: 0 8px 6px;
-  }
-
-  /* The media dock is fixed to the bottom corner: leave room for it under the command line
-     and the footer, so scrolled to the bottom it covers neither. */
-  .welcome {
-    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 }
 
@@ -904,6 +901,11 @@ a.ti:hover .t1 {
   font-size: 20px;
 }
 
+.modal-title {
+  flex: 1;
+  min-width: 0;
+}
+
 .tile {
   display: flex;
   flex: none;
@@ -953,19 +955,6 @@ a.ti:hover .t1 {
   overflow-y: auto;
 }
 
-@media (max-width: 760px) {
-  .modal-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  /* One column on a phone: the summary scrolls away rather than covering the list. */
-  .modal-summary {
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-}
-
 .modal-summary {
   /* Stays in view while the list next to it scrolls, so its numbers can filter the list. */
   position: sticky;
@@ -978,6 +967,51 @@ a.ti:hover .t1 {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+}
+
+/* Phone: after the rules it adjusts, so it wins over them (before them, the summary stayed
+   sticky and covered the list). */
+@media (max-width: 760px) {
+  .modal {
+    width: calc(100% - 24px);
+    --modal-height: calc(100dvh - 32px);
+  }
+
+  .modal-head {
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  /* A title longer than its line ends in "…" rather than breaking word by word. */
+  .modal-title > * {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Only the close button on a phone: refreshing and stepping through the details with the
+     arrows are for a desktop, and without them the title keeps a line of its own width. The
+     keyboard hint in the footer goes too. */
+  .modal-head .refresh-btn,
+  .modal-head [data-counter],
+  .modal-head [data-step],
+  .modal-keys {
+    display: none;
+  }
+
+  .modal-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 16px;
+  }
+
+  /* One column on a phone: the summary scrolls away rather than covering the list. */
+  .modal-summary {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 .modal-stats {
