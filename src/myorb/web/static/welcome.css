@@ -1881,3 +1881,9 @@ dialog.is-refreshing .modal-head::after {
 .email-summary-btn.htmx-request {
   cursor: progress;
 }
+
+/* Events that do not fit above the media dock (welcome.js) */
+
+.activity-item[hidden] {
+  display: none;
+}

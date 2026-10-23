@@ -496,6 +496,27 @@
     document.getElementById("ask-input")?.focus();
   });
 
+  // The activity list shows only as many events as fit above the media dock (the YouTube
+  // window grows and shrinks it), so none hides behind it; the rest are the oldest.
+  function fitActivity() {
+    const list = document.querySelector('.side-right [hx-get="/activity"]');
+    if (!list) return;
+    const items = [...list.querySelectorAll(".activity-item")];
+    items.forEach((item) => (item.hidden = false));
+    const dock = document.getElementById("media-dock")?.getBoundingClientRect();
+    const box = list.getBoundingClientRect();
+    const overlaps = dock && dock.height && dock.left < box.right && dock.right > box.left;
+    const limit = (overlaps ? dock.top : window.innerHeight) - 16;
+    items.forEach((item) => (item.hidden = item.getBoundingClientRect().bottom > limit));
+  }
+
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target.matches?.('[hx-get="/activity"]')) fitActivity();
+  });
+  window.addEventListener("resize", fitActivity);
+  const dock = document.getElementById("media-dock");
+  if (dock && "ResizeObserver" in window) new ResizeObserver(fitActivity).observe(dock);
+
   // The confirmation under the command line fades after a while.
   let commandTimer = null;
   document.addEventListener("htmx:afterSwap", (event) => {
