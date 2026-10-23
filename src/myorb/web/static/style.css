@@ -297,8 +297,7 @@ code,
 
 @media (max-width: 720px) {
   .page {
-    /* As far below the status bar as the welcome screen's links (32px). */
-    padding: calc(32px + var(--safe-top)) 12px calc(32px + var(--safe-bottom));
+    padding: calc(14px + var(--safe-top)) 12px calc(32px + var(--safe-bottom));
   }
 
   .grid > * {
