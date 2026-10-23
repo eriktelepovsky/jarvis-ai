@@ -297,7 +297,8 @@ code,
 
 @media (max-width: 720px) {
   .page {
-    padding: calc(14px + var(--safe-top)) 12px calc(32px + var(--safe-bottom));
+    /* As far below the status bar as the welcome screen's links (32px). */
+    padding: calc(32px + var(--safe-top)) 12px calc(32px + var(--safe-bottom));
   }
 
   .grid > * {
@@ -1882,6 +1883,24 @@ form.htmx-request .btn[type="submit"]::before {
   .pace {
     grid-column: 2 / -1;
     grid-row: 2;
+  }
+}
+
+/* Phone: after the rules it adjusts. Two 160 px tiles are wider than the row's second column
+   (about 300 px), so they ran off the screen: the whole width under the logo, half each, and
+   the label may wrap. The accounts below need no indent to line up with the logo either. */
+@media (max-width: 720px) {
+  .pace {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-column: 1 / -1;
+  }
+
+  .pace-stat .label {
+    white-space: normal;
+  }
+
+  .account {
+    padding-left: 18px;
   }
 }
 
