@@ -158,7 +158,8 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     assert "#inbox/t1" in text
     # Gmail marks it important: counted, and the number narrows the list to such emails.
     assert 'data-filter="important"' in text and ">Important<" in text
-    assert 'data-tags="important"' in text
+    assert 'data-tags="important' in text  # and "today" too on the day it was received
+    assert 'data-filter="today"' in text
     assert "In inbox" not in text
     assert "Open inbox" in text
     assert "Online · 2/2 sources" in text

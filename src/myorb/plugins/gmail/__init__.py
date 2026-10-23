@@ -231,7 +231,8 @@ class GmailPlugin(Plugin):
             value=unread,
             summary=f"unread · {today_label} new today",
             stats=[
-                Stat(today_label, "New today"),
+                # The count is every email today, read or not; the list it narrows is unread.
+                Stat(today_label, "New today", filter="today"),
                 Stat(unread, "Unread"),
                 Stat(important_label, "Important", filter="important"),
             ],
@@ -242,7 +243,14 @@ class GmailPlugin(Plugin):
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=message["url"],
-                    tags=("important",) if message.get("important") else (),
+                    tags=tuple(
+                        tag
+                        for tag, applies in (
+                            ("important", message.get("important")),
+                            ("today", message["received"].date() == context.now.date()),
+                        )
+                        if applies
+                    ),
                     # By the address it was sent to; with several accounts, under the account.
                     group=email if several else message.get("to", email),
                     subgroup=message.get("to", email) if several else "",

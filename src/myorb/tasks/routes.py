@@ -24,7 +24,16 @@ def _now(request: Request) -> datetime:
 
 
 def _done(request: Request) -> Response:
-    """After a change: HTMX requests refresh in place, plain forms go back to the list."""
+    """After a change: the welcome screen's HTMX requests refresh in place, plain forms go
+    back to the list.
+
+    A form on the tasks page is boosted (hx-boost on the body): an empty 204 would swap
+    nothing yet leave /tasks/<id> in the address bar, which only takes POST, so reloading
+    it showed "Method Not Allowed". HX-Location loads the list instead, without a full page
+    load, so music keeps playing.
+    """
+    if request.headers.get("HX-Boosted"):
+        return Response(status_code=204, headers={"HX-Location": "/tasks"})
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers=REFRESH)
     return RedirectResponse("/tasks", status_code=303)
