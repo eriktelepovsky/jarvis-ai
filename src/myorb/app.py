@@ -32,6 +32,7 @@ from myorb.connections.accounts import Connections
 from myorb.connections.google_accounts import GoogleAccounts
 from myorb.crypto import SecretBox, load_secret_key
 from myorb.db import create_engine, create_sessionmaker, run_migrations
+from myorb.http_log import RequestLog
 from myorb.plugins import Plugin, discover_plugins
 from myorb.plugins.install import add_to_path, plugins_dir
 from myorb.profile import DEFAULT_ASSISTANT, DEFAULT_COLOR, load_profile, orb_hue
@@ -99,7 +100,9 @@ def create_app(
         settings.data_dir.mkdir(parents=True, exist_ok=True)
         move_legacy_database(settings.data_dir)
         app.state.secret_box = SecretBox(load_secret_key(settings.secret_key, settings.data_dir))
-        app.state.http = httpx2.AsyncClient(transport=http_transport, timeout=10)
+        app.state.http = httpx2.AsyncClient(
+            transport=http_transport, timeout=10, event_hooks=app.state.request_log.hooks()
+        )
         engine = create_engine(settings.database_url)
         await run_migrations(engine)
         app.state.sessionmaker = create_sessionmaker(engine)
@@ -146,6 +149,7 @@ def create_app(
     app.state.plugins = plugins
     app.state.timezone = resolve_timezone(settings.timezone)
     app.state.cache = Cache()
+    app.state.request_log = RequestLog()
     app.state.widget_watch = WidgetWatch()
     app.state.ask_conversations = Conversations()
     app.state.templates = create_templates(plugins, app.state.timezone)

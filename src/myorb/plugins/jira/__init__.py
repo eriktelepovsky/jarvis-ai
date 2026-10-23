@@ -84,6 +84,9 @@ class Jira(Provider):
     ]
     choices_label = "Projects"
 
+    def hosts(self, credentials: dict[str, Any]) -> set[str]:
+        return {urlsplit(credentials["site"]).hostname or ""}
+
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:
         credentials = {**values, "site": site_url(values["site"])}
         await request_json(

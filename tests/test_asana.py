@@ -117,7 +117,7 @@ def test_workspaces_can_be_left_out(client: TestClient, apis: FakeApis):
     client.post("/integrations/asana/connect", data={"token": TOKEN})
     assert '<span class="node-value">41</span>' in client.get("/welcome/widgets").text
     page = client.get("/integrations").text
-    assert 'href="/integrations/asana/1/choices">Workspaces</a>' in page
+    assert 'href="/integrations/asana/1/choices">Workspaces…</a>' in page
 
     choices = client.get("/integrations/asana/1/choices").text
     assert "Home" in choices and "Old" in choices

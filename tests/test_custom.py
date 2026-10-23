@@ -80,7 +80,8 @@ def test_one_source_is_its_own_circle(client: TestClient):
     text = client.get("/welcome/widget/custom/invoices").text
     # The number is what needs the user: the overdue invoices.
     assert '<span class="node-value">2</span>' in text
-    assert '<span class="node-label">Overdue</span>' in text
+    assert '<span class="node-label">Invoices</span>' in text  # the circle's name
+    assert "overdue · unpaid · 2 overdue" in text  # what the number counts leads the summary
     assert "node warn" in text
     assert 'data-refresh="900"' in text  # every 15 minutes by default
     assert "Acme &lt;s.r.o.&gt;" in text and 'data-tags="unpaid overdue"' in text

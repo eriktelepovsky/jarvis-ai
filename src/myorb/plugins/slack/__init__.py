@@ -99,6 +99,7 @@ class SlackWorkspace(Provider):
     summary = "Messages that mention you. Connect each workspace separately."
     instructions = "slack.html"
     fields = [Field("token", "User OAuth Token", "password", "xoxp-…")]
+    api_hosts = ("slack.com",)
 
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:
         token = values["token"]

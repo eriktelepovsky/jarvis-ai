@@ -339,7 +339,7 @@ def test_jira_projects_can_be_left_out(client: TestClient, apis: FakeApis):
     jira_site(apis, "dev", [issue("TRP-1", "new"), issue("OLD-1", "new"), issue("OLD-2", "new")])
     connect_jira(client, "dev")
     assert '<span class="node-value">3</span>' in client.get("/welcome/widgets").text
-    assert 'href="/integrations/jira/1/choices">Projects</a>' in client.get("/integrations").text
+    assert 'href="/integrations/jira/1/choices">Projects…</a>' in client.get("/integrations").text
     choices = client.get("/integrations/jira/1/choices").text
     assert "Project OLD (OLD)" in choices and choices.count(" checked>") == 2
 
@@ -455,3 +455,99 @@ def test_a_rate_limit_is_a_note_not_a_problem(client: TestClient, apis: FakeApis
     assert "Jira limits how often myOrb may ask" in text and "nothing to fix" in text
     assert "○ NOTE" in text and "Check the connection" not in text
     assert "0 sources need attention" in text  # nothing for the user to do
+
+
+def test_integrations_say_how_often_a_service_is_asked(client: TestClient, apis: FakeApis):
+    jira_site(apis, "dev", [issue("TRP-1", "new")])
+    connect_jira(client, "dev")
+    client.get("/welcome/widgets")
+    text = client.get("/integrations").text
+    # Jira: its widget refreshes every 3 minutes; the connecting and the widget asked its site.
+    assert "Refreshes every 3 min" in text
+    requests = re.search(r"(\d+) requests in the last hour", text)
+    assert requests and int(requests.group(1)) >= 2
+    assert "rate limited" not in text
+    apis.routes[("dev.atlassian.net", "/rest/api/3/search/jql")] = lambda r: httpx2.Response(429)
+    client.post("/welcome/widgets/jira/assigned/refresh")
+    assert "rate limited 1×" in client.get("/integrations").text
+
+
+def test_every_says_the_pace_in_words():
+    from myorb.connections.routes import every
+
+    assert every([180]) == "every 3 min"
+    assert every([120, 1800]) == "every 2–30 min"
+    assert every([900, 7200]) == "every 15 min to 2 h"
+    assert every([3600]) == "every hour"
+    assert every([]) == ""
+
+
+def test_bitbucket_asks_only_active_repositories_and_rereads_only_what_changed():
+    import asyncio
+
+    from myorb.plugins.code_review.providers import Bitbucket
+
+    host = "api.bitbucket.org"
+    apis = FakeApis()
+    pr = {
+        "id": 7,
+        "title": "feat: export",
+        "updated_on": "2026-10-22T08:00:00Z",
+        "links": {
+            "self": {"href": f"https://{host}/2.0/repositories/acme/app/pullrequests/7"},
+            "statuses": {
+                "href": f"https://{host}/2.0/repositories/acme/app/pullrequests/7/statuses"
+            },
+        },
+    }
+    ci = {"state": "INPROGRESS"}
+    queries: list[str] = []
+
+    def repositories(request: httpx2.Request) -> httpx2.Response:
+        queries.append(request.url.params["q"])
+        return httpx2.Response(200, json={"values": [{"slug": "app"}]})
+
+    apis.routes[(host, "/2.0/repositories/acme")] = repositories
+    apis.routes[(host, "/2.0/workspaces/acme/pullrequests/{abc}")] = lambda r: httpx2.Response(
+        200, json={"values": []}
+    )
+    apis.routes[(host, "/2.0/repositories/acme/app/pullrequests")] = lambda r: httpx2.Response(
+        200, json={"values": [dict(pr)]}
+    )
+    apis.routes[(host, "/2.0/repositories/acme/app/pullrequests/7")] = lambda r: httpx2.Response(
+        200, json={**pr, "participants": []}
+    )
+    apis.routes[(host, "/2.0/repositories/acme/app/pullrequests/7/statuses")] = lambda r: (
+        httpx2.Response(200, json={"values": [dict(ci)]})
+    )
+    clock = [1000.0]
+    bitbucket = Bitbucket(clock=lambda: clock[0])
+    credentials = {"email": "t@x", "token": "t", "workspace": "acme", "uuid": "{abc}"}
+
+    def read() -> list[str]:
+        async def go():
+            async with httpx2.AsyncClient(transport=httpx2.MockTransport(apis)) as http:
+                return await bitbucket.pull_requests(http, credentials)
+
+        apis.calls.clear()
+        result = asyncio.run(go())
+        assert result["review"][0].ref == "#7"
+        return [call.removeprefix(f"GET {host}/2.0/") for call in apis.calls]
+
+    first = read()
+    assert queries[0].startswith("updated_on >= ")  # only repositories active lately
+    assert "repositories/acme/app/pullrequests/7" in first  # details read
+    # Unchanged, but CI was running: only the CI is read again.
+    second = read()
+    assert "repositories/acme/app/pullrequests/7" not in second
+    assert "repositories/acme/app/pullrequests/7/statuses" in second
+    ci["state"] = "SUCCESSFUL"
+    read()
+    # Unchanged and CI finished: neither details nor CI.
+    third = read()
+    assert not [c for c in third if c.startswith("repositories/acme/app/pullrequests/7")]
+    # Changed (or read too long ago): both again.
+    pr["updated_on"] = "2026-10-22T09:00:00Z"
+    assert "repositories/acme/app/pullrequests/7" in read()
+    clock[0] += 31 * 60
+    assert "repositories/acme/app/pullrequests/7" in read()

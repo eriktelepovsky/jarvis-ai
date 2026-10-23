@@ -63,6 +63,7 @@ class Place(Provider):
     summary = "Today's forecast and rain by the hour for your place, from Open-Meteo."
     instructions = "place.html"
     multiple = False
+    api_hosts = ("api.open-meteo.com", "geocoding-api.open-meteo.com")
     fields = [Field("place", "Place", "text", "e.g. Bratislava")]
 
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:

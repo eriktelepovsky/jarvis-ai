@@ -55,3 +55,13 @@ window.addEventListener("pageshow", () => {
     button.disabled = false;
   });
 });
+
+// Menus (<details class="menu">): one open at a time, closed by a click elsewhere or Escape.
+document.addEventListener("click", (event) => {
+  document.querySelectorAll("details.menu[open]").forEach((menu) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") document.querySelectorAll("details.menu[open]").forEach((menu) => (menu.open = false));
+});

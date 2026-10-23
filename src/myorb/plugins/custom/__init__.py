@@ -76,6 +76,13 @@ class CustomSource(Provider):
     logo = "{ }"
     summary = "Your own app, e.g. invoicing or a wallet, answering with JSON in myOrb's format."
     instructions = "custom.html"
+
+    def hosts(self, credentials: dict[str, Any]) -> set[str]:
+        return {urlsplit(credentials["url"]).hostname or ""}
+
+    def refresh_every(self, credentials: dict[str, Any]) -> float:
+        return 60 * refresh_minutes(credentials.get("refresh"))
+
     fields = [
         Field("name", "Name", placeholder="e.g. Invoices"),
         Field("url", "Address", "url", "https://invoices.example.com/myorb/"),
@@ -260,10 +267,17 @@ class CustomPlugin(Plugin):
 
     def _one(self, data: SourceData, links: list[Link], status: dict[str, Any]) -> WidgetData:
         value = data.attention_count if data.attention_count is not None else data.value
+        # Under the number stays the circle's name (e.g. Finance), so it says what it is about;
+        # what the number counts (the source's label, e.g. "pending") leads its summary.
+        label = (data.label or "").lower()
+        summary = (
+            data.summary
+            if not label or data.summary.startswith(label)
+            else f"{label} · {data.summary}"
+        )
         return WidgetData(
             value=value,
-            label=data.label,
-            summary=data.summary,
+            summary=summary.strip(" ·"),
             attention=data.attention,
             stats=[Stat(s.value, s.label, s.filter) for s in data.stats],
             list_title=data.list_title,

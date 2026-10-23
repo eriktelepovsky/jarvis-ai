@@ -12,7 +12,9 @@ from myorb.auth.tokens import sign, unsign
 from myorb.connections import google, store
 from myorb.connections.form_routes import providers as form_providers
 from myorb.connections.models import Connection
+from myorb.connections.providers import Provider
 from myorb.db import get_db
+from myorb.plugins import Plugin
 from myorb.voice import load_voice
 
 router = APIRouter()
@@ -54,6 +56,49 @@ def _render(request: Request, template: str, context: dict[str, Any], status_cod
     )
 
 
+# Where Google's APIs answer, and how often each Google widget refreshes.
+GOOGLE_HOSTS = ("gmail.googleapis.com", "www.googleapis.com", "oauth2.googleapis.com")
+
+
+def every(seconds: list[float]) -> str:
+    """How often, in words: "every 3 min", "every 2–30 min", "every 15 min to 2 h"."""
+
+    def words(value: float) -> str:
+        minutes = round(value / 60)
+        if minutes < 60:
+            return f"{minutes} min"
+        return "hour" if minutes == 60 else f"{minutes / 60:g} h"
+
+    if not seconds:
+        return ""
+    low, high = min(seconds), max(seconds)
+    if low == high:
+        return f"every {words(low)}"
+    if high < 60 * 60:
+        return f"every {round(low / 60)}–{round(high / 60)} min"
+    return f"every {words(low)} to {words(high)}"
+
+
+async def _pace(request: Request, plugin: Plugin, provider: Provider) -> dict[str, Any]:
+    """How often a service's data is fetched and how many requests it got in the last hour
+    (and how many of them it refused as too many), for its panel on this page."""
+    accounts = await request.app.state.connections.list(provider.id)
+    hosts = {host for account in accounts for host in provider.hosts(account.credentials)}
+    requests, limited = request.app.state.request_log.last_hour(hosts)
+    if hasattr(provider, "refresh_every"):
+        paces = [provider.refresh_every(account.credentials) for account in accounts]
+    elif provider.refresh is not None:
+        paces = [provider.refresh]
+    else:
+        paces = [widget.refresh for widget in plugin.widgets()]
+    return {
+        "every": every(paces),
+        "requests": requests,
+        "limited": limited,
+        "shown": bool(accounts),
+    }
+
+
 async def _integrations_page(
     request: Request,
     db: AsyncSession,
@@ -77,10 +122,23 @@ async def _integrations_page(
             (provider, await store.list_connections(db, provider.id))
             for _, provider in form_providers(request)
         ],
+        "paces": {
+            provider.id: await _pace(request, plugin, provider)
+            for plugin, provider in form_providers(request)
+        },
+        "google_pace": _google_pace(request),
         "message": message,
         "error": error,
     }
     return _render(request, "integrations/index.html", context, status_code)
+
+
+def _google_pace(request: Request) -> dict[str, Any]:
+    requests, limited = request.app.state.request_log.last_hour(GOOGLE_HOSTS)
+    plugins = request.app.state.plugins.values()
+    google = [p for p in plugins if p.id in ("gmail", "calendar", "youtube")]
+    paces = [widget.refresh for plugin in google for widget in plugin.widgets()]
+    return {"every": every(paces), "requests": requests, "limited": limited, "shown": True}
 
 
 def forget_cached(request: Request, connection_id: int) -> None:

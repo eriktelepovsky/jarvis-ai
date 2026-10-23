@@ -62,6 +62,7 @@ class Asana(Provider):
     instructions = "asana.html"
     fields = [Field("token", "Personal access token", "password")]
     choices_label = "Workspaces"
+    api_hosts = ("app.asana.com",)
 
     @staticmethod
     def _headers(credentials: dict[str, Any]) -> dict[str, str]:

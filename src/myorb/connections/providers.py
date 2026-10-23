@@ -70,6 +70,15 @@ class Provider(ABC):
     # What the account's parts are called when the user can choose among them (e.g.
     # "Workspaces"); see choices().
     choices_label: ClassVar[str | None] = None
+    # The hosts its API answers on, for the requests counted on Integrations; see hosts().
+    api_hosts: ClassVar[tuple[str, ...]] = ()
+    # How often its data is fetched, when it keeps a pace of its own (seconds); otherwise
+    # its plugin's widgets decide.
+    refresh: ClassVar[float | None] = None
+
+    def hosts(self, credentials: dict[str, Any]) -> set[str]:
+        """The hosts an account's requests go to (e.g. its own Jira site)."""
+        return set(self.api_hosts)
 
     @abstractmethod
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:
