@@ -9,6 +9,8 @@
      installed on a phone, which draws under them (viewport-fit=cover, black-translucent). */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The screen's height: in a browser tab without Safari's own bars (dvh). */
+  --screen: 100dvh;
 
   --bg: #07090c;
   --surface: #0d1117;
@@ -63,6 +65,15 @@
   --r-control: 6px;
   --r-card: 10px;
   --r-dialog: 12px;
+}
+
+/* Installed on the home screen there are no browser bars, and iOS takes the status bar out of
+   dvh although the page is drawn under it (black-translucent): the page and the dialogs ended
+   short of the bottom. vh is the whole screen there. */
+@media (display-mode: standalone) {
+  :root {
+    --screen: 100vh;
+  }
 }
 
 /* Base */
