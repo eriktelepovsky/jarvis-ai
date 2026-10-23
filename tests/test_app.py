@@ -119,6 +119,11 @@ def test_welcome_screen_without_plugins(make_client: MakeClient):
     assert "Connect a service" in text
     # The running version, in the bottom-left corner.
     assert f'<span class="label welcome-version">myOrb v{__version__}</span>' in text
+    # Stylesheets and scripts carry the version, so a CDN that keeps static files for hours
+    # (Cloudflare's Browser Cache TTL overrides no-cache) cannot serve an old one after a release.
+    assert f"/static/welcome.css?v={__version__}" in text
+    assert f"/static/welcome.js?v={__version__}" in text
+    assert '/static/welcome.css"' not in text
     assert "Online · 0/0 sources" in client.get("/welcome/widgets").text
 
 

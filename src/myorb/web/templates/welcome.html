@@ -12,8 +12,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="{{ assistant }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='welcome.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ version }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='welcome.css') }}?v={{ version }}">
   {% include "scripts.html" %}
 </head>
 <body hx-boost="true">

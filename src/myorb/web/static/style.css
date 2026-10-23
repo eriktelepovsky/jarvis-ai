@@ -5,6 +5,10 @@
 
 :root {
   color-scheme: dark;
+  /* The screen's edges the system covers (status bar, home indicator) when myOrb is
+     installed on a phone, which draws under them (viewport-fit=cover, black-translucent). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 
   --bg: #07090c;
   --surface: #0d1117;
@@ -152,7 +156,7 @@ code,
   gap: 18px;
   max-width: 1600px;
   margin: 0 auto;
-  padding: max(18px, env(safe-area-inset-top)) 28px max(40px, env(safe-area-inset-bottom));
+  padding: max(18px, var(--safe-top)) 28px max(40px, var(--safe-bottom));
 }
 
 .topbar {
@@ -281,7 +285,7 @@ code,
 
 @media (max-width: 720px) {
   .page {
-    padding: max(14px, env(safe-area-inset-top)) 12px max(32px, env(safe-area-inset-bottom));
+    padding: max(14px, var(--safe-top)) 12px max(32px, var(--safe-bottom));
   }
 
   .grid > * {
@@ -1291,7 +1295,7 @@ code,
 .media-dock {
   position: fixed;
   right: max(20px, env(safe-area-inset-right));
-  bottom: max(20px, env(safe-area-inset-bottom));
+  bottom: max(20px, var(--safe-bottom));
   z-index: 20;
   display: flex;
   flex-direction: column;
