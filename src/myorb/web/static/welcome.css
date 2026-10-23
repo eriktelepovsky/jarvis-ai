@@ -677,7 +677,7 @@ a.ti:hover .t1 {
      below the status bar's blur and easy to tap. */
   .corner-tl,
   .corner-tr {
-    top: calc(12px + var(--safe-top));
+    top: calc(20px + var(--safe-top));
   }
 
   .corner-bl,
@@ -687,7 +687,7 @@ a.ti:hover .t1 {
 
   /* Clear of the corner brackets (12px in, 30px long), so the links do not touch them. */
   .welcome-header {
-    padding: calc(24px + var(--safe-top)) 26px 8px;
+    padding: calc(32px + var(--safe-top)) 26px 8px;
   }
 
   /* The clock goes under the links, full width and on one line with its date, so it neither
