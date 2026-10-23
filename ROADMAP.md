@@ -20,7 +20,7 @@ The smallest useful version for a daily morning routine.
 ### Features
 
 - [x] **Email stats:** number of unread emails and new emails received today (Gmail)
-- [ ] **AI email summary:** summary of important emails and a list of emails waiting for your reply
+- [x] **AI email summary:** in the email details, what needs you (e.g. waiting for your reply), what is worth a look and how many can wait
 - [x] **Calendar:** upcoming events (Google Calendar)
 - [x] **TODO list:** simple task list built into myOrb, with due dates written in plain language
 - [x] **Morning AI brief:** a single "what awaits you today" summary across all sources
@@ -43,7 +43,9 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 
 ## Phase 3: Chat and actions
 
-- [ ] **Chat with myOrb:** ask questions about your data, e.g. "How much did I spend on restaurants this month?"
+- [x] **Chat with myOrb:** ask questions about your dashboard under the orb (a line ending with "?"), with follow-ups
+- [x] **Actions in chat:** Claude proposes, you confirm: tasks, YouTube videos seen, uptime monitors, Jira status and comments, Asana tasks, approving and commenting GitHub pull requests; most can be undone
+- [ ] **Actions in chat, Google:** a draft reply in Gmail, calendar events (need wider Google permissions)
 - [ ] **Actions:** reply to an email (as a Gmail draft), add a TODO, create a calendar event; disabled until enabled in settings, each confirmed in the UI
 - [ ] **Triage:** mark items as done or snooze them for later
 - [ ] **Command palette:** quick search and commands with ⌘K

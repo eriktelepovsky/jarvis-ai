@@ -147,6 +147,18 @@ async def brief(self, context: WidgetContext) -> BriefSection | None:
 
 Write facts, most important first; Claude decides what to mention. Return `None` when there is nothing to add.
 
+### Ask
+
+When the user asks a question (a line ending with "?" under the orb), Claude gets the dashboard: every widget's number, stats and rows, as the user sees them in the details. A plugin without widgets contributes its `brief()` facts instead. A plugin whose rows should not go to Claude sets `ask_rows = False`; Claude then gets only its `brief()` facts, as custom sources do.
+
+### Actions in Ask
+
+A plugin can let Claude do things for the user in Ask, e.g. add a task or move a Jira issue. `ask_actions()` returns `AskAction`s: a name, a description for Claude, the JSON schema of the input (every property required, no others), `summary(context, input)` for the confirmation card and `run(context, input)`. Nothing runs before the user clicks **Do it** on the card. `run` returns an `ActionResult` with a sentence on what was done and, when it can be undone, an `undo(context)`; it raises `ActionError` with a message for the user and Claude when it cannot be done. Actions are offered while the plugin's widgets are set up. Give rows a `ref` with what the actions need (e.g. `ref="task 12"`): Claude sees it next to each row.
+
+### More in the details
+
+`WidgetData.details_url` loads an HTML fragment from that URL into the details, under the numbers, e.g. the AI summary of unread emails. Serve it from the plugin's `router()`.
+
 ## Developing and testing
 
 Install myOrb from its repository next to your plugin (the example's `pyproject.toml` shows how) and test with `httpx2.MockTransport` instead of the real service. To see the plugin in a running myOrb, install it into myOrb's environment: `uv pip install -e path/to/plugin`.

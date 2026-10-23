@@ -1,0 +1,37 @@
+{# The AI summary of unread emails, in the email details under the numbers. #}
+<div class="email-summary" id="email-summary">
+  <div class="row spread" style="align-items: baseline">
+    <span class="label">Summary · Claude</span>
+    {% if count %}
+    <button type="button" class="btn btn-ghost email-summary-btn" hx-post="/email/summary" hx-target="#email-summary" hx-swap="outerHTML" hx-disabled-elt="this">
+      {{ "Update" if summary else "Summarize " ~ count ~ " unread" }}
+    </button>
+    {% endif %}
+  </div>
+  {% if error %}<p class="email-summary-error">{{ error }}</p>{% endif %}
+  {% if summary %}
+  {% if new %}<p class="muted email-summary-note">{{ new }} new since {{ summary.at | ago }}. Update to include {{ "it" if new == 1 else "them" }}.</p>{% endif %}
+  <p class="email-summary-overview">{{ summary.overview }}</p>
+  {% for priority, heading in [("high", "Needs you"), ("medium", "Worth a look")] %}
+  {% set items = summary["items"] | selectattr("priority", "equalto", priority) | list %}
+  {% if items %}
+  <div class="label email-summary-head">{{ heading }}</div>
+  <ul class="email-summary-list">
+    {% for item in items %}
+    <li>
+      <a href="{{ item.email.url }}" target="_blank" rel="noopener">
+        <span class="trunc" style="display: block; font-weight: 500">{{ item.email.sender }} · {{ item.email.subject }}</span>
+        <span class="muted" style="font-size: 12.5px">{{ item.reason }}</span>
+      </a>
+      {% if item.action %}<span class="badge badge-{{ 'fail' if priority == 'high' else 'info' }}">{{ item.action }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endfor %}
+  {% set later = summary["items"] | selectattr("priority", "equalto", "low") | list | length %}
+  {% if later %}<p class="muted email-summary-note">{{ later }} can wait: newsletters, notifications and the like.</p>{% endif %}
+  {% elif count and not error %}
+  <p class="muted email-summary-note">What needs you and what can wait, from the senders, subjects and the start of each email.</p>
+  {% endif %}
+</div>

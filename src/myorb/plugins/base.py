@@ -85,6 +85,8 @@ class Row:
     group: str = ""
     # A finer group within it, e.g. a Jira project: listed under its group to narrow further.
     subgroup: str = ""
+    # What the plugin's Ask actions take to find it again, e.g. a task's id: Claude sees it.
+    ref: str = ""
 
 
 @dataclass(frozen=True)
@@ -121,6 +123,9 @@ class WidgetData:
     # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".
     links: list[Link] = field(default_factory=list)
     connected: bool = True
+    # An HTML fragment shown in the details under the numbers, loaded from this URL, e.g. the
+    # AI summary of unread emails.
+    details_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -165,6 +170,37 @@ class SettingsLink:
 
 
 @dataclass(frozen=True)
+class ActionResult:
+    """What an Ask action did, in a sentence for the user and Claude; and how to undo it,
+    when it can be (returns what the undo did)."""
+
+    message: str
+    undo: Callable[[WidgetContext], Awaitable[str]] | None = None
+
+
+class ActionError(Exception):
+    """The action could not be done. The message is safe to show to the user and Claude."""
+
+
+@dataclass(frozen=True)
+class AskAction:
+    """Something Claude may propose in Ask, e.g. adding a task; it runs only after the user
+    confirms it.
+
+    `name` is unique within the plugin. `schema` is the JSON schema of its input (an object;
+    every property required, no others, as strict tool use wants). `summary` says in a line
+    what it will do with that input, for the confirmation (raising ActionError when it cannot
+    be done, e.g. no such task); `run` does it.
+    """
+
+    name: str
+    description: str
+    schema: dict[str, Any]
+    summary: Callable[[WidgetContext, dict[str, Any]], Awaitable[str]]
+    run: Callable[[WidgetContext, dict[str, Any]], Awaitable[ActionResult]]
+
+
+@dataclass(frozen=True)
 class TimelineItem:
     """Something at a time today, for the brief's "Day at a glance", e.g. a meeting."""
 
@@ -195,6 +231,9 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     position: ClassVar[int] = 100
     # A settings page of the plugin, listed on the Integrations page (logo, summary, URL).
     settings: ClassVar["SettingsLink | None"] = None
+    # Whether "Ask" may give Claude the widgets' rows (e.g. email senders and subjects). When
+    # False, Claude only gets what the plugin's brief() says, as in the brief.
+    ask_rows: ClassVar[bool] = True
 
     def widgets(self) -> list[Widget]:
         """Return the numbers this plugin adds around the orb."""
@@ -236,6 +275,11 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         """Return facts for the AI brief, or None when the plugin has nothing to add."""
         return None
+
+    def ask_actions(self) -> list[AskAction]:
+        """Return what Claude may do for the user in Ask, each confirmed by the user first.
+        Offered while the plugin's widgets are set up (rows carry the `ref` they need)."""
+        return []
 
 
 def open_buttons(label: str, places: list[tuple[str, str]]) -> dict[str, Any]:

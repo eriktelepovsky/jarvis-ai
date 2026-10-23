@@ -3,6 +3,7 @@ from typing import Any
 
 from myorb.plugins.base import (
     Action,
+    AskAction,
     BriefSection,
     Input,
     Link,
@@ -36,6 +37,11 @@ class TasksPlugin(Plugin):
     def panels(self) -> list[Panel]:
         return [Panel(id="today", title="Tasks", template="today.html", load=self._today)]
 
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.tasks.actions import ask_actions
+
+        return ask_actions()
+
     async def _widget(self, context: WidgetContext) -> WidgetData:
         now = context.now
         async with context.sessionmaker() as db:
@@ -57,6 +63,7 @@ class TasksPlugin(Plugin):
                         url=f"/tasks?edit={task.id}",
                         url_label="Edit",
                         actions=[Action("Done", f"/tasks/{task.id}/done")],
+                        ref=f"task {task.id}",
                     )
                 )
         rows = rows[:ROWS_SHOWN]
@@ -68,6 +75,7 @@ class TasksPlugin(Plugin):
                     badge="✓ Done",
                     tone="ok",
                     actions=[Action("Undo", f"/tasks/{task.id}/undo")],
+                    ref=f"task {task.id}",
                 )
             )
         return WidgetData(

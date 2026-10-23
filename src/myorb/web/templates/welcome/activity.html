@@ -1,8 +1,9 @@
 {% set marks = {"ok": "✓", "fail": "✕", "warn": "▲", "info": "○"} %}
 {% for event in events %}
 <div class="activity-item">
-  {# Earlier days get the date: the list keeps the latest events even on a quiet day. #}
-  <span class="tt">{{ event.at | localtime("%H:%M" if (event.at | localtime("%Y-%m-%d")) == today.isoformat() else "%-d %b") }}</span>
+  {# Earlier days get the weekday (the log keeps a week): the list keeps the latest events
+     even on a quiet day. #}
+  <span class="tt">{{ event.at | localtime("%H:%M" if (event.at | localtime("%Y-%m-%d")) == today.isoformat() else "%a") }}</span>
   <span class="activity-mark {{ event.tone }}" aria-hidden="true">{{ marks[event.tone] }}</span>
   <span class="t2 activity-text">{% if event.url %}<a href="{{ event.url }}"{% if not event.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{{ event.text }}</a>{% else %}{{ event.text }}{% endif %}</span>
 </div>

@@ -39,6 +39,10 @@ class FakeClaude:
         self.stop_reason = "end_turn"
         self.status = 200
         self.models = {"claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"}
+        # What a streamed request (Ask) answers, in pieces.
+        self.answer = ["You have ", "**one task** today: ", "water the plants."]
+        # Tools the next streamed answer calls, as (name, input), once each.
+        self.tool_calls: list[tuple[str, dict[str, Any]]] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         key = request.headers.get("x-api-key") or request.headers.get(
@@ -74,6 +78,8 @@ class FakeClaude:
                 return httpx2.Response(
                     self.status, json={"type": "error", "error": {"type": "api_error"}}
                 )
+            if self.requests[-1].get("stream"):
+                return self.stream(self.requests[-1]["model"])
             text = "" if self.stop_reason == "refusal" else json.dumps(self.reply)
             if "Translate" in str(self.requests[-1].get("system", "")):
                 text = "Pokojný deň.\n\nZalej rastliny."
@@ -91,6 +97,66 @@ class FakeClaude:
                 },
             )
         return httpx2.Response(404)
+
+    def stream(self, model: str) -> httpx2.Response:
+        """The answer as the API streams it: server-sent events, text in deltas; then the
+        tool calls asked for (self.tool_calls), which end the turn with "tool_use"."""
+        message = {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": model,
+            "content": [],
+            "stop_reason": None,
+            "stop_sequence": None,
+            "usage": {"input_tokens": 100, "output_tokens": 1},
+        }
+        events = [
+            {"type": "message_start", "message": message},
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": ""},
+            },
+            *(
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": t},
+                }
+                for t in self.answer
+            ),
+            {"type": "content_block_stop", "index": 0},
+        ]
+        calls, self.tool_calls = self.tool_calls, []
+        for index, (name, data) in enumerate(calls, start=1):
+            block = {
+                "type": "tool_use",
+                "id": f"toolu_{len(self.requests)}_{index}",
+                "name": name,
+                "input": {},
+            }
+            delta = {"type": "input_json_delta", "partial_json": json.dumps(data)}
+            events += [
+                {"type": "content_block_start", "index": index, "content_block": block},
+                {"type": "content_block_delta", "index": index, "delta": delta},
+                {"type": "content_block_stop", "index": index},
+            ]
+        events += [
+            {
+                "type": "message_delta",
+                "delta": {
+                    "stop_reason": "tool_use" if calls else self.stop_reason,
+                    "stop_sequence": None,
+                },
+                "usage": {"output_tokens": 20},
+            },
+            {"type": "message_stop"},
+        ]
+        body = "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events)
+        return httpx2.Response(
+            200, content=body.encode(), headers={"content-type": "text/event-stream"}
+        )
 
 
 @pytest.fixture

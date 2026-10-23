@@ -109,6 +109,8 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
             "name": await user_name(request, db),
             "slots": widget_slots(request),
+            # Questions ending with "?" go to Claude when it is connected.
+            "can_ask": await request.app.state.brief.settings() is not None,
         },
     )
 
