@@ -59,8 +59,10 @@ class Verified:
 class Provider(ABC):
     id: ClassVar[str]
     name: ClassVar[str]
-    # Up to three characters shown as the logo in the list of integrations.
+    # Up to three characters shown as the logo in the list of integrations, unless it has an
+    # icon: the name of a brand icon in static/icons/brands (e.g. "github").
     logo: ClassVar[str]
+    icon: ClassVar[str | None] = None
     summary: ClassVar[str]
     fields: ClassVar[list[Field]]
     # Template with setup instructions, relative to the plugin's templates.
@@ -70,6 +72,19 @@ class Provider(ABC):
     # What the account's parts are called when the user can choose among them (e.g.
     # "Workspaces"); see choices().
     choices_label: ClassVar[str | None] = None
+    # What one connection is called on Integrations ("+ Add account", "+ Add source").
+    account_noun: ClassVar[str] = "account"
+    # The hosts its API answers on, for the requests counted on Integrations; see hosts().
+    api_hosts: ClassVar[tuple[str, ...]] = ()
+    # How often its data is fetched, when it keeps a pace of its own (seconds); otherwise
+    # its plugin's widgets decide.
+    refresh: ClassVar[float | None] = None
+    # The shortest pace the user may choose for it (seconds), e.g. for a strict rate limit.
+    min_refresh: ClassVar[float] = 60
+
+    def hosts(self, credentials: dict[str, Any]) -> set[str]:
+        """The hosts an account's requests go to (e.g. its own Jira site)."""
+        return set(self.api_hosts)
 
     @abstractmethod
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:

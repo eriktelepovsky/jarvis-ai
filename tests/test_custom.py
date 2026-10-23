@@ -80,7 +80,8 @@ def test_one_source_is_its_own_circle(client: TestClient):
     text = client.get("/welcome/widget/custom/invoices").text
     # The number is what needs the user: the overdue invoices.
     assert '<span class="node-value">2</span>' in text
-    assert '<span class="node-label">Overdue</span>' in text
+    assert '<span class="node-label">Invoices</span>' in text  # the circle's name
+    assert "overdue · unpaid · 2 overdue" in text  # what the number counts leads the summary
     assert "node warn" in text
     assert 'data-refresh="900"' in text  # every 15 minutes by default
     assert "Acme &lt;s.r.o.&gt;" in text and 'data-tags="unpaid overdue"' in text
@@ -143,3 +144,32 @@ def test_wrong_token_and_plain_http_are_refused(client: TestClient):
     response = client.post("/integrations/custom/connect", data=data)
     assert "starting with https://" in response.text
     assert connections(client) == []
+
+
+def test_a_source_is_edited_in_place(client: TestClient, apis: FakeApis):
+    add(client, "Invoices", "invoices.example.com")
+    add(client, "Wallet", "wallet.example.com", circle="Finance")
+    [invoices, _] = connections(client)
+    page = client.get(f"/integrations/custom/{invoices.id}/edit").text
+    assert "Edit Invoices" in page and 'value="https://invoices.example.com/myorb/"' in page
+    assert TOKEN not in page  # the token stays on the server
+    assert "Leave empty to keep the current one" in page
+
+    # Into the Finance circle, every 5 minutes; the token left empty is kept.
+    data = {
+        "name": "Invoices",
+        "url": "https://invoices.example.com/myorb/",
+        "token": "",
+        "circle": "Finance",
+        "refresh": "5",
+    }
+    response = client.post(f"/integrations/custom/{invoices.id}/edit", data=data)
+    assert "Saved and tested again." in response.text
+    page = client.get("/").text
+    assert page.count("/welcome/widget/custom/") == 1  # one Finance circle now
+    assert 'data-refresh="300"' in client.get("/welcome/widget/custom/finance").text
+    assert [c.id for c in connections(client)][0] == invoices.id  # the same connection
+
+    taken = client.post(f"/integrations/custom/{invoices.id}/edit", data={**data, "name": "Wallet"})
+    assert taken.status_code == 400 and "Wallet is already connected." in taken.text
+    assert "+ Add source" in client.get("/integrations").text

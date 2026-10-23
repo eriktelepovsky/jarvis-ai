@@ -72,6 +72,7 @@ def workspace_name(site: str) -> str:
 
 
 class Jira(Provider):
+    icon = "jira"
     id = "jira"
     name = "Jira"
     logo = "J"
@@ -83,6 +84,9 @@ class Jira(Provider):
         Field("token", "API token", "password"),
     ]
     choices_label = "Projects"
+
+    def hosts(self, credentials: dict[str, Any]) -> set[str]:
+        return {urlsplit(credentials["site"]).hostname or ""}
 
     async def verify(self, http: httpx2.AsyncClient, values: dict[str, str]) -> Verified:
         credentials = {**values, "site": site_url(values["site"])}

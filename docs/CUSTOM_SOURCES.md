@@ -52,7 +52,7 @@ Every source has its own circle, named after the source. Sources with the same *
 | `title` | yes | The source's name in the details, e.g. "Invoices". |
 | `value` | yes | The main number (or short text). In the circle when there is no `attention_count`. |
 | `attention_count` | | How many items need you, e.g. overdue invoices. The number in the circle when given. |
-| `label` | | Under the number in the circle, e.g. "Overdue". Only for a source alone in its circle. |
+| `label` | | What the number counts, e.g. "Overdue": it leads the summary in the details. Under the number in the orb is always the circle's name (e.g. Finance). |
 | `attention` | | `true` highlights the circle in amber and makes it larger. |
 | `summary` | | Next to the big number in the details. |
 | `stats` | | Up to 8 numbers in the details. With a `filter`, clicking one shows only the rows that have that tag in `tags`. |

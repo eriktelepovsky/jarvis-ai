@@ -34,14 +34,23 @@ class Cache:
     requests for the same key share one fetch, and failures are never cached.
     """
 
-    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+    def __init__(
+        self,
+        clock: Callable[[], float] = time.time,
+        pace: Callable[[str], float | None] | None = None,
+    ) -> None:
         self._clock = clock
+        # The user's choice of how often a key's service is fetched (paces.Paces.for_key):
+        # it replaces how long the plugin keeps the data fresh.
+        self._pace = pace
         self._entries: dict[str, Cached] = {}
         self._fetches: dict[str, asyncio.Task] = {}
 
     async def get(
         self, key: str, fetch: Callable[[], Awaitable[Any]], fresh: float, max_age: float
     ) -> Cached:
+        if self._pace is not None and (chosen := self._pace(key)):
+            fresh, max_age = chosen, max(max_age, 4 * chosen)
         entry = self._entries.get(key)
         age = self._clock() - entry.fetched_at if entry else None
         if refreshing.get() or (due.get() and age is not None and age >= fresh):

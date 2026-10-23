@@ -984,7 +984,15 @@ code,
   gap: 8px 14px;
   align-items: center;
   padding: 10px 18px 10px 72px;
+  /* A shade lighter than the service above, so its accounts read as one group under it. */
+  background: var(--surface-2);
   border-top: 1px solid var(--line-soft);
+}
+
+/* The last account follows the panel's rounded corners (the panel does not clip: menus open
+   beyond it). */
+.service > .account:last-child {
+  border-radius: 0 0 calc(var(--r-card) - 1px) calc(var(--r-card) - 1px);
 }
 
 .account .capabilities {
@@ -1786,4 +1794,178 @@ form.htmx-request .btn[type="submit"]::before {
 
 .input-row .btn {
   height: 44px; /* as tall as the field */
+}
+
+/* Integrations: how often a service is asked, and an account's actions in a menu */
+
+/* The numbers sit in the middle of the row, in fixed columns that line up from service to
+   service: two slots of the same width, and a fixed width for the buttons after them. */
+.integration.service-head {
+  grid-template-columns: 40px minmax(0, 1fr) 328px 220px;
+}
+
+.integration.service-head > .actions {
+  justify-content: flex-end;
+}
+
+.pace {
+  display: grid;
+  grid-template-columns: 160px 160px;
+  gap: 8px;
+}
+
+.pace-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pace-stat .num {
+  font-family: var(--font-num);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.pace-stat .num small {
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--warn);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pace-stat .label {
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.pace-stat.warn {
+  border-color: var(--warn-line);
+}
+
+@media (max-width: 1100px) {
+  .integration.service-head {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+  }
+
+  .pace {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+}
+
+.menu {
+  position: relative;
+}
+
+.menu > summary {
+  list-style: none;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px -12px rgb(0 0 0 / 70%);
+}
+
+.menu-panel form {
+  display: contents;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--surface-3);
+}
+
+.menu-item.is-danger {
+  margin-top: 4px;
+  color: var(--fail);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+}
+
+/* A brand icon in a service's logo, tinted in myOrb's color like the letters it replaces */
+
+.brand-icon {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+/* The pace tile as a choice: it opens the paces to choose from */
+
+.pace-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.pace-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pace-stat.is-choice:hover,
+.pace-menu[open] > .pace-stat {
+  border-color: var(--accent);
+}
+
+.pace-caret {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.pace-menu .menu-panel {
+  right: auto;
+  left: 0;
+  min-width: 100%;
+}
+
+.menu-item.is-default {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+}
+
+.menu-item.is-chosen::after {
+  float: right;
+  color: var(--accent);
+  content: "✓";
 }

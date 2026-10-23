@@ -1,7 +1,10 @@
 """GitHub, GitLab and Bitbucket: pull requests waiting for the user's review, and their own."""
 
 import asyncio
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -68,6 +71,8 @@ fragment pr on PullRequest {
 
 
 class GitHub(CodeHost):
+    icon = "github"
+    api_hosts = ("api.github.com",)
     id = "github"
     name = "GitHub"
     logo = "GH"
@@ -164,6 +169,7 @@ fragment mr on MergeRequest {
 
 
 class GitLab(CodeHost):
+    icon = "gitlab"
     id = "gitlab"
     name = "GitLab"
     logo = "GL"
@@ -179,6 +185,9 @@ class GitLab(CodeHost):
         ),
         Field("token", "Personal access token", "password", "glpat-…"),
     ]
+
+    def hosts(self, credentials: dict[str, Any]) -> set[str]:
+        return {urlsplit(credentials.get("url", "")).hostname or "gitlab.com"}
 
     @staticmethod
     def _base(values: dict[str, Any]) -> str:
@@ -255,9 +264,26 @@ class GitLab(CodeHost):
 BITBUCKET_API = "https://api.bitbucket.org/2.0"
 BITBUCKET_REPOS = 30
 BITBUCKET_PARALLEL = 5
+# Only repositories changed in this many days are asked for pull requests to review: a new
+# pull request comes with a pushed branch, which changes its repository.
+BITBUCKET_ACTIVE_DAYS = 30
+# A pull request's details (the reviewers' decisions) and its finished CI are read again when
+# it changes, and at least this often (approving it may not change it).
+BITBUCKET_RECHECK = 30 * 60
 
 
 class Bitbucket(CodeHost):
+    icon = "bitbucket"
+    api_hosts = ("api.bitbucket.org",)
+
+    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+        self._clock = clock
+        # A pull request's address -> (its updated_on, when read, its details, its CI).
+        self._known: dict[str, tuple[str, float, dict[str, Any], str | None]] = {}
+
+    # Asked repository by repository and limited per user and hour: its own, slower pace.
+    refresh = 5 * 60
+    min_refresh = 5 * 60
     id = "bitbucket"
     name = "Bitbucket"
     logo = "BB"
@@ -303,6 +329,7 @@ class Bitbucket(CodeHost):
         workspace = quote(credentials["workspace"])
         uuid = credentials["uuid"]
         limit = asyncio.Semaphore(BITBUCKET_PARALLEL)
+        since = (datetime.now(UTC) - timedelta(days=BITBUCKET_ACTIVE_DAYS)).date().isoformat()
 
         async def get(url: str, **params: Any) -> Any:
             async with limit:
@@ -316,6 +343,7 @@ class Bitbucket(CodeHost):
             ),
             get(
                 f"{BITBUCKET_API}/repositories/{workspace}",
+                q=f"updated_on >= {since}",
                 sort="-updated_on",
                 pagelen=BITBUCKET_REPOS,
             ),
@@ -360,8 +388,25 @@ class Bitbucket(CodeHost):
             url = pr.get("links", {}).get("self", {}).get("href")
             return (await get(url)) if url else pr
 
+        async def known(pr: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+            """Its details and CI as read before while it has not changed (CI is read again
+            while it runs); read anew when it changed or the last read is too old."""
+            key = pr.get("links", {}).get("self", {}).get("href") or str(pr.get("id"))
+            updated = pr.get("updated_on", "")
+            before = self._known.get(key)
+            now = self._clock()
+            if before and before[0] == updated and now - before[1] < BITBUCKET_RECHECK:
+                _, read_at, full, status = before
+                if status == "pending":
+                    status = await ci(pr)
+            else:
+                full, status = await asyncio.gather(details(pr), ci(pr))
+                read_at = now
+            self._known[key] = (updated, read_at, full, status)
+            return full, status
+
         async def convert(pr: dict[str, Any]) -> PullRequest:
-            full, status = await asyncio.gather(details(pr), ci(pr))
+            full, status = await known(pr)
             participants = full.get("participants") or []
             states = [p.get("state") for p in participants if p.get("role") == "REVIEWER"]
             mine = next((p for p in participants if (p.get("user") or {}).get("uuid") == uuid), {})
@@ -384,6 +429,9 @@ class Bitbucket(CodeHost):
                 ),
             )
 
+        # Forget pull requests not seen for a day (merged, declined, no longer yours).
+        for key in [k for k, v in self._known.items() if self._clock() - v[1] > 24 * 60 * 60]:
+            del self._known[key]
         return {
             "review": list(await asyncio.gather(*(convert(pr) for pr in review))),
             "mine": list(await asyncio.gather(*(convert(pr) for pr in mine))),
