@@ -1,5 +1,8 @@
 from myorb.plugins.base import (
     Action,
+    ActionError,
+    ActionResult,
+    AskAction,
     BriefSection,
     Input,
     Link,
@@ -19,6 +22,9 @@ from myorb.plugins.registry import ENTRY_POINT_GROUP, discover_plugins
 __all__ = [
     "ENTRY_POINT_GROUP",
     "Action",
+    "ActionError",
+    "ActionResult",
+    "AskAction",
     "BriefSection",
     "Input",
     "Link",

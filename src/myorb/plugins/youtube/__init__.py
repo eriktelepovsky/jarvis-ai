@@ -17,6 +17,7 @@ from myorb.connections.google import GoogleError
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
     Action,
+    AskAction,
     Link,
     Plugin,
     Row,
@@ -118,6 +119,11 @@ class YouTubePlugin(Plugin):
     name = "YouTube"
     position = 60
 
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.youtube.actions import ask_actions
+
+        return ask_actions()
+
     def widgets(self) -> list[Widget]:
         return [
             Widget(
@@ -188,6 +194,7 @@ class YouTubePlugin(Plugin):
                     actions=[] if is_seen else [Action("Seen", f"/youtube/seen/{v['id']}")],
                     tags=("seen",) if is_seen else ("unseen", "new") if fresh else ("unseen",),
                     group=v["channel"],
+                    ref=f"video {v['id']}",
                 )
             )
         return WidgetData(

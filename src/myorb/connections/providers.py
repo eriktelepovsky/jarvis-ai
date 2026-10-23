@@ -114,6 +114,8 @@ async def request_json(
         raise ProviderError(f"{service} could not be reached.") from error
     if response.status_code >= 400:
         raise status_error(response, service)
+    if response.status_code == 204 or not response.content:
+        return None  # e.g. a change that answers "204 No Content"
     try:
         return response.json()
     except ValueError as error:

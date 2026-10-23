@@ -45,15 +45,23 @@ def widget_text(widget: Widget, data: WidgetData) -> str:
         lines.append(data.list_title or "Items:")
     for row in data.rows[:MAX_ROWS]:
         where = " / ".join(p for p in (row.group, row.subgroup) if p)
-        parts = [row.title, row.subtitle, row.badge, f"[{where}]" if where else ""]
+        parts = [
+            row.title,
+            row.subtitle,
+            row.badge,
+            f"[{where}]" if where else "",
+            f"(ref: {row.ref})" if row.ref else "",
+        ]
         lines.append("- " + " · ".join(p for p in parts if p))
     if len(data.rows) > MAX_ROWS:
         lines.append(f"(and {len(data.rows) - MAX_ROWS} more)")
     return "\n".join(lines)
 
 
-async def dashboard(context: WidgetContext, plugins: list[Plugin]) -> str:
-    """The dashboard as Markdown-like text, sources in the order of the welcome screen."""
+async def dashboard(context: WidgetContext, plugins: list[Plugin]) -> tuple[str, list[Plugin]]:
+    """The dashboard as Markdown-like text, sources in the order of the welcome screen; and
+    the plugins whose widgets are set up (their Ask actions are offered)."""
+    set_up: list[Plugin] = []
 
     async def plugin_text(plugin: Plugin) -> list[str]:
         widgets = plugin.widgets() if plugin.ask_rows else []
@@ -63,6 +71,8 @@ async def dashboard(context: WidgetContext, plugins: list[Plugin]) -> str:
             for widget, data in zip(widgets, loaded, strict=True)
             if data is not None and data.connected
         ]
+        if texts:
+            set_up.append(plugin)
         if not widgets:
             section = await _brief(context, plugin)
             if section and section.lines:
@@ -72,4 +82,5 @@ async def dashboard(context: WidgetContext, plugins: list[Plugin]) -> str:
     parts = await asyncio.gather(*(plugin_text(p) for p in plugins))
     now = context.now
     header = f"Now: {now:%A %d %B %Y, %H:%M} ({now.tzinfo})."
-    return "\n\n".join([header, *(text for texts in parts for text in texts)])
+    text = "\n\n".join([header, *(text for texts in parts for text in texts)])
+    return text, [p for p in plugins if p in set_up]

@@ -41,6 +41,8 @@ class FakeClaude:
         self.models = {"claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5"}
         # What a streamed request (Ask) answers, in pieces.
         self.answer = ["You have ", "**one task** today: ", "water the plants."]
+        # Tools the next streamed answer calls, as (name, input), once each.
+        self.tool_calls: list[tuple[str, dict[str, Any]]] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         key = request.headers.get("x-api-key") or request.headers.get(
@@ -97,7 +99,8 @@ class FakeClaude:
         return httpx2.Response(404)
 
     def stream(self, model: str) -> httpx2.Response:
-        """The answer as the API streams it: server-sent events, text in deltas."""
+        """The answer as the API streams it: server-sent events, text in deltas; then the
+        tool calls asked for (self.tool_calls), which end the turn with "tool_use"."""
         message = {
             "id": "msg_1",
             "type": "message",
@@ -124,9 +127,28 @@ class FakeClaude:
                 for t in self.answer
             ),
             {"type": "content_block_stop", "index": 0},
+        ]
+        calls, self.tool_calls = self.tool_calls, []
+        for index, (name, data) in enumerate(calls, start=1):
+            block = {
+                "type": "tool_use",
+                "id": f"toolu_{len(self.requests)}_{index}",
+                "name": name,
+                "input": {},
+            }
+            delta = {"type": "input_json_delta", "partial_json": json.dumps(data)}
+            events += [
+                {"type": "content_block_start", "index": index, "content_block": block},
+                {"type": "content_block_delta", "index": index, "delta": delta},
+                {"type": "content_block_stop", "index": index},
+            ]
+        events += [
             {
                 "type": "message_delta",
-                "delta": {"stop_reason": self.stop_reason, "stop_sequence": None},
+                "delta": {
+                    "stop_reason": "tool_use" if calls else self.stop_reason,
+                    "stop_sequence": None,
+                },
                 "usage": {"output_tokens": 20},
             },
             {"type": "message_stop"},

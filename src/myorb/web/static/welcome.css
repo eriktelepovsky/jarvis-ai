@@ -1904,3 +1904,50 @@ dialog.is-refreshing .modal-head::after {
     transition: none;
   }
 }
+
+/* Ask: an action Claude proposes, to do or cancel; then what it did, with Undo */
+
+.ask-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-accent);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+}
+
+.ask-action-text {
+  flex: 1 1 260px;
+  min-width: 0;
+  color: var(--text);
+}
+
+.ask-action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ask-action-status {
+  font-size: 12.5px;
+  color: var(--ok);
+}
+
+.ask-action-status.is-cancelled {
+  color: var(--text-3);
+}
+
+.ask-action-status.is-error {
+  color: var(--fail-text);
+}
+
+.ask-action.is-cancelled {
+  border-left-color: var(--line-strong);
+  opacity: 0.7;
+}

@@ -18,6 +18,7 @@ from myorb.connections.providers import (
     request_json,
 )
 from myorb.plugins.base import (
+    AskAction,
     BriefSection,
     Link,
     Plugin,
@@ -250,6 +251,11 @@ class JiraPlugin(Plugin):
             )
         ]
 
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.jira.actions import ask_actions
+
+        return ask_actions()
+
     async def _load(self, context: WidgetContext) -> list[AccountResult]:
         async def fetch(provider: Provider, account: ConnectedAccount) -> list[Issue]:
             return await self.provider.issues(context.http, account.credentials)
@@ -311,6 +317,7 @@ class JiraPlugin(Plugin):
                     tags=tags,
                     group=issue.workspace,
                     subgroup=issue.project,
+                    ref=f"{issue.key} in {issue.workspace}",
                 )
             )
         return WidgetData(
