@@ -59,7 +59,8 @@
     {# A choice: the tile opens the paces to choose from. #}
     <details class="menu pace-menu">
       <summary class="pace-stat is-choice" title="How often myOrb fetches its data, as the border of its number on the welcome screen shows. Click to change it."><span class="num">{{ stats.every | replace("every ", "") }} <span class="pace-caret" aria-hidden="true">▾</span></span><span class="label">Refreshes every</span></summary>
-      <form class="menu-panel" method="post" action="/integrations/{{ stats.service }}/pace">
+      {# Only this service's row is redrawn: the page stays where it is. #}
+      <form class="menu-panel" method="post" action="/integrations/{{ stats.service }}/pace" hx-post="/integrations/{{ stats.service }}/pace" hx-target="#service-{{ stats.service }}" hx-select="#service-{{ stats.service }}" hx-swap="outerHTML">
         {% for seconds, label in stats.options %}
         <button type="submit" name="seconds" value="{{ seconds | int }}" class="menu-item{% if stats.chosen == seconds %} is-chosen{% endif %}">{{ label }}</button>
         {% endfor %}
@@ -84,7 +85,7 @@
 <h2 class="label services-title">Connected sources</h2>
 <div class="services">
   <section class="panel service" aria-label="Google">
-    <div class="integration service-head">
+    <div class="integration service-head" id="service-google">
       {{ logo("G", "google") }}
       <div style="min-width: 0">
         <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar · YouTube</span></div>
@@ -105,7 +106,7 @@
 
   {% for provider, accounts in providers %}
   <section class="panel service" aria-label="{{ provider.name }}">
-    <div class="integration service-head">
+    <div class="integration service-head" id="service-{{ provider.id }}">
       {{ logo(provider.logo, provider.icon) }}
       <div style="min-width: 0">
         <div class="integration-name"><strong>{{ provider.name }}</strong>{% if accounts | length > 1 %}<span class="label">{{ accounts | length }} connected</span>{% endif %}</div>

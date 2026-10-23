@@ -478,7 +478,7 @@ def test_every_says_the_pace_in_words():
     assert every([180]) == "every 3 min"
     assert every([120, 1800]) == "every 2–30 min"
     assert every([900, 7200]) == "every 15 min to 2 h"
-    assert every([3600]) == "every hour"
+    assert every([3600]) == "every 1 hour"
     assert every([]) == ""
 
 

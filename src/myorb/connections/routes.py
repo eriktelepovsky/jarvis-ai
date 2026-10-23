@@ -70,7 +70,7 @@ def every(seconds: list[float]) -> str:
         minutes = round(value / 60)
         if minutes < 60:
             return f"{minutes} min"
-        return "hour" if minutes == 60 else f"{minutes / 60:g} h"
+        return "1 hour" if minutes == 60 else f"{minutes / 60:g} h"
 
     if not seconds:
         return ""
@@ -91,11 +91,7 @@ def _choices(
         "service": service,
         "chosen": chosen,
         "default": every(default),
-        "options": [
-            (s, every([s]).removeprefix("every ").replace("hour", "1 hour"))
-            for s in OPTIONS
-            if s >= shortest
-        ],
+        "options": [(s, every([s]).removeprefix("every ")) for s in OPTIONS if s >= shortest],
     }
 
 
