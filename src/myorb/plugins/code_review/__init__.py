@@ -3,6 +3,7 @@ from pathlib import Path
 
 from myorb.connections.providers import ConnectedAccount
 from myorb.plugins.base import (
+    AskAction,
     BriefSection,
     Link,
     Plugin,
@@ -73,6 +74,12 @@ class CodeReviewPlugin(Plugin):
     def __init__(self) -> None:
         self.hosts: list[CodeHost] = [GitHub(), GitLab(), Bitbucket()]
 
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.code_review.actions import ask_actions
+
+        github = next(host for host in self.hosts if isinstance(host, GitHub))
+        return ask_actions(github)
+
     def connections(self) -> list[CodeHost]:
         return self.hosts
 
@@ -134,6 +141,8 @@ class CodeReviewPlugin(Plugin):
                 tone=step.tone,
                 url=pr.url,
                 tags=("mine" if yours else "review", step.tag),
+                # GitHub's pull requests can be approved and commented on from Ask.
+                ref=pr.url if pr.url.startswith("https://github.com/") else "",
                 group=pr.repo,
             )
             for pr, yours, step in entries

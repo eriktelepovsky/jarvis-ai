@@ -55,7 +55,18 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert "Answer in the language of the question" in instructions["text"]
     assert board["cache_control"] == {"type": "ephemeral"}
     assert "## Tasks" in board["text"] and "Water the <plants>" in board["text"]
-    assert request["messages"] == [{"role": "user", "content": "What do I have today?"}]
+    assert "(ref: task 1)" in board["text"]  # what the task actions take
+    assert request["messages"] == [
+        {"role": "user", "content": [{"type": "text", "text": "What do I have today?"}]}
+    ]
+    tools = {tool["name"]: tool for tool in request["tools"]}
+    assert set(tools) == {
+        "tasks__add_task",
+        "tasks__complete_task",
+        "tasks__reschedule_task",
+        "tasks__rename_task",
+    }
+    assert all(tool["strict"] for tool in tools.values())
 
     # A follow-up keeps the conversation's dashboard (cached), even when the data changed.
     client.post("/command", data={"text": "Call mom"})
@@ -176,3 +187,108 @@ def test_unread_emails_are_summarized_on_request(make_client: MakeClient, claude
     # Kept until the unread emails change.
     again = app.get("/email/summary").text
     assert "Pepper waits for" in again and "new since" not in again
+
+
+# Actions
+
+
+def lines_of(response) -> list[dict]:
+    return [json.loads(line) for line in response.text.splitlines() if line]
+
+
+def tasks(client: TestClient) -> list[str]:
+    async def titles() -> list[str]:
+        from myorb.tasks import store
+
+        async with client.app.state.sessionmaker() as db:
+            return [t.title for t in await store.open_tasks(db)]
+
+    return client.portal.call(titles)
+
+
+def test_an_action_runs_only_once_confirmed(client: TestClient, claude: FakeClaude):
+    connect(client)
+    claude.answer = ["Sure."]
+    claude.tool_calls = [("tasks__add_task", {"text": "call mom tomorrow"})]
+    lines = ask(client, [{"role": "user", "content": "Add a task to call mom tomorrow"}])
+    conversation = lines[0]["conversation"]
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    assert proposal["summary"] == "Add the task “call mom tomorrow”"
+    assert tasks(client) == []  # nothing yet: it waits for the user
+
+    claude.answer = ["Done, it is on your list."]
+    response = client.post(
+        "/ask/decide", json={"conversation": conversation, "approved": [proposal["id"]]}
+    )
+    lines = lines_of(response)
+    [done] = [line["done"] for line in lines if "done" in line]
+    assert done["message"] == "Added the task “call mom” (Tomorrow)."
+    assert {"refresh": True} in lines
+    assert text_of(lines) == "Done, it is on your list."
+    assert tasks(client) == ["call mom"]
+    # Claude got the result as the tool's answer.
+    result = claude.requests[-1]["messages"][-1]["content"][0]
+    assert result == {
+        "type": "tool_result",
+        "tool_use_id": proposal["id"],
+        "content": done["message"],
+    }
+    assert "Asked Orb: Added the task “call mom”" in client.get("/activity").text
+
+    undone = client.post(
+        "/ask/undo", json={"conversation": conversation, "id": done["undo"]}
+    ).json()
+    assert undone == {"message": "Removed the task “call mom”."}
+    assert tasks(client) == []
+    again = client.post("/ask/undo", json={"conversation": conversation, "id": done["undo"]})
+    assert again.status_code == 404
+
+
+def test_a_cancelled_action_does_nothing(client: TestClient, claude: FakeClaude):
+    connect(client)
+    client.post("/command", data={"text": "Water plants"})
+    claude.tool_calls = [("tasks__complete_task", {"task_id": 1})]
+    lines = ask(client, [{"role": "user", "content": "I watered the plants"}])
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    assert proposal["summary"] == "Mark “Water plants” as done"
+    response = client.post(
+        "/ask/decide", json={"conversation": lines[0]["conversation"], "approved": []}
+    )
+    [done] = [line["done"] for line in lines_of(response) if "done" in line]
+    assert done["cancelled"] is True
+    assert tasks(client) == ["Water plants"]
+    result = claude.requests[-1]["messages"][-1]["content"][0]
+    assert result["tool_use_id"] == proposal["id"] and "cancelled" in result["content"]
+
+
+def test_proposals_that_cannot_run_go_back_to_claude(client: TestClient, claude: FakeClaude):
+    connect(client)
+    claude.answer = []
+    claude.tool_calls = [("tasks__complete_task", {"task_id": 99}), ("nope__nothing", {})]
+    lines = ask(client, [{"role": "user", "content": "Done with 99"}])
+    # No card to confirm: Claude got both errors and answered on its own.
+    assert not [line for line in lines if "proposal" in line]
+    replies = claude.requests[-1]["messages"][-1]["content"]
+    assert [r["content"] for r in replies] == ["There is no task 99.", "There is no such action."]
+    assert all(r["is_error"] for r in replies)
+
+
+def test_a_new_question_cancels_what_waits(client: TestClient, claude: FakeClaude):
+    connect(client)
+    claude.tool_calls = [("tasks__add_task", {"text": "buy milk"})]
+    lines = ask(client, [{"role": "user", "content": "Add buy milk"}])
+    conversation = lines[0]["conversation"]
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    history = [
+        {"role": "user", "content": "Add buy milk"},
+        {"role": "user", "content": "No wait, what is on today?"},
+    ]
+    ask(client, history, conversation)
+    content = claude.requests[-1]["messages"][-1]["content"]
+    assert content[0]["tool_use_id"] == proposal["id"] and "cancelled" in content[0]["content"]
+    assert content[1] == {"type": "text", "text": "No wait, what is on today?"}
+    stale = client.post(
+        "/ask/decide", json={"conversation": conversation, "approved": [proposal["id"]]}
+    )
+    assert lines_of(stale) == [{"error": "These actions are no longer waiting. Ask again."}]
+    assert tasks(client) == []
