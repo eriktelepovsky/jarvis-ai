@@ -1317,9 +1317,21 @@ button.row-btn {
 .report-priorities { grid-column: span 5; }
 
 @media (max-width: 900px) {
+  /* Everything takes the whole width here, so one column: twelve with their gaps (11 × 32 px)
+     are wider than a phone and scroll the report sideways. */
+  .report-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .report-summary,
   .report-priorities {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .report-body {
+    padding: 16px;
   }
 }
 
@@ -1406,6 +1418,12 @@ button.row-btn {
 
 
 
+.report-voice {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
 .voice-picker {
   display: inline-flex;
   gap: 8px;
@@ -1444,6 +1462,9 @@ button.row-btn {
 
 .report-glance {
   margin-bottom: 18px;
+  /* A label near the end of the day reaches past the track; it must not scroll the report
+     sideways. */
+  overflow-x: clip;
 }
 
 /* As in the design: a dark bar with bright event blocks, labels alternating above and below. */
@@ -1553,6 +1574,57 @@ button.row-btn {
 
 .glance-hours span:first-child {
   transform: none;
+}
+
+.glance-hours span:last-child {
+  transform: translateX(-100%);
+}
+
+.glance-list {
+  display: none;
+}
+
+/* Phone: after the rules it adjusts, so it wins over them. A day is about 330 px wide, too
+   narrow for labels on the track, so they make way for a list under it; the read-aloud
+   controls take a line of their own under the title. */
+@media (max-width: 760px) {
+  .glance-track {
+    height: 30px;
+  }
+
+  .glance-track::before,
+  .glance-item {
+    top: 6px;
+  }
+
+  .glance-now {
+    top: 0;
+    height: 32px;
+  }
+
+  .glance-label {
+    display: none;
+  }
+
+  .glance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 0;
+    font-size: 13px;
+    color: #c9d4de;
+    list-style: none;
+  }
+
+  .glance-list .past {
+    opacity: 0.55;
+  }
+
+  .report-voice {
+    flex-basis: 100%;
+    order: 1;
+  }
 }
 
 /* Report: sources */

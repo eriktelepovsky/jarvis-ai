@@ -7,10 +7,12 @@
     {% if brief %}<span class="label">Generated {{ brief.created_at | localtime("%H:%M") }} · {{ brief.sources | length }} {{ "source" if brief.sources | length == 1 else "sources" }} · {{ model_name(brief.model) }}</span>{% endif %}
   </div>
   {% if brief %}
-  <button type="button" class="btn" data-read-aloud data-brief="{{ brief.id }}" data-brief-language="{{ brief.language }}" data-voice="{{ 'azure' if voice.azure else 'browser' }}" aria-pressed="false" title="Voices are set on Integrations → Voice">▶ Read aloud</button>
-  <label class="label voice-picker">In <select class="input" data-read-language aria-label="Language to read in">
-    {% for code, (name, tag) in read_languages.items() %}<option value="{{ code }}" data-tag="{{ tag }}" {% if code == brief.language %}selected{% endif %}>{{ name }}</option>{% endfor %}
-  </select></label>
+  <div class="report-voice">
+    <button type="button" class="btn" data-read-aloud data-brief="{{ brief.id }}" data-brief-language="{{ brief.language }}" data-voice="{{ 'azure' if voice.azure else 'browser' }}" aria-pressed="false" title="Voices are set on Integrations → Voice">▶ Read aloud</button>
+    <label class="label voice-picker">In <select class="input" data-read-language aria-label="Language to read in">
+      {% for code, (name, tag) in read_languages.items() %}<option value="{{ code }}" data-tag="{{ tag }}" {% if code == brief.language %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select></label>
+  </div>
   <span class="label read-error" data-read-error role="alert"></span>
   {% endif %}
   {% if configured %}
@@ -43,6 +45,8 @@
         {% if glance.now is not none %}<span class="glance-now" style="left: {{ '%.2f' % glance.now }}%"></span>{% endif %}
       </div>
       <div class="glance-hours">{% for hour, position in glance.hours %}<span style="left: {{ '%.2f' % position }}%">{{ "%02d:00" % hour }}</span>{% endfor %}</div>
+      {# On a phone a day is too narrow for labels on the track; the events are listed instead. #}
+      <ul class="glance-list">{% for placed in glance.items %}<li{% if placed.past %} class="past"{% endif %}><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span>{{ placed.item.title }}</li>{% endfor %}</ul>
     </div>
   </section>
 
