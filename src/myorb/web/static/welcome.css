@@ -95,7 +95,7 @@ body:has(#welcome) {
   align-items: flex-start;
   gap: 20px;
   /* Installed on a phone, the page runs under the status bar: keep clear of it. */
-  padding: max(26px, env(safe-area-inset-top)) 28px 8px;
+  padding: max(26px, var(--safe-top)) 28px 8px;
 }
 
 .header-line {
@@ -659,11 +659,35 @@ a.ti:hover .t1 {
 @media (max-width: 720px) {
   /* The circles reach about 5% past the orb on each side (more for a large one with its
      warning badge), so the orb leaves that much of the screen free. */
-  .stage { --d: min(86vw, calc(100vh - 120px)); }
+  .stage { --d: min(86vw, calc(100dvh - 120px)); }
+
+  /* Installed on the home screen, a drag past the top or bottom bounced the whole page, which
+     looked like it scrolled. The visible height (dvh) leaves out Safari's own bars. */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  .welcome {
+    min-height: 100dvh;
+  }
+
+  /* Under the status bar and the home indicator when installed (the --safe-* edges, 0 in a
+     browser tab): the corner brackets and the links keep clear of them, so the links are
+     below the status bar's blur and easy to tap. */
+  .corner-tl,
+  .corner-tr {
+    top: calc(12px + var(--safe-top));
+  }
+
+  .corner-bl,
+  .corner-br {
+    bottom: calc(12px + var(--safe-bottom));
+  }
 
   /* Clear of the corner brackets (12px in, 30px long), so the links do not touch them. */
   .welcome-header {
-    padding: max(24px, env(safe-area-inset-top)) 26px 8px;
+    padding: calc(24px + var(--safe-top)) 26px 8px;
   }
 
   /* The clock goes under the links, full width and on one line with its date, so it neither
@@ -737,10 +761,11 @@ a.ti:hover .t1 {
 
   /* The version goes centered under the footer's hint, between the corner brackets. */
   .welcome-footer {
-    padding-bottom: 40px;
+    padding-bottom: calc(40px + var(--safe-bottom));
   }
 
   .welcome-version {
+    bottom: calc(22px + var(--safe-bottom));
     left: 50%;
     transform: translateX(-50%);
   }
@@ -992,9 +1017,13 @@ a.ti:hover .t1 {
 /* Phone: after the rules it adjusts, so it wins over them (before them, the summary stayed
    sticky and covered the list). */
 @media (max-width: 760px) {
+  /* Clear of the status bar and the home indicator when installed, so the close button is
+     not under the Dynamic Island. */
   .modal {
+    --modal-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
+
     width: calc(100% - 24px);
-    --modal-height: calc(100dvh - 32px);
+    margin: calc(16px + var(--safe-top)) auto calc(16px + var(--safe-bottom));
   }
 
   .modal-head {
@@ -1644,6 +1673,11 @@ button.row-btn {
   .report-voice {
     flex-basis: 100%;
     order: 1;
+  }
+
+  .modal-report,
+  .modal-report .report {
+    max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
   }
 }
 

@@ -1,7 +1,10 @@
-<script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
-<script src="{{ url_for('static', path='app.js') }}" defer></script>
-<script src="{{ url_for('static', path='media.js') }}" defer></script>
-<script src="{{ url_for('static', path='speech.js') }}" defer></script>
-<script src="{{ url_for('static', path='welcome.js') }}" defer></script>
-<script src="{{ url_for('static', path='copy.js') }}" defer></script>
-<script src="{{ url_for('static', path='passkeys.js') }}" defer></script>
+{# ?v= is the version: a release gets new addresses, so no cache keeps the old files. A CDN in
+   front (Cloudflare's Browser Cache TTL) may override the server's no-cache and keep them
+   for hours. #}
+<script src="{{ url_for('static', path='htmx.min.js') }}?v={{ version }}" defer></script>
+<script src="{{ url_for('static', path='app.js') }}?v={{ version }}" defer></script>
+<script src="{{ url_for('static', path='media.js') }}?v={{ version }}" defer></script>
+<script src="{{ url_for('static', path='speech.js') }}?v={{ version }}" defer></script>
+<script src="{{ url_for('static', path='welcome.js') }}?v={{ version }}" defer></script>
+<script src="{{ url_for('static', path='copy.js') }}?v={{ version }}" defer></script>
+<script src="{{ url_for('static', path='passkeys.js') }}?v={{ version }}" defer></script>
