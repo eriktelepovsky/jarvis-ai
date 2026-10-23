@@ -422,42 +422,6 @@ a.ti:hover .t1 {
   .stage { --d: min(calc((100vh - 360px) * 0.9), 88vw, 760px); }
 }
 
-@media (max-width: 720px) {
-  .stage { --d: min(94vw, calc(100vh - 120px)); }
-
-  .welcome-header {
-    padding: max(20px, env(safe-area-inset-top)) 16px 8px;
-  }
-
-  .header-controls {
-    flex-wrap: wrap;
-    margin-left: 0;
-  }
-
-  /* On a phone there is little room: the greeting goes back in the flow above the orb. */
-  .greeting {
-    position: static;
-    margin-bottom: 12px;
-  }
-
-  .command {
-    position: static;
-    width: 100%;
-    margin-top: 16px;
-    transform: none;
-  }
-
-  /* On a phone the header stacks anyway; keep the chip in the flow so it cannot overlap. */
-  .clock-extra {
-    position: static;
-    margin-top: 8px;
-  }
-
-  .welcome-main {
-    padding: 0 8px 6px;
-  }
-}
-
 .greeting {
   margin: 0;
   font-family: "Chakra Petch", var(--font-mono);
@@ -679,6 +643,90 @@ a.ti:hover .t1 {
   max-width: 78%;
   font-size: max(11px, calc(var(--d) * 0.021));
   line-height: 1.45;
+}
+
+/* Phone: after the rules it adjusts, so it wins over them. */
+@media (max-width: 720px) {
+  /* The circles reach about 5% past the orb on each side (more for a large one with its
+     warning badge), so the orb leaves that much of the screen free. */
+  .stage { --d: min(86vw, calc(100vh - 120px)); }
+
+  .welcome-header {
+    padding: max(20px, env(safe-area-inset-top)) 16px 8px;
+  }
+
+  /* The clock goes under the links, full width and on one line with its date, so it neither
+     runs off the right edge nor leaves a tall gap above the orb. */
+  .header-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .clock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: 12px;
+    text-align: left;
+  }
+
+  .clock-date {
+    white-space: nowrap;
+  }
+
+  .clock .num {
+    font-size: 34px;
+  }
+
+  .clock-seconds {
+    font-size: 18px;
+  }
+
+  .clock-date {
+    margin-top: 0;
+  }
+
+  /* On a phone there is little room: the greeting goes back in the flow above the orb. */
+  .greeting {
+    position: static;
+    margin-bottom: 12px;
+  }
+
+  .command {
+    position: static;
+    width: 100%;
+    margin-top: 16px;
+    transform: none;
+  }
+
+  /* On a phone the header stacks anyway; keep the chip in the flow so it cannot overlap. */
+  .clock-extra {
+    position: static;
+    flex-basis: 100%;
+    min-width: 0;
+    margin-top: 8px;
+  }
+
+  /* A long event title ends in "…" instead of widening the page. */
+  .clock-extra .header-item {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .welcome-main {
+    padding: 0 8px 6px;
+  }
+
+  /* The media dock is fixed to the bottom corner: leave room for it under the command line
+     and the footer, so scrolled to the bottom it covers neither. */
+  .welcome {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
 }
 
 /* Numbers around the orb */
