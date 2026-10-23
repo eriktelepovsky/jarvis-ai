@@ -167,7 +167,8 @@ code,
   gap: 18px;
   max-width: 1600px;
   margin: 0 auto;
-  padding: max(18px, var(--safe-top)) 28px max(40px, var(--safe-bottom));
+  /* Below the status bar and its blur when installed (max() put the logo right under it). */
+  padding: calc(18px + var(--safe-top)) 28px calc(40px + var(--safe-bottom));
 }
 
 .topbar {
@@ -296,7 +297,7 @@ code,
 
 @media (max-width: 720px) {
   .page {
-    padding: max(14px, var(--safe-top)) 12px max(32px, var(--safe-bottom));
+    padding: calc(14px + var(--safe-top)) 12px calc(32px + var(--safe-bottom));
   }
 
   .grid > * {
