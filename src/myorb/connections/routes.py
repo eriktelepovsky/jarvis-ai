@@ -37,6 +37,7 @@ MESSAGES = {
     "claude-removed": "Claude was disconnected.",
     "removed": "The connection was removed.",
     "choices": "Saved. The numbers show only what you chose.",
+    "saved-connection": "Saved and tested again.",
     "music-saved": "The music settings were saved.",
 }
 

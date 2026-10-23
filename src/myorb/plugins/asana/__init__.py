@@ -55,6 +55,7 @@ class Task:
 
 
 class Asana(Provider):
+    icon = "asana"
     id = "asana"
     name = "Asana"
     logo = "A"

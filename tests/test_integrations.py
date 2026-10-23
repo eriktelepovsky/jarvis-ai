@@ -463,13 +463,13 @@ def test_integrations_say_how_often_a_service_is_asked(client: TestClient, apis:
     client.get("/welcome/widgets")
     text = client.get("/integrations").text
     # Jira: its widget refreshes every 3 minutes; the connecting and the widget asked its site.
-    assert "Refreshes every 3 min" in text
-    requests = re.search(r"(\d+) requests in the last hour", text)
+    assert '<span class="num">3 min</span><span class="label">Refreshes every</span>' in text
+    requests = re.search(r'<span class="num">(\d+)</span><span class="label">Requests', text)
     assert requests and int(requests.group(1)) >= 2
-    assert "rate limited" not in text
+    assert "× limited" not in text
     apis.routes[("dev.atlassian.net", "/rest/api/3/search/jql")] = lambda r: httpx2.Response(429)
     client.post("/welcome/widgets/jira/assigned/refresh")
-    assert "rate limited 1×" in client.get("/integrations").text
+    assert "<small>1× limited</small>" in client.get("/integrations").text
 
 
 def test_every_says_the_pace_in_words():

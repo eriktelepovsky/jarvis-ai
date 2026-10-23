@@ -45,6 +45,7 @@ def _form(
     values: dict[str, str] | None = None,
     error: str | None = None,
     status_code: int = 200,
+    editing: Connection | None = None,
 ) -> Response:
     instructions = f"{plugin.id}/{provider.instructions}" if provider.instructions else None
     return request.app.state.templates.TemplateResponse(
@@ -58,6 +59,8 @@ def _form(
                 f.name: (values or {}).get(f.name, "") for f in provider.fields if not f.secret
             },
             "error": error,
+            # Editing a connection: the same form, filled in; secrets left empty are kept.
+            "editing": editing,
         },
         status_code=status_code,
     )
@@ -186,3 +189,52 @@ async def save_choices(request: Request, db: Db, provider_id: str, connection_id
     )
     forget_cached(request, provider_id, connection_id)
     return RedirectResponse(f"/integrations?status=choices&provider={provider_id}", 303)
+
+
+def _stored_values(provider: Provider, credentials: dict[str, Any]) -> dict[str, str]:
+    """A connection's form values as stored, for its edit form (secrets stay on the server)."""
+    return {f.name: str(credentials.get(f.name, "")) for f in provider.fields if not f.secret}
+
+
+@router.get("/integrations/{provider_id}/{connection_id}/edit", response_class=HTMLResponse)
+async def edit_page(request: Request, db: Db, provider_id: str, connection_id: int) -> Response:
+    plugin, provider = _provider(request, provider_id)
+    connection = await _connection_or_404(db, provider_id, connection_id)
+    credentials = request.app.state.secret_box.decrypt(connection.credentials)
+    values = _stored_values(provider, credentials)
+    return _form(request, plugin, provider, values, editing=connection)
+
+
+@router.post("/integrations/{provider_id}/{connection_id}/edit")
+async def edit(request: Request, db: Db, provider_id: str, connection_id: int) -> Response:
+    """Save a connection's changed values: verified again like a new one, the same row kept."""
+    plugin, provider = _provider(request, provider_id)
+    connection = await _connection_or_404(db, provider_id, connection_id)
+    box = request.app.state.secret_box
+    stored = box.decrypt(connection.credentials)
+    form = await request.form()
+    values = {f.name: str(form.get(f.name, "")).strip() for f in provider.fields}
+    for field in provider.fields:
+        if field.secret and not values[field.name]:
+            values[field.name] = str(stored.get(field.name, ""))  # left empty: unchanged
+    if missing := [f.label for f in provider.fields if f.required and not values[f.name]]:
+        return _form(
+            request, plugin, provider, values, f"Fill in: {', '.join(missing)}.", 400, connection
+        )
+    try:
+        verified = await provider.verify(request.app.state.http, values)
+    except ProviderError as error:
+        return _form(request, plugin, provider, values, str(error), 400, connection)
+    for other in await store.list_connections(db, provider.id):
+        if other.id != connection.id and other.account == verified.account:
+            message = f"{verified.account} is already connected."
+            return _form(request, plugin, provider, values, message, 400, connection)
+    credentials = verified.credentials
+    if left_out := stored.get(HIDDEN):
+        credentials = {**credentials, HIDDEN: left_out}
+    connection.account = verified.account
+    connection.credentials = box.encrypt(credentials)
+    await store.save_check(db, connection, _capabilities(verified.capabilities))
+    forget_cached(request, provider.id, connection.id)
+    await connections_changed(request, plugin)
+    return RedirectResponse(f"/integrations?status=saved-connection&provider={provider.id}", 303)

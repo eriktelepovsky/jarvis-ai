@@ -1790,17 +1790,67 @@ form.htmx-request .btn[type="submit"]::before {
 
 /* Integrations: how often a service is asked, and an account's actions in a menu */
 
-.pace {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--text-3);
+/* The numbers sit in the middle of the row, in fixed columns that line up from service to
+   service: two slots of the same width, and a fixed width for the buttons after them. */
+.integration.service-head {
+  grid-template-columns: 40px minmax(0, 1fr) 328px 220px;
 }
 
-.pace .warn {
+.integration.service-head > .actions {
+  justify-content: flex-end;
+}
+
+.pace {
+  display: grid;
+  grid-template-columns: 160px 160px;
+  gap: 8px;
+}
+
+.pace-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.pace-stat .num {
+  font-family: var(--font-num);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.pace-stat .num small {
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   color: var(--warn);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pace-stat .label {
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.pace-stat.warn {
+  border-color: var(--warn-line);
+}
+
+@media (max-width: 1100px) {
+  .integration.service-head {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+  }
+
+  .pace {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
 }
 
 .menu {
@@ -1861,4 +1911,14 @@ form.htmx-request .btn[type="submit"]::before {
   color: var(--fail);
   border-top: 1px solid var(--line);
   border-radius: 0 0 6px 6px;
+}
+
+/* A brand icon in a service's logo, tinted in myOrb's color like the letters it replaces */
+
+.brand-icon {
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
 }

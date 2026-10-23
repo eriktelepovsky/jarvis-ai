@@ -76,6 +76,7 @@ class CustomSource(Provider):
     logo = "{ }"
     summary = "Your own app, e.g. invoicing or a wallet, answering with JSON in myOrb's format."
     instructions = "custom.html"
+    account_noun = "source"
 
     def hosts(self, credentials: dict[str, Any]) -> set[str]:
         return {urlsplit(credentials["url"]).hostname or ""}

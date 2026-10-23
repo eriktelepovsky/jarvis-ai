@@ -71,6 +71,7 @@ fragment pr on PullRequest {
 
 
 class GitHub(CodeHost):
+    icon = "github"
     api_hosts = ("api.github.com",)
     id = "github"
     name = "GitHub"
@@ -168,6 +169,7 @@ fragment mr on MergeRequest {
 
 
 class GitLab(CodeHost):
+    icon = "gitlab"
     id = "gitlab"
     name = "GitLab"
     logo = "GL"
@@ -271,6 +273,7 @@ BITBUCKET_RECHECK = 30 * 60
 
 
 class Bitbucket(CodeHost):
+    icon = "bitbucket"
     api_hosts = ("api.bitbucket.org",)
 
     def __init__(self, clock: Callable[[], float] = time.time) -> None:

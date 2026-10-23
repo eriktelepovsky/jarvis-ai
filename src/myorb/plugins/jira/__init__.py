@@ -72,6 +72,7 @@ def workspace_name(site: str) -> str:
 
 
 class Jira(Provider):
+    icon = "jira"
     id = "jira"
     name = "Jira"
     logo = "J"

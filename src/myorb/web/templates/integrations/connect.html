@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Connect {{ provider.name }} · {{ assistant }}{% endblock %}
+{% block title %}{{ "Edit " ~ editing.account if editing else "Connect " ~ provider.name }} · {{ assistant }}{% endblock %}
 
 {% block main_class %}form{% endblock %}
 
 {% block content %}
 <div class="page-title">
-  <div><div class="label">Integrations</div><h1>Connect {{ provider.name }}</h1></div>
+  <div><div class="label">Integrations{% if editing %} · {{ provider.name }}{% endif %}</div><h1>{{ "Edit " ~ editing.account if editing else "Connect " ~ provider.name }}</h1></div>
 </div>
 
 <section class="panel panel-narrow" aria-labelledby="connect-title">
@@ -14,11 +14,11 @@
   {% if instructions %}
   <div class="panel-section instructions">{% include instructions %}</div>
   {% endif %}
-  <form method="post" action="/integrations/{{ provider.id }}/connect" class="panel-section form">
+  <form method="post" action="/integrations/{{ provider.id }}/{{ editing.id ~ '/edit' if editing else 'connect' }}" class="panel-section form">
     {% for field in provider.fields %}
     <div class="field">
       <label class="label" for="field-{{ field.name }}">{{ field.label }}</label>
-      {% set input %}<input class="input" id="field-{{ field.name }}" name="{{ field.name }}" type="{{ field.type }}" value="{{ values.get(field.name, '') }}" placeholder="{{ field.placeholder }}" autocomplete="off"{% if field.required %} required{% endif %} {% if error %}aria-describedby="connect-error"{% endif %}>{% endset %}
+      {% set input %}<input class="input" id="field-{{ field.name }}" name="{{ field.name }}" type="{{ field.type }}" value="{{ values.get(field.name, '') }}" placeholder="{{ 'Leave empty to keep the current one' if editing and field.secret else field.placeholder }}" autocomplete="off"{% if field.required and not (editing and field.secret) %} required{% endif %} {% if error %}aria-describedby="connect-error"{% endif %}>{% endset %}
       {% if field.generate %}
       <div class="input-row">
         {{ input }}
@@ -30,7 +30,7 @@
     </div>
     {% endfor %}
     {% if error %}<div class="alert alert-error" role="alert" id="connect-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
-    <div class="actions"><button type="submit" class="btn btn-primary">Connect</button><a class="btn btn-ghost" href="/integrations">Cancel</a></div>
+    <div class="actions"><button type="submit" class="btn btn-primary">{{ "Save" if editing else "Connect" }}</button><a class="btn btn-ghost" href="/integrations">Cancel</a></div>
   </form>
 </section>
 {% endblock %}
