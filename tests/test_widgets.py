@@ -60,7 +60,11 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
 
         messages = [
             message("Tony <tony@stark.example>", "Board meeting", ["INBOX"]),
-            message("Pepper Potts <pepper@stark.example>", "Board meeting <today>", ["UNREAD"]),
+            message(
+                "Pepper Potts <pepper@stark.example>",
+                "Board meeting <today>",
+                ["UNREAD", "IMPORTANT"],
+            ),
         ]
         return httpx2.Response(200, json={"id": "t1", "messages": messages})
     return httpx2.Response(404)
@@ -152,6 +156,10 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     # Grouped by the user's address it was sent to, here another mailbox Gmail collects.
     assert 'data-group="tony@starkindustries.example"' in text
     assert "#inbox/t1" in text
+    # Gmail marks it important: counted, and the number narrows the list to such emails.
+    assert 'data-filter="important"' in text and ">Important<" in text
+    assert 'data-tags="important"' in text
+    assert "In inbox" not in text
     assert "Open inbox" in text
     assert "Online · 2/2 sources" in text
     assert "All systems nominal" in text
