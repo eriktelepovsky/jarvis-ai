@@ -955,6 +955,24 @@
     }
   });
 
+  // A load that failed (an error from the server, or no answer) swaps nothing, so without this
+  // a first load would spin forever and a loaded number would never refresh again. What is
+  // shown stays; a number tries again after its next round, a spinner after a short wait.
+  document.addEventListener("htmx:afterRequest", (event) => {
+    const slot = event.detail.elt;
+    if (event.detail.successful || !slot.matches?.("[data-slot]")) return;
+    delete slot.dataset.due;
+    if (slot.querySelector(".node[data-refresh]")) {
+      startRing(slot, { due: true });
+      return;
+    }
+    clearTimeout(ringTimers.get(slot));
+    ringTimers.set(
+      slot,
+      setTimeout(() => htmx.trigger(slot, "myorb:due"), 15000),
+    );
+  });
+
   let clockTimer = null;
   let welcomePage = null;
 

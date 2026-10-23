@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from myorb.activity.models import WidgetState
@@ -25,7 +26,13 @@ class WidgetWatch:
                 failing = data.message_tone == "fail" or (data.value is None and bool(data.message))
                 state = await db.get(WidgetState, item["key"])
                 if state is None:
-                    db.add(WidgetState(key=item["key"], value=value, failing=failing))
+                    # Two loads of a new widget at once (two tabs, a refresh racing the first
+                    # load) both get here; the second one finds it remembered and moves on.
+                    await db.execute(
+                        insert(WidgetState)
+                        .values(key=item["key"], value=value, failing=failing)
+                        .on_conflict_do_nothing()
+                    )
                     continue
                 label = data.label or widget.label
                 if failing and not state.failing:

@@ -185,19 +185,26 @@ def _number(value: Any) -> float | None:
     return float(value) if isinstance(value, int | float) and value >= 0 else None
 
 
-def parse_days(body: Any) -> list[dict[str, Any]]:
-    """Days from the webhook body: one object, a list, or {"days": [...]}. Raises ValueError."""
+def parse_days(body: Any, today: date) -> list[dict[str, Any]]:
+    """Days from the webhook body: one object, a list, or {"days": [...]}. Raises ValueError.
+
+    A day without a date is `today`, so a Shortcut needs no date formatting of its own.
+    """
     items = body.get("days", [body]) if isinstance(body, dict) else body
     if not isinstance(items, list) or not items:
-        raise ValueError("Send an object with a date, or a list of them.")
+        raise ValueError("Send an object with the day's numbers, or a list of them.")
     days = []
     for item in items:
-        if not isinstance(item, dict):
-            raise ValueError("Each day must be an object.")
+        if not isinstance(item, dict) or not item:
+            raise ValueError("Each day must be an object with its numbers.")
         try:
-            day = date.fromisoformat(str(item.get("date", ""))[:10])
+            day = date.fromisoformat(str(item["date"])[:10]) if "date" in item else today
         except ValueError as error:
-            raise ValueError("Each day needs a date as YYYY-MM-DD.") from error
+            # Shortcuts sends a date variable as text in the phone's own format.
+            raise ValueError(
+                "Each day needs a date as YYYY-MM-DD, or no date for today. In Shortcuts, "
+                "use Format Date with the custom format yyyy-MM-dd."
+            ) from error
         sleep = _number(item.get("sleep_minutes"))
         if sleep is None and (hours := _number(item.get("sleep_hours"))) is not None:
             sleep = hours * 60
@@ -220,7 +227,7 @@ async def webhook(request: Request, db: Db, token: str) -> Response:
     if not expected or not hmac.compare_digest(token, expected):
         return JSONResponse({"ok": False, "error": "Unknown webhook address."}, status_code=404)
     try:
-        days = parse_days(await request.json())
+        days = parse_days(await request.json(), datetime.now(request.app.state.timezone).date())
     except ValueError as error:
         return JSONResponse({"ok": False, "error": str(error)}, status_code=400)
     for values in days:

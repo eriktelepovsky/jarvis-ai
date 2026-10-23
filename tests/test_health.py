@@ -88,17 +88,22 @@ def webhook_url(client: TestClient) -> str:
 
 
 def test_parse_days():
-    assert parse_days({"date": "2026-10-22", "steps": 8410.0, "sleep_hours": 7.2})[0] == {
+    today = datetime(2026, 10, 23).date()
+    assert parse_days({"date": "2026-10-22", "steps": 8410.0, "sleep_hours": 7.2}, today)[0] == {
         "day": datetime(2026, 10, 22).date(),
         "steps": 8410,
         "sleep_minutes": 432,
         "resting_heart_rate": None,
         "active_energy": None,
     }
-    assert len(parse_days({"days": [{"date": "2026-10-21"}, {"date": "2026-10-22"}]})) == 2
-    for body in [{}, [], {"date": "yesterday"}, ["x"]]:
+    days = parse_days({"days": [{"date": "2026-10-21"}, {"date": "2026-10-22"}]}, today)
+    assert len(days) == 2
+    # A Shortcut without a date sends today's numbers.
+    assert parse_days({"steps": 1200}, today)[0]["day"] == today
+    # A date variable Shortcuts did not format arrives in the phone's own format.
+    for body in [{}, [], {"date": "23. 10. 2026 o 12:28"}, {"date": "yesterday"}, ["x"]]:
         with pytest.raises(ValueError):
-            parse_days(body)
+            parse_days(body, today)
 
 
 def test_webhook_stores_days_without_session_or_origin(client: TestClient):
