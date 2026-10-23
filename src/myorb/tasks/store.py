@@ -29,7 +29,9 @@ async def open_tasks(db: AsyncSession) -> list[Task]:
 
 
 async def done_tasks(db: AsyncSession, since: datetime) -> list[Task]:
-    query = select(Task).where(Task.done_at >= since).order_by(Task.done_at.desc())
+    # Times are stored in UTC without the zone (SQLite): compare in UTC too, or "since local
+    # midnight" misses the first hours of the day.
+    query = select(Task).where(Task.done_at >= since.astimezone(UTC)).order_by(Task.done_at.desc())
     return list(await db.scalars(query))
 
 

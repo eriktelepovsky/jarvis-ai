@@ -46,5 +46,6 @@ async def recent(db: AsyncSession, since: datetime | None, limit: int = 40) -> l
     """The newest events first: those since a time, or the latest `limit` of the log."""
     query = select(ActivityEvent).order_by(ActivityEvent.at.desc(), ActivityEvent.id.desc())
     if since is not None:
-        query = query.where(ActivityEvent.at >= since)
+        # Stored in UTC without the zone (SQLite): compare in UTC.
+        query = query.where(ActivityEvent.at >= since.astimezone(UTC))
     return list(await db.scalars(query.limit(limit)))

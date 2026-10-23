@@ -147,6 +147,14 @@ async def brief(self, context: WidgetContext) -> BriefSection | None:
 
 Write facts, most important first; Claude decides what to mention. Return `None` when there is nothing to add.
 
+### Ask
+
+When the user asks a question (a line ending with "?" under the orb), Claude gets the dashboard: every widget's number, stats and rows, as the user sees them in the details. A plugin without widgets contributes its `brief()` facts instead. A plugin whose rows should not go to Claude sets `ask_rows = False`; Claude then gets only its `brief()` facts, as custom sources do.
+
+### More in the details
+
+`WidgetData.details_url` loads an HTML fragment from that URL into the details, under the numbers, e.g. the AI summary of unread emails. Serve it from the plugin's `router()`.
+
 ## Developing and testing
 
 Install myOrb from its repository next to your plugin (the example's `pyproject.toml` shows how) and test with `httpx2.MockTransport` instead of the real service. To see the plugin in a running myOrb, install it into myOrb's environment: `uv pip install -e path/to/plugin`.

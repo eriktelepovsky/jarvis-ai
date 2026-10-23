@@ -121,6 +121,9 @@ class WidgetData:
     # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".
     links: list[Link] = field(default_factory=list)
     connected: bool = True
+    # An HTML fragment shown in the details under the numbers, loaded from this URL, e.g. the
+    # AI summary of unread emails.
+    details_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -195,6 +198,9 @@ class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they n
     position: ClassVar[int] = 100
     # A settings page of the plugin, listed on the Integrations page (logo, summary, URL).
     settings: ClassVar["SettingsLink | None"] = None
+    # Whether "Ask" may give Claude the widgets' rows (e.g. email senders and subjects). When
+    # False, Claude only gets what the plugin's brief() says, as in the brief.
+    ask_rows: ClassVar[bool] = True
 
     def widgets(self) -> list[Widget]:
         """Return the numbers this plugin adds around the orb."""

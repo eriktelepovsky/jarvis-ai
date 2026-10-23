@@ -161,6 +161,8 @@ class CustomPlugin(Plugin):
     name = "Custom sources"
     templates_dir = Path(__file__).parent / "templates"
     position = 60
+    # A source decides what Claude may know (its "brief" sentences); its rows stay out of Ask.
+    ask_rows = False
 
     def __init__(self) -> None:
         self.provider = CustomSource()

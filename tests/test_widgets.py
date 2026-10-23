@@ -53,6 +53,7 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
             return {
                 "threadId": "t1",
                 "labelIds": labels,
+                "snippet": "Can we move it to 10:00 &amp; meet in the lab?",
                 "internalDate": "1792656000000",
                 "payload": {"headers": headers},
             }
@@ -204,7 +205,7 @@ def test_disconnect_clears_cached_data(client: TestClient, fake_google: FakeGoog
 
 
 def test_today_panel_labels_all_day_events_once(client: TestClient, fake_google: FakeGoogle):
-    today = datetime.now(TZ).date()
+    today = datetime.now(client.app.state.timezone).date()  # the app's "today", e.g. UTC in CI
     all_day = {"start": {"date": str(today)}, "end": {"date": str(today + timedelta(days=1))}}
     fake_google.routes[CALENDAR] = lambda request: (
         httpx2.Response(200, json={"items": [{"id": "primary", "primary": True}]})

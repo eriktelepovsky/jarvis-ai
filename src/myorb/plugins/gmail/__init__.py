@@ -1,7 +1,9 @@
 import asyncio
+import html
 from datetime import datetime, tzinfo
 from email.utils import getaddresses, parseaddr
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from myorb.connections import google as google_oauth
@@ -17,6 +19,9 @@ from myorb.plugins.base import (
     open_buttons,
 )
 from myorb.plugins.google_data import account_status, load_accounts
+
+if TYPE_CHECKING:
+    from fastapi import APIRouter
 
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 API_NAME = "Gmail API"
@@ -74,6 +79,8 @@ def summarize_message(
         "received": received,
         "url": inbox_url(email, message.get("threadId")),
         "to": recipient(message, email, own or {email.lower()}),
+        # The start of the text, as Gmail shows it in the list: for the AI summary.
+        "snippet": html.unescape(message.get("snippet", "")),
     }
 
 
@@ -143,6 +150,12 @@ class GmailPlugin(Plugin):
     id = "gmail"
     name = "Gmail"
     position = 10
+    templates_dir = Path(__file__).parent / "templates"
+
+    def router(self) -> "APIRouter":
+        from myorb.plugins.gmail.routes import router
+
+        return router
 
     def widgets(self) -> list[Widget]:
         return [
@@ -223,6 +236,7 @@ class GmailPlugin(Plugin):
                 for email, message in messages
             ],
             group_label="accounts" if several else "recipients",
+            details_url="/email/summary",
             **open_buttons("Open inbox", [(a.email, a.data["url"]) for a in loaded]),
             **status,
         )

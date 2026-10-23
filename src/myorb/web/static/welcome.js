@@ -333,6 +333,220 @@
     input.focus();
   });
 
+  // Ask: a question in the command line (ending or starting with "?") opens the Ask dialog,
+  // where Claude answers from the dashboard as it writes. The conversation is kept for the tab.
+  const ASK_KEY = "myorb.ask";
+  let ask = { conversation: null, messages: [] };
+  try {
+    ask = JSON.parse(sessionStorage.getItem(ASK_KEY)) || ask;
+  } catch {
+    // Storage unavailable: a new conversation.
+  }
+  const saveAsk = () => {
+    try {
+      sessionStorage.setItem(ASK_KEY, JSON.stringify(ask));
+    } catch {
+      // Storage unavailable: kept until the page reloads.
+    }
+  };
+  const isQuestion = (text) => /^\?|\?\s*$/.test(text.trim());
+
+  const escapeHtml = (text) =>
+    text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+  // Plain text with "- " lists and **bold**, as the prompt asks; everything else is escaped.
+  function renderAnswer(text) {
+    return text
+      .split(/\n{2,}/)
+      .map((block) => {
+        const lines = block.split("\n").filter((line) => line.trim());
+        const inline = (line) => escapeHtml(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        if (lines.length && lines.every((line) => /^\s*[-•]\s/.test(line))) {
+          return `<ul>${lines.map((line) => `<li>${inline(line.replace(/^\s*[-•]\s/, ""))}</li>`).join("")}</ul>`;
+        }
+        return `<p>${lines.map(inline).join("<br>")}</p>`;
+      })
+      .join("");
+  }
+
+  function askBubble(role, text, state = "") {
+    const bubble = document.createElement("div");
+    bubble.className = `ask-message ask-${role}${state ? ` is-${state}` : ""}`;
+    if (role === "user") bubble.textContent = text;
+    else bubble.innerHTML = text ? renderAnswer(text) : "";
+    return bubble;
+  }
+
+  function showAsk() {
+    const dialog = document.getElementById("ask");
+    if (!dialog) return null;
+    const log = dialog.querySelector("[data-ask-log]");
+    log.replaceChildren(...ask.messages.map((m) => askBubble(m.role, m.content)));
+    if (!dialog.open) {
+      dialogs().forEach((other) => other.open && other.close());
+      dialog.showModal();
+    }
+    log.scrollTop = log.scrollHeight;
+    return dialog;
+  }
+
+  // A line from the command line that was meant as a task (it just ends with "?").
+  function offerTask(log, text) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ask-as-task";
+    button.textContent = "Add as a task instead";
+    button.addEventListener("click", async () => {
+      const body = new FormData();
+      body.set("text", text);
+      const response = await fetch("/command", { method: "POST", body, headers: { "HX-Request": "true" } });
+      button.disabled = true;
+      button.textContent = response.ok ? "Added as a task." : "The task could not be added.";
+      if (response.ok) htmx.trigger(document.body, "myorb:refresh");
+    });
+    log.append(button);
+  }
+
+  async function askQuestion(question, { fromCommand = false } = {}) {
+    const dialog = showAsk();
+    if (!dialog || dialog.dataset.busy) return;
+    const log = dialog.querySelector("[data-ask-log]");
+    ask.messages.push({ role: "user", content: question });
+    log.append(askBubble("user", question));
+    if (fromCommand) offerTask(log, question);
+    const bubble = askBubble("assistant", "", "thinking");
+    bubble.innerHTML = '<span class="ask-thinking">Looking at your dashboard…</span>';
+    log.append(bubble);
+    log.scrollTop = log.scrollHeight;
+    dialog.dataset.busy = "true";
+    let text = "";
+    let error = null;
+    try {
+      const response = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation: ask.conversation, messages: ask.messages }),
+      });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines.filter(Boolean)) {
+          const data = JSON.parse(line);
+          if (data.conversation) ask.conversation = data.conversation;
+          if (data.error) error = data.error;
+          if (data.text) {
+            text += data.text;
+            bubble.classList.remove("is-thinking");
+            bubble.innerHTML = renderAnswer(text);
+            log.scrollTop = log.scrollHeight;
+          }
+        }
+      }
+    } catch {
+      error = "The answer could not be loaded. Try again.";
+    }
+    delete dialog.dataset.busy;
+    if (error && !text) {
+      // Nothing answered: the question is taken back, so asking again does not repeat it.
+      ask.messages.pop();
+      bubble.className = "ask-message ask-error";
+      bubble.textContent = error;
+    } else {
+      if (error) bubble.insertAdjacentHTML("beforeend", `<p class="ask-note">${escapeHtml(error)}</p>`);
+      ask.messages.push({ role: "assistant", content: text });
+    }
+    saveAsk();
+    dialog.querySelector("#ask-input")?.focus();
+  }
+
+  // The command line: a question goes to Ask instead of becoming a task.
+  document.addEventListener("htmx:beforeRequest", (event) => {
+    const form = event.detail.elt;
+    if (!form.matches?.(".command-bar[data-ask]")) return;
+    const input = form.querySelector("#command-input");
+    if (!isQuestion(input.value)) return;
+    event.preventDefault();
+    const question = input.value.trim().replace(/^\?\s*/, "");
+    form.reset();
+    askQuestion(question, { fromCommand: true });
+  });
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-ask-form]");
+    if (!form) return;
+    event.preventDefault();
+    const input = form.querySelector("input");
+    if (!input.value.trim()) return;
+    const question = input.value.trim();
+    form.reset();
+    askQuestion(question);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-ask-new]")) return;
+    ask = { conversation: null, messages: [] };
+    saveAsk();
+    showAsk();
+    document.getElementById("ask-input")?.focus();
+  });
+
+  // The activity list shows only as many events as fit above the YouTube window (or the music
+  // search) while it is shown, so none hides behind it; the rest are the oldest. The dock's
+  // small controls alone leave the list as it is.
+  // After the column's height has moved, check once more: the orb may have changed meanwhile.
+  function fitActivity() {
+    const list = document.querySelector('.side-right [hx-get="/activity"]');
+    if (!list) return;
+    const items = [...list.querySelectorAll(".activity-item")];
+    const column = list.closest(".side-right");
+    // Shown or not: the video is only made invisible (the music plays on), the search removed.
+    const panels = [...document.querySelectorAll("#media-dock .music-player, #media-dock .music-finder")]
+      .filter((panel) => getComputedStyle(panel).visibility !== "hidden")
+      .map((panel) => panel.getBoundingClientRect())
+      .filter((rect) => rect.height);
+    const box = column.getBoundingClientRect();
+    const covering = panels.filter((rect) => rect.left < box.right && rect.right > box.left);
+    // The column's height animates (CSS) to what fits; events below it fade out. It is centred
+    // beside the orb, so it may be as tall as twice the room between its centre and the dock.
+    const padding = parseFloat(getComputedStyle(column).paddingBottom) || 0;
+    let height = column.scrollHeight;
+    if (covering.length) {
+      const limit = Math.min(...covering.map((rect) => rect.top)) - 16;
+      const room = 2 * (limit - (box.top + box.height / 2));
+      const fitting = items.filter((item) => item.getBoundingClientRect().bottom - box.top + padding <= room);
+      const last = fitting.at(-1);
+      height = last ? last.getBoundingClientRect().bottom - box.top + padding : list.getBoundingClientRect().top - box.top;
+    }
+    items.forEach((item) => {
+      item.classList.toggle("is-cut", item.getBoundingClientRect().bottom - box.top + padding > height + 1);
+    });
+    column.style.maxHeight = `${Math.ceil(height)}px`;
+  }
+
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail.target.matches?.('[hx-get="/activity"]')) fitActivity();
+  });
+  window.addEventListener("resize", fitActivity);
+  document.querySelector(".side-right")?.addEventListener("transitionend", (event) => {
+    if (event.propertyName === "max-height") fitActivity();
+  });
+  document.fonts?.ready.then(fitActivity);
+  // The YouTube window appears once its video loads, and is hidden and shown from the dock
+  // (by a class: its size stays).
+  const dockPanels = document.querySelectorAll("#media-dock, #media-dock .music-player, #media-dock .music-finder");
+  if ("ResizeObserver" in window) {
+    const watch = new ResizeObserver(fitActivity);
+    dockPanels.forEach((el) => watch.observe(el));
+  }
+  const toggles = new MutationObserver(fitActivity);
+  dockPanels.forEach((el) => toggles.observe(el, { attributes: true, attributeFilter: ["class", "hidden"] }));
+
   // The confirmation under the command line fades after a while.
   let commandTimer = null;
   document.addEventListener("htmx:afterSwap", (event) => {
@@ -581,6 +795,7 @@
     delete slot.dataset.due;
     startRing(slot, { due });
     layoutOrb();
+    fitActivity(); // the activity column is centred beside the orb, which may have grown
     if (reopen) {
       const dialog = event.detail.target.querySelector(`#${CSS.escape(reopen)}`);
       if (dialog) {
