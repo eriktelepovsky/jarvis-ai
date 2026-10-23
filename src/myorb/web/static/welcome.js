@@ -407,25 +407,23 @@
     log.append(button);
   }
 
-  async function askQuestion(question, { fromCommand = false } = {}) {
-    const dialog = showAsk();
-    if (!dialog || dialog.dataset.busy) return;
+  // Reads a stream of JSON lines from /ask or /ask/decide into the log: the answer's text, the
+  // actions Claude proposes (cards to confirm) and what the confirmed ones did.
+  async function askStream(dialog, url, body) {
     const log = dialog.querySelector("[data-ask-log]");
-    ask.messages.push({ role: "user", content: question });
-    log.append(askBubble("user", question));
-    if (fromCommand) offerTask(log, question);
-    const bubble = askBubble("assistant", "", "thinking");
+    let bubble = askBubble("assistant", "", "thinking");
     bubble.innerHTML = '<span class="ask-thinking">Looking at your dashboard…</span>';
     log.append(bubble);
     log.scrollTop = log.scrollHeight;
     dialog.dataset.busy = "true";
     let text = "";
     let error = null;
+    const proposals = [];
     try {
-      const response = await fetch("/ask", {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation: ask.conversation, messages: ask.messages }),
+        body: JSON.stringify(body),
       });
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -440,7 +438,14 @@
           const data = JSON.parse(line);
           if (data.conversation) ask.conversation = data.conversation;
           if (data.error) error = data.error;
+          if (data.refresh) htmx.trigger(document.body, "myorb:refresh");
+          if (data.done) showDone(dialog, data.done);
+          if (data.proposal) proposals.push(data.proposal);
           if (data.text) {
+            if (!bubble.isConnected) {
+              bubble = askBubble("assistant", "");
+              log.append(bubble);
+            }
             text += data.text;
             bubble.classList.remove("is-thinking");
             bubble.innerHTML = renderAnswer(text);
@@ -452,17 +457,98 @@
       error = "The answer could not be loaded. Try again.";
     }
     delete dialog.dataset.busy;
-    if (error && !text) {
-      // Nothing answered: the question is taken back, so asking again does not repeat it.
-      ask.messages.pop();
-      bubble.className = "ask-message ask-error";
-      bubble.textContent = error;
-    } else {
-      if (error) bubble.insertAdjacentHTML("beforeend", `<p class="ask-note">${escapeHtml(error)}</p>`);
-      ask.messages.push({ role: "assistant", content: text });
+    if (!text) bubble.remove();
+    if (text) ask.messages.push({ role: "assistant", content: text });
+    if (error) {
+      const note = askBubble("error", "");
+      note.className = "ask-message ask-error";
+      note.textContent = error;
+      log.append(note);
     }
+    if (proposals.length) showProposals(dialog, proposals);
     saveAsk();
+    log.scrollTop = log.scrollHeight;
     dialog.querySelector("#ask-input")?.focus();
+    return { text, error };
+  }
+
+  // An action Claude wants to take: the user does it or cancels it. When every card of the
+  // turn is decided, the decisions go back and Claude goes on.
+  function showProposals(dialog, proposals) {
+    const log = dialog.querySelector("[data-ask-log]");
+    // Claude took it as something to do: "Add as a task instead" would only repeat it.
+    log.querySelectorAll(".ask-as-task").forEach((offer) => offer.remove());
+    const decided = new Map();
+    for (const proposal of proposals) {
+      const card = document.createElement("div");
+      card.className = "ask-action";
+      card.dataset.proposal = proposal.id;
+      card.innerHTML = `<span class="ask-action-text"></span>
+        <span class="ask-action-buttons">
+          <button type="button" class="btn btn-primary btn-small" data-run>Do it</button>
+          <button type="button" class="btn btn-small" data-cancel>Cancel</button>
+        </span>`;
+      card.querySelector(".ask-action-text").textContent = proposal.summary;
+      card.addEventListener("click", async (event) => {
+        const run = event.target.closest("[data-run]");
+        if (!run && !event.target.closest("[data-cancel]")) return;
+        card.querySelectorAll("button").forEach((button) => (button.disabled = true));
+        card.classList.add(run ? "is-approved" : "is-cancelled");
+        decided.set(proposal.id, Boolean(run));
+        if (decided.size < proposals.length) return;
+        const approved = [...decided].filter(([, yes]) => yes).map(([id]) => id);
+        await askStream(dialog, "/ask/decide", { conversation: ask.conversation, approved });
+      });
+      log.append(card);
+    }
+  }
+
+  // What a confirmed action did, on its card; with Undo when it can be undone.
+  function showDone(dialog, done) {
+    const card = dialog.querySelector(`[data-proposal="${CSS.escape(done.id)}"]`);
+    if (!card) return;
+    const buttons = card.querySelector(".ask-action-buttons");
+    const status = document.createElement("span");
+    status.className = `ask-action-status${done.error ? " is-error" : done.cancelled ? " is-cancelled" : ""}`;
+    status.textContent = done.cancelled ? "Cancelled" : done.error ? done.message : `✓ ${done.message}`;
+    buttons.replaceChildren(status);
+    if (done.undo) {
+      const undo = document.createElement("button");
+      undo.type = "button";
+      undo.className = "btn btn-small";
+      undo.textContent = "Undo";
+      undo.addEventListener("click", async () => {
+        undo.disabled = true;
+        const response = await fetch("/ask/undo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation: ask.conversation, id: done.undo }),
+        });
+        const data = await response.json().catch(() => ({}));
+        status.textContent = data.message ? `↶ ${data.message}` : data.error || "Undoing it failed.";
+        undo.remove();
+        if (data.message) htmx.trigger(document.body, "myorb:refresh");
+      });
+      buttons.append(undo);
+    }
+  }
+
+  async function askQuestion(question, { fromCommand = false } = {}) {
+    const dialog = showAsk();
+    if (!dialog || dialog.dataset.busy) return;
+    const log = dialog.querySelector("[data-ask-log]");
+    ask.messages.push({ role: "user", content: question });
+    log.append(askBubble("user", question));
+    if (fromCommand) offerTask(log, question);
+    const { text, error } = await askStream(dialog, "/ask", {
+      conversation: ask.conversation,
+      messages: ask.messages,
+    });
+    // Nothing answered: the question is taken back, so asking again does not repeat it.
+    if (error && !text) {
+      ask.messages = ask.messages.filter((m, i) => !(i === ask.messages.length - 1 && m.role === "user"));
+      saveAsk();
+    }
   }
 
   // The command line: a question goes to Ask instead of becoming a task.

@@ -44,6 +44,8 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 ## Phase 3: Chat and actions
 
 - [x] **Chat with myOrb:** ask questions about your dashboard under the orb (a line ending with "?"), with follow-ups
+- [x] **Actions in chat:** Claude proposes, you confirm: tasks, YouTube videos seen, uptime monitors, Jira status and comments, Asana tasks, approving and commenting GitHub pull requests; most can be undone
+- [ ] **Actions in chat, Google:** a draft reply in Gmail, calendar events (need wider Google permissions)
 - [ ] **Actions:** reply to an email (as a Gmail draft), add a TODO, create a calendar event; disabled until enabled in settings, each confirmed in the UI
 - [ ] **Triage:** mark items as done or snooze them for later
 - [ ] **Command palette:** quick search and commands with ⌘K

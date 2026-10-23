@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from myorb.cache import refreshing
 from myorb.plugins.base import (
+    AskAction,
     BriefSection,
     Link,
     Plugin,
@@ -78,6 +79,11 @@ class UptimePlugin(Plugin):
     def background(self, context: Callable[[], WidgetContext]) -> Awaitable[None]:
         ctx = context()
         return self.checker.run(ctx.sessionmaker, ctx.http)
+
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.uptime.actions import ask_actions
+
+        return ask_actions(self)
 
     def widgets(self) -> list[Widget]:
         return [

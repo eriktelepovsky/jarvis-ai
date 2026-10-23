@@ -1,12 +1,17 @@
-"""Answering the user's questions about their day with Claude, streamed as it writes."""
+"""Answering the user's questions about their day with Claude, streamed as it writes, and
+proposing actions (e.g. adding a task) that run only after the user confirms them."""
 
 import logging
+import secrets
 from collections.abc import AsyncIterator
 from typing import Any
 
 import anthropic
 
+from myorb.activity.store import record
+from myorb.ask.conversation import Conversation
 from myorb.brief.writer import BriefError, api_error, model_effort, model_options
+from myorb.plugins import ActionError, WidgetContext
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +25,21 @@ like a capable assistant answering their boss: the answer first, then only the d
 help. Name items so the user can find them (sender and subject, issue key, title). Write \
 times in 24-hour format. Answer in the language of the question. Use plain text: short \
 paragraphs, and "- " lists when listing several items; **bold** sparingly; no headings, \
-tables or links."""
+tables or links.
+
+You can also do things for the user with the tools, e.g. add or complete a task, or move a \
+Jira issue. Use a tool only when the user asks for that; when they only ask a question, \
+answer it. Items carry a ref (e.g. "(ref: task 12)") with what the tools need. The user \
+confirms every action before it runs, so call the tool right away instead of asking whether \
+to; if something the tool needs is unclear, ask first. After an action runs, say briefly what \
+was done; if the user cancelled it, leave it."""
 
 # A conversation is the question and the answers before it; long ones keep the latest turns.
 MAX_MESSAGES = 20
 MAX_QUESTION = 2000
+# Rounds of tool calls answered without the user (e.g. an unknown action) in one turn.
+MAX_ROUNDS = 4
+CANCELLED = "The user cancelled this action. Do not do it unless they ask again."
 
 
 def clean_history(messages: Any) -> list[dict[str, str]]:
@@ -51,56 +66,169 @@ def clean_history(messages: Any) -> list[dict[str, str]]:
     return merged
 
 
-async def answer(
-    client: anthropic.AsyncAnthropic,
-    model: str,
-    dashboard: str,
-    history: list[dict[str, str]],
-    assistant: str,
-) -> AsyncIterator[str]:
-    """The answer's text as it is written. Raises BriefError with a message for the user."""
-    system = [
-        {"type": "text", "text": SYSTEM.replace("{assistant}", assistant)},
-        # The dashboard stays the same for the whole conversation: cached after the first
-        # question, so follow-ups cost a tenth for it.
+def ask_question(conversation: Conversation, question: str) -> None:
+    """Add the user's next question. Actions still waiting are cancelled: they wrote instead."""
+    content: list[dict[str, Any]] = [*conversation.replies, *_cancel_pending(conversation)]
+    conversation.replies = []
+    content.append({"type": "text", "text": question[:MAX_QUESTION]})
+    conversation.messages.append({"role": "user", "content": content})
+
+
+def _cancel_pending(conversation: Conversation) -> list[dict[str, Any]]:
+    results = [
+        {"type": "tool_result", "tool_use_id": tool_id, "content": CANCELLED}
+        for tool_id in conversation.pending
+    ]
+    conversation.pending = {}
+    return results
+
+
+def _system(conversation: Conversation) -> list[dict[str, Any]]:
+    return [
+        {"type": "text", "text": SYSTEM.replace("{assistant}", conversation.assistant)},
+        # The tools and the dashboard stay the same for the whole conversation: cached after
+        # the first question, so follow-ups cost a tenth for them.
         {
             "type": "text",
-            "text": f"# Dashboard\n\n{dashboard}",
+            "text": f"# Dashboard\n\n{conversation.dashboard}",
             "cache_control": {"type": "ephemeral"},
         },
     ]
-    try:
-        async with client.beta.messages.stream(
-            **model_options(model),
-            max_tokens=16000,
-            output_config={"effort": model_effort(model)},
-            system=system,
-            messages=history,
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
-            final = await stream.get_final_message()
-    except anthropic.AuthenticationError as error:
-        raise BriefError("Claude rejected the API key. Check it in Integrations.") from error
-    except anthropic.PermissionDeniedError as error:
-        raise BriefError("The API key has no access to this model.") from error
-    except anthropic.RateLimitError as error:
-        raise BriefError("Claude is rate limited right now. Try again later.") from error
-    except anthropic.APIStatusError as error:
-        raise BriefError(api_error(error)) from error
-    except anthropic.APIConnectionError as error:
-        raise BriefError("Claude could not be reached.") from error
-    usage = final.usage
-    # What the question cost, for the server log: the dashboard is read from the cache after
-    # the conversation's first question.
-    logger.info(
-        "Ask: %s input tokens (%s from the cache, %s written to it), %s output",
-        usage.input_tokens,
-        usage.cache_read_input_tokens or 0,
-        usage.cache_creation_input_tokens or 0,
-        usage.output_tokens,
-    )
-    if final.stop_reason == "refusal":
-        raise BriefError("Claude declined to answer this.")
-    if final.stop_reason == "max_tokens":
-        raise BriefError("The answer was cut off.")
+
+
+async def turn(
+    client: anthropic.AsyncAnthropic,
+    model: str,
+    conversation: Conversation,
+    context: WidgetContext,
+) -> AsyncIterator[dict[str, Any]]:
+    """Claude's answer to the last message: {"text": …} pieces, then {"proposal": …} for each
+    action it wants to take (they wait for the user). Raises BriefError for the user."""
+    for _ in range(MAX_ROUNDS):
+        try:
+            async with client.beta.messages.stream(
+                **model_options(model),
+                max_tokens=16000,
+                output_config={"effort": model_effort(model)},
+                system=_system(conversation),
+                tools=conversation.tools,
+                messages=conversation.messages,
+            ) as stream:
+                async for text in stream.text_stream:
+                    yield {"text": text}
+                final = await stream.get_final_message()
+        except anthropic.AuthenticationError as error:
+            raise BriefError("Claude rejected the API key. Check it in Integrations.") from error
+        except anthropic.PermissionDeniedError as error:
+            raise BriefError("The API key has no access to this model.") from error
+        except anthropic.RateLimitError as error:
+            raise BriefError("Claude is rate limited right now. Try again later.") from error
+        except anthropic.APIStatusError as error:
+            raise BriefError(api_error(error)) from error
+        except anthropic.APIConnectionError as error:
+            raise BriefError("Claude could not be reached.") from error
+        usage = final.usage
+        # What the turn cost, for the server log: the dashboard is read from the cache after
+        # the conversation's first question.
+        logger.info(
+            "Ask: %s input tokens (%s from the cache, %s written to it), %s output",
+            usage.input_tokens,
+            usage.cache_read_input_tokens or 0,
+            usage.cache_creation_input_tokens or 0,
+            usage.output_tokens,
+        )
+        # The whole answer goes back as it came (thinking and tool calls included).
+        conversation.messages.append(
+            {
+                "role": "assistant",
+                "content": [b.model_dump(mode="json", exclude_none=True) for b in final.content],
+            }
+        )
+        if final.stop_reason == "refusal":
+            raise BriefError("Claude declined to answer this.")
+        if final.stop_reason == "max_tokens":
+            raise BriefError("The answer was cut off.")
+        if final.stop_reason != "tool_use":
+            return
+        proposals = []
+        for block in (b for b in final.content if b.type == "tool_use"):
+            action = conversation.actions.get(block.name)
+            try:
+                if action is None:
+                    raise ActionError("There is no such action.")
+                summary = await action.summary(context, block.input)
+            except (ActionError, KeyError, TypeError, ValueError) as error:
+                message = str(error) if isinstance(error, ActionError) else "Invalid input."
+                conversation.replies.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": message,
+                        "is_error": True,
+                    }
+                )
+                continue
+            conversation.pending[block.id] = (block.name, block.input)
+            proposals.append({"id": block.id, "summary": summary})
+        if proposals:
+            for proposal in proposals:
+                yield {"proposal": proposal}
+            return
+        # Nothing to confirm (only errors): Claude gets them and goes on.
+        conversation.messages.append({"role": "user", "content": conversation.replies})
+        conversation.replies = []
+    raise BriefError("Claude did not finish. Try again.")
+
+
+async def decide(
+    context: WidgetContext, conversation: Conversation, approved: set[str]
+) -> AsyncIterator[dict[str, Any]]:
+    """Run the approved actions, cancel the rest: {"done": …} for each. Claude then goes on
+    with the results (the caller streams turn())."""
+    results = list(conversation.replies)
+    conversation.replies = []
+    for tool_id, (name, data) in list(conversation.pending.items()):
+        if tool_id not in approved:
+            results.append({"type": "tool_result", "tool_use_id": tool_id, "content": CANCELLED})
+            yield {"done": {"id": tool_id, "message": "Cancelled.", "cancelled": True}}
+            continue
+        action = conversation.actions[name]
+        try:
+            result = await action.run(context, data)
+        except ActionError as error:
+            message = str(error)
+            results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_id,
+                    "content": message,
+                    "is_error": True,
+                }
+            )
+            yield {"done": {"id": tool_id, "message": message, "error": True}}
+            continue
+        except Exception:
+            logger.exception("Ask action %s failed", name)
+            message = "The action failed."
+            results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_id,
+                    "content": message,
+                    "is_error": True,
+                }
+            )
+            yield {"done": {"id": tool_id, "message": message, "error": True}}
+            continue
+        results.append({"type": "tool_result", "tool_use_id": tool_id, "content": result.message})
+        await record(
+            context.sessionmaker, f"Asked {conversation.assistant}: {result.message}", "ok"
+        )
+        done: dict[str, Any] = {"id": tool_id, "message": result.message}
+        if result.undo is not None:
+            undo_id = secrets.token_urlsafe(9)
+            conversation.undo[undo_id] = result.undo
+            done["undo"] = undo_id
+        yield {"done": done}
+    conversation.pending = {}
+    conversation.messages.append({"role": "user", "content": results})

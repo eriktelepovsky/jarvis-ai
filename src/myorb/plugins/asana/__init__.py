@@ -19,6 +19,7 @@ from myorb.connections.providers import (
     request_json,
 )
 from myorb.plugins.base import (
+    AskAction,
     BriefSection,
     Link,
     Plugin,
@@ -50,6 +51,7 @@ class Task:
     url: str
     workspace: str
     project: str
+    gid: str = ""  # Asana's id of the task, for Ask's actions
 
 
 class Asana(Provider):
@@ -148,6 +150,7 @@ def convert(item: dict[str, Any], workspace: str) -> Task:
         url=item.get("permalink_url") or "https://app.asana.com/",
         workspace=workspace,
         project=projects[0].get("name", "") if projects else "No project",
+        gid=str(item.get("gid", "")),
     )
 
 
@@ -196,6 +199,11 @@ class AsanaPlugin(Plugin):
             )
         ]
 
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.asana.actions import ask_actions
+
+        return ask_actions(self.provider)
+
     async def _load(self, context: WidgetContext) -> list[AccountResult]:
         async def fetch(provider: Provider, account: ConnectedAccount) -> list[Task]:
             return await self.provider.tasks(context.http, account.credentials)
@@ -242,6 +250,7 @@ class AsanaPlugin(Plugin):
                     tags=tags,
                     group=task.workspace,
                     subgroup=task.project,
+                    ref=f"asana task {task.gid}" if task.gid else "",
                 )
             )
         return WidgetData(
