@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -100,9 +101,15 @@ class CodeReviewPlugin(Plugin):
         async def fetch(host: CodeHost, account: ConnectedAccount) -> dict[str, list[PullRequest]]:
             return await host.pull_requests(context.http, account.credentials)
 
-        return await load_connected(
-            context, self.hosts, "pulls", fetch, fresh=3 * 60, max_age=60 * 60
+        # Bitbucket is asked repository by repository and limits requests per hour, so it is
+        # read at most every 15 minutes; the others every 3.
+        slow = [host for host in self.hosts if isinstance(host, Bitbucket)]
+        quick = [host for host in self.hosts if host not in slow]
+        results = await asyncio.gather(
+            load_connected(context, quick, "pulls", fetch, fresh=3 * 60, max_age=60 * 60),
+            load_connected(context, slow, "pulls", fetch, fresh=15 * 60, max_age=2 * 60 * 60),
         )
+        return [result for part in results for result in part]
 
     @staticmethod
     def _merged(results: list[AccountResult]) -> tuple[list[PullRequest], list[PullRequest]]:

@@ -164,6 +164,53 @@ body:has(#welcome) {
   color: var(--warn);
 }
 
+/* What needs attention (from the header): each source's problem and its fix */
+
+.modal.attention-modal {
+  width: min(640px, calc(100% - 48px));
+  height: fit-content;
+  max-height: calc(100vh - 64px);
+}
+
+.attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  overflow-y: auto;
+}
+
+.attention-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warn);
+  border-radius: 10px;
+}
+
+.attention-item.is-fail {
+  border-left-color: var(--fail);
+}
+
+.attention-text {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13.5px;
+}
+
+.attention-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .header-controls {
   display: flex;
   align-items: flex-start;

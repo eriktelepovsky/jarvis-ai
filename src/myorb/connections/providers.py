@@ -34,6 +34,11 @@ class ProviderError(Exception):
     """The values do not work. The message is safe to show to the user."""
 
 
+class RateLimited(ProviderError):
+    """The service asks to be asked less often (HTTP 429). Nothing is wrong with the
+    connection: myOrb asks again later, and there is nothing for the user to fix."""
+
+
 @dataclass(frozen=True)
 class Choice:
     """A part of an account the user can leave out, e.g. a workspace they no longer use."""
@@ -100,7 +105,10 @@ def status_error(response: httpx2.Response, service: str) -> ProviderError:
     if response.status_code == 404:
         return ProviderError(f"{service} did not find it. Check the address.")
     if response.status_code == 429:
-        return ProviderError(f"{service} is rate limiting requests. Try again later.")
+        return RateLimited(
+            f"{service} limits how often myOrb may ask, and asked it to wait. "
+            "myOrb asks again later; there is nothing to fix."
+        )
     return ProviderError(f"{service} returned an error (HTTP {response.status_code}).")
 
 

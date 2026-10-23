@@ -444,3 +444,14 @@ def test_jira_backlog_is_not_counted(client: TestClient, apis: FakeApis):
     assert 'data-filter="backlog"' in text
     assert text.index("WEB-1") < text.index("APP-2")  # the backlog comes last
     assert ">Backlog</span>" in text
+
+
+def test_a_rate_limit_is_a_note_not_a_problem(client: TestClient, apis: FakeApis):
+    jira_site(apis, "dev", [issue("TRP-1", "new")])
+    connect_jira(client, "dev")
+    apis.routes[("dev.atlassian.net", "/rest/api/3/search/jql")] = lambda r: httpx2.Response(429)
+    client.post("/welcome/widgets/jira/assigned/refresh")
+    text = client.get("/welcome/widgets").text
+    assert "Jira limits how often myOrb may ask" in text and "nothing to fix" in text
+    assert "○ NOTE" in text and "Check the connection" not in text
+    assert "0 sources need attention" in text  # nothing for the user to do
