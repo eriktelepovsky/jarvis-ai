@@ -655,8 +655,10 @@ a.ti:hover .t1 {
   line-height: 1.45;
 }
 
-/* Phone: after the rules it adjusts, so it wins over them. */
-@media (max-width: 720px) {
+/* Phone: after the rules it adjusts, so it wins over them. A phone on its side is short
+   rather than narrow, but takes the same header, greeting and command line; the block after
+   this one lays them out beside the orb. */
+@media (max-width: 720px), (orientation: landscape) and (max-height: 560px) {
   /* The circles reach about 5% past the orb on each side (more for a large one with its
      warning badge), so the orb leaves that much of the screen free. */
   .stage { --d: min(86vw, calc(var(--screen) - 120px)); }
@@ -768,6 +770,104 @@ a.ti:hover .t1 {
     bottom: calc(22px + var(--safe-bottom));
     left: 50%;
     transform: translateX(-50%);
+  }
+}
+
+/* A phone on its side: the screen is too short for the header, greeting, orb and command line
+   one under another (the orb shrank to a dot), so the orb takes the whole height on the right
+   and the rest stacks on the left. The main and the stage step aside (display: contents) so
+   the greeting and the command line can sit in the left column. Clear of the notch, which is
+   on a side now. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .welcome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr auto auto 1fr auto;
+    grid-template-areas:
+      "header orb"
+      ". orb"
+      "greeting orb"
+      "command orb"
+      ". orb"
+      "footer orb";
+    column-gap: 24px;
+    height: var(--screen);
+    padding: 0 max(20px, env(safe-area-inset-right)) 0 max(0px, env(safe-area-inset-left));
+  }
+
+  .welcome-main,
+  .stage {
+    display: contents;
+  }
+
+  /* The circles reach about 5% past the orb (a large one with its badge a little more). */
+  .stage { --d: min(calc(var(--screen) - 64px), 44vw); }
+
+  .welcome-header {
+    grid-area: header;
+    padding: max(20px, var(--safe-top)) 0 0 26px;
+  }
+
+  /* Narrower than the screen, so the links stay on one line each. */
+  .header-nav {
+    gap: 10px;
+    white-space: nowrap;
+  }
+
+  .header-nav > * + *::before {
+    margin-right: 10px;
+  }
+
+  .greeting {
+    grid-area: greeting;
+    margin: 0 0 20px;
+    padding-left: 26px;
+    font-size: 28px;
+    text-align: left;
+  }
+
+  .command {
+    grid-area: command;
+    margin: 0;
+    padding-left: 26px;
+  }
+
+  .command-result {
+    text-align: left;
+  }
+
+  .orb {
+    grid-area: orb;
+    align-self: center;
+    margin: 0 calc(var(--d) * 0.06);
+  }
+
+  .corner-tl,
+  .corner-tr {
+    top: 12px;
+  }
+
+  .corner-tl,
+  .corner-bl {
+    left: max(12px, env(safe-area-inset-left));
+  }
+
+  .corner-tr,
+  .corner-br {
+    right: max(12px, env(safe-area-inset-right));
+  }
+
+  /* The hint and the version under it, in the bottom-left corner bracket. */
+  .welcome-footer {
+    grid-area: footer;
+    padding: 0 0 30px 26px;
+    text-align: left;
+  }
+
+  .welcome-version {
+    bottom: 14px;
+    left: calc(max(0px, env(safe-area-inset-left)) + 26px);
+    transform: none;
   }
 }
 
