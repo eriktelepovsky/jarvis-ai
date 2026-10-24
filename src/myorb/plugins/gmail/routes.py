@@ -2,8 +2,6 @@
 request (it costs a Claude call), and kept until the unread emails change."""
 
 import time
-from html import escape
-from string import hexdigits
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -70,41 +68,3 @@ async def write_summary(request: Request) -> Response:
     saved = {**content, "key": _key(emails), "at": time.time()}
     request.app.state.email_summary = saved
     return _render(request, summary=saved, count=len(emails), new=0)
-
-
-# A test, removed once one works: which googlegmail:// address opens the Gmail app on an
-# iPhone at a given email (the app's addresses are undocumented).
-@router.get("/email/app-links", response_class=HTMLResponse)
-async def app_links(request: Request) -> Response:
-    plugin = request.app.state.plugins["gmail"]
-    accounts = await plugin._accounts(widget_context(request))
-    found = [(a.email, m) for a in accounts if a.data is not None for m in a.data["latest_unread"]]
-    if not found:
-        return HTMLResponse("<p>No unread email to test with.</p>")
-    email, newest = max(found, key=lambda item: item[1]["received"])
-    thread = newest.get("thread_id") or newest["url"].rsplit("/", 1)[-1]
-    message = newest.get("message_id") or thread
-    decimal = int(thread, 16) if thread and all(c in hexdigits for c in thread) else 0
-    variants = {
-        "A": f"googlegmail:///cv={thread}/accountId=1&create-new-tab",
-        "B": f"googlegmail:///cv={thread}",
-        "C": f"googlegmail://cv={thread}",
-        "D": f"googlegmail:///cv={message}/accountId=1&create-new-tab",
-        "E": f"googlegmail:///cv=thread-f:{decimal}/accountId=1&create-new-tab",
-        "F": f"googlegmail:///cv={thread}/accountId=0&create-new-tab",
-        "G": f"googlegmail:///cv={thread}/accountId={email}&create-new-tab",
-        "H": f"googlegmail://message?id={message}",
-        "I": f"googlegmail:///tl/inbox/cv={thread}",
-    }
-    links = "".join(
-        f'<li><a href="{escape(url)}">{name}</a> <code>{escape(url)}</code></li>'
-        for name, url in variants.items()
-    )
-    return HTMLResponse(
-        '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1">'
-        "<title>Gmail app links</title>"
-        '<body style="font: 17px system-ui; padding: 16px; line-height: 2.2">'
-        f"<p>Each should open <strong>{escape(newest['subject'])}</strong> from "
-        f"{escape(newest['sender'])} ({escape(email)}).</p>"
-        f"<ol style='list-style: none; padding: 0'>{links}</ol>"
-    )
