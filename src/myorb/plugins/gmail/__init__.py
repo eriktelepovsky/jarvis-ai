@@ -78,8 +78,6 @@ def summarize_message(
         "subject": _header(message, "Subject") or "(no subject)",
         "received": received,
         "url": inbox_url(email, message.get("threadId")),
-        "thread_id": message.get("threadId", ""),
-        "rfc822_id": _header(message, "Message-ID").strip("<>"),
         "to": recipient(message, email, own or {email.lower()}),
         # The start of the text, as Gmail shows it in the list: for the AI summary.
         "snippet": html.unescape(message.get("snippet", "")),
@@ -124,10 +122,7 @@ async def fetch_inbox(
                 account,
                 f"{API}/threads/{thread_id}",
                 API_NAME,
-                {
-                    "format": "metadata",
-                    "metadataHeaders": ["From", "Subject", "Message-ID", *RECIPIENT_HEADERS],
-                },
+                {"format": "metadata", "metadataHeaders": ["From", "Subject", *RECIPIENT_HEADERS]},
             )
         messages = thread.get("messages") or []
         unread_ones = [m for m in messages if "UNREAD" in m.get("labelIds", [])]

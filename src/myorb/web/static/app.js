@@ -82,6 +82,21 @@ document.addEventListener("click", (event) => {
   location.href = "googlegmail://";
 });
 
+// Safari on an iPhone or iPad shows Gmail's mobile site, which ignores the desktop address of
+// an email (#inbox/<thread>): a link to one goes to the mobile site's address for it instead
+// (tried on an iPhone). Before the click handlers below, which then open the new address.
+document.addEventListener(
+  "click",
+  (event) => {
+    if (!appleTouch) return;
+    const link = event.target.closest('a[href^="https://mail.google.com/mail/u/"]');
+    const url = link && new URL(link.href);
+    const thread = url?.hash.match(/^#inbox\/([^/]+)$/)?.[1];
+    if (thread) link.href = `https://mail.google.com/mail/mu/mp/${url.search}#cv/Inbox/${thread}`;
+  },
+  true,
+);
+
 // Installed on an iPhone's home screen, myOrb opens other sites in its own browser window,
 // which does not share Safari's sign-ins (Google, Jira, GitHub…). Such links open in Safari
 // itself instead, through its x-safari-https:// address (iOS 17 and later); on older iOS the
