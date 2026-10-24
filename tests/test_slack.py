@@ -122,10 +122,12 @@ def test_slack_mentions(client: TestClient, apis: FakeApis):
     response = client.post("/integrations/slack/connect", data={"token": TOKEN})
     assert "Stark" in response.text
     text = client.get("/welcome/widgets").text
-    assert '<span class="node-value">2</span>' in text
+    assert '<span class="node-value">1</span>' in text
+    assert '<span class="node-label">Slack</span>' in text
     assert "@someone can you check staging?" in text
     assert "#dev-backend · pepper" in text
-    assert "Direct message · pepper" in text
+    # The mention in a direct message was read: no unread conversation has it.
+    assert "ping" not in text
     assert "my own message" not in text and "yesterday" not in text
 
 
@@ -166,8 +168,9 @@ def test_unread_direct_messages(client: TestClient, apis: FakeApis):
     )
     client.post("/integrations/slack/connect", data={"token": TOKEN})
     text = client.get("/welcome/widgets").text
-    assert '<span class="node-label">DMs</span>' in text
-    assert "unread in 1 conversation" in text
+    # One number for Slack: 2 unread messages and no mentions.
+    assert '<span class="node-value">2</span>' in text
+    assert "2 unread · 0 mentions" in text
     assert "and bring the slides" in text
     assert "Direct message · pepper · 2 unread" in text
     for hidden in ("lunch on friday", "my own reply", "in a channel", "read already"):
@@ -178,6 +181,7 @@ def test_direct_messages_need_their_permissions(client: TestClient, apis: FakeAp
     slack_api(apis, [], dms=[match("hi", 1, id="D1", is_im=True)], dm_scope_ok=False)
     response = client.post("/integrations/slack/connect", data={"token": TOKEN})
     assert "Needs the im:read and mpim:read permissions" in response.text
-    # Mentions keep working; the direct messages say what is missing.
+    # Mentions keep working; the note says what is missing.
     text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">0</span>' in text
     assert "lacks the im:read permission" in text
