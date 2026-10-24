@@ -47,6 +47,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [x] **Actions in chat:** Claude proposes, you confirm: tasks, YouTube videos seen, uptime monitors, Jira status and comments, Asana tasks, approving and commenting GitHub pull requests; most can be undone
 - [ ] **Actions in chat, Google:** a draft reply in Gmail, calendar events (need wider Google permissions)
 - [ ] **Actions:** reply to an email (as a Gmail draft), add a TODO, create a calendar event; disabled until enabled in settings, each confirmed in the UI
+- [x] **Quick actions:** common questions for Ask (plan today, inbox brief, focus block…) one click away
 - [ ] **Triage:** mark items as done or snooze them for later
 - [ ] **Command palette:** quick search and commands with ⌘K
 - [ ] **Voice control:** talk to myOrb using speech-to-text and text-to-speech

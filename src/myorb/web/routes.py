@@ -98,6 +98,37 @@ async def service_worker() -> Response:
     return Response(script, media_type="text/javascript", headers={"Cache-Control": "no-cache"})
 
 
+# Label, the question it asks, and its icon's path.
+QUICK_ACTIONS = [
+    (
+        "Plan today",
+        "Plan my day: what should I do first, and when?",
+        "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4M8 15h3",
+    ),
+    ("Inbox brief", "What in my inbox needs me today?", "M3 5h18v14H3zM3 7l9 6 9-6"),
+    (
+        "Draft replies",
+        "Which emails should I reply to today, and what could I write?",
+        "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
+    ),
+    (
+        "Focus block",
+        "When can I focus for an hour or more today?",
+        "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
+    ),
+    (
+        "Systems check",
+        "Are my websites and builds healthy? What is failing?",
+        "M3 12h4l3-8 4 16 3-8h4",
+    ),
+    (
+        "Wrap up",
+        "What is still open from today, and what should move to tomorrow?",
+        "M5 12l5 5 9-10M5 5h6",
+    ),
+]
+
+
 @router.get("/", response_class=HTMLResponse)
 async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> HTMLResponse:
     panels = [(plugin, panel) for plugin in ordered_plugins(request) for panel in plugin.panels()]
@@ -112,6 +143,7 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "slots": widget_slots(request),
             # Questions ending with "?" go to Claude when it is connected.
             "can_ask": await request.app.state.brief.settings() is not None,
+            "quick_actions": QUICK_ACTIONS,
         },
     )
 

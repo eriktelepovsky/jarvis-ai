@@ -1377,6 +1377,58 @@ button.row-btn {
   color: var(--fail);
 }
 
+/* Quick actions: questions for Ask, two to a row */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-action {
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.quick-action svg {
+  flex: none;
+  color: var(--accent);
+}
+
+/* Priorities from today's brief; each opens the report */
+
+.priority {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.priority .badge {
+  flex: none;
+  justify-content: center;
+  min-width: 64px;
+}
+
+.priority-text {
+  min-width: 0;
+}
+
+.priority:hover .t1 {
+  color: var(--accent);
+}
+
 /* Brief: headline and button in the orb's core, and the report dialog */
 
 .core:has(.brief-headline) #core-line {

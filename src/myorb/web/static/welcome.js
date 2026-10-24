@@ -574,6 +574,15 @@
     askQuestion(question);
   });
 
+  // A quick action asks its question in a new conversation.
+  document.addEventListener("click", (event) => {
+    const quick = event.target.closest("[data-ask-quick]");
+    if (!quick) return;
+    ask = { conversation: null, messages: [] };
+    saveAsk();
+    askQuestion(quick.dataset.askQuick);
+  });
+
   document.addEventListener("click", (event) => {
     if (!event.target.closest("[data-ask-new]")) return;
     ask = { conversation: null, messages: [] };

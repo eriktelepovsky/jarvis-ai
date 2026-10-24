@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from myorb.brief.models import Brief, ClaudeUsage
+from myorb.brief.plugin import BriefPlugin
 from myorb.brief.service import kind_for
 from myorb.brief.spend import cost_usd, tokens
 from myorb.brief.writer import BriefError, facts_prompt
@@ -283,6 +284,34 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert "Water plants" in report
     assert 'data-brief-language="en"' in report
     assert "Claude Sonnet 5.5" in report
+
+
+def test_priorities_panel_shows_todays_brief(make_client: MakeClient, claude: FakeClaude):
+    client = make_client(
+        transport=httpx2.MockTransport(claude),
+        plugins={"tasks": TasksPlugin(), "brief": BriefPlugin()},
+    )
+    complete_setup(client)
+    assert "/panels/brief/priorities" in client.get("/").text
+    assert "Connect Claude" in client.get("/panels/brief/priorities").text
+
+    connect(client)
+    assert "No brief yet today." in client.get("/panels/brief/priorities").text
+    client.post("/brief/generate")
+    panel = client.get("/panels/brief/priorities").text
+    assert '<span class="badge badge-info">Today</span>' in panel
+    assert "Water plants" in panel and "From your list" in panel
+    assert "data-open-report" in panel
+
+    # Yesterday's brief is stale: its priorities are not shown.
+    async def age() -> None:
+        async with client.app.state.sessionmaker() as db:
+            for brief in await db.scalars(select(Brief)):
+                brief.created_at -= timedelta(days=1)
+            await db.commit()
+
+    client.portal.call(age)
+    assert "No brief yet today." in client.get("/panels/brief/priorities").text
 
 
 @pytest.mark.parametrize(

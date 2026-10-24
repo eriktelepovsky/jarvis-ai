@@ -4,7 +4,7 @@ myOrb is your personal AI-powered daily briefing dashboard. It connects to email
 
 > 🚧 Work in progress.
 
-![myOrb welcome screen: the orb with numbers from email, calendar, tasks, pull requests, Jira, Slack, uptime, sleep and YouTube, today's tasks on the left and recent activity on the right](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/welcome.jpg)
+![myOrb welcome screen: the orb with numbers from email, calendar, tasks, pull requests, Jira, finance, Slack, uptime, sleep and YouTube; today's schedule, tasks, priorities from the brief and the weather on the left; quick actions, recent activity and a YouTube player on the right](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/welcome.jpg)
 
 *The welcome screen, with sample data.*
 
