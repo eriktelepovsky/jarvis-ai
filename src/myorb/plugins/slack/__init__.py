@@ -1,5 +1,6 @@
 """Slack mentions of the user and unread direct messages, through the user's own Slack app."""
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass
@@ -30,7 +31,6 @@ from myorb.plugins.base import (
 from myorb.plugins.connection_data import AccountResult, connected_status, load_connected
 
 API = "https://slack.com/api"
-DM_ICON = "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"
 ICON = "M16 12a4 4 0 1 1-8 0a4 4 0 1 1 8 0M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"
 MANIFEST = {
     "display_information": {
@@ -233,7 +233,11 @@ class SlackWorkspace(Provider):
             name = channel.get("name", "")
             mentions.append(
                 Mention(
-                    channel="Direct message" if channel.get("is_im") else f"#{name}",
+                    channel="Direct message"
+                    if channel.get("is_im")
+                    else "Group message"
+                    if channel.get("is_mpim")
+                    else f"#{name}",
                     author=match.get("username") or "someone",
                     text=plain_text(match.get("text", "")),
                     sent=sent,
@@ -251,7 +255,7 @@ def ago(sent: datetime, now: datetime) -> str:
 
 
 class SlackPlugin(Plugin):
-    """Slack mentions from one or more workspaces."""
+    """Unread direct messages and mentions from one or more Slack workspaces."""
 
     id = "slack"
     name = "Slack"
@@ -265,25 +269,18 @@ class SlackPlugin(Plugin):
         return [self.provider]
 
     def widgets(self) -> list[Widget]:
+        # One number for Slack: unread direct messages and mentions, one window to read them.
+        # Its id stays "mentions", so its place and yesterday's number carry over.
         return [
             Widget(
                 id="mentions",
-                label="Mentions",
-                title="Slack · mentions",
+                label="Slack",
+                title="Slack",
                 icon=ICON,
                 load=self._widget,
                 weight=0.9,
                 refresh=3 * 60,
-            ),
-            Widget(
-                id="dms",
-                label="DMs",
-                title="Slack · direct messages",
-                icon=DM_ICON,
-                load=self._dms_widget,
-                weight=0.9,
-                refresh=3 * 60,
-            ),
+            )
         ]
 
     async def _load(self, context: WidgetContext) -> list[AccountResult]:
@@ -292,43 +289,6 @@ class SlackPlugin(Plugin):
 
         return await load_connected(
             context, [self.provider], "mentions", fetch, fresh=3 * 60, max_age=60 * 60
-        )
-
-    async def _widget(self, context: WidgetContext) -> WidgetData:
-        results = await self._load(context)
-        status = connected_status(
-            results, "Slack", Link("Connect Slack", "/integrations/slack/connect")
-        )
-        loaded = [r for r in results if r.data is not None]
-        if not loaded:
-            return WidgetData(value=None, **status)
-        several = len(loaded) > 1
-        mentions = sorted(
-            ((r.account, m) for r in loaded for m in r.data),
-            key=lambda item: item[1].sent,
-            reverse=True,
-        )
-        return WidgetData(
-            value=len(mentions),
-            summary="mentions in the last 24 hours",
-            stats=[
-                Stat(len(mentions), "Last 24 h"),
-                Stat(len({m.channel for _, m in mentions}), "Channels"),
-                Stat(len(loaded), "Workspaces"),
-            ],
-            list_title="Latest mentions",
-            rows=[
-                Row(
-                    m.text[:140] or "(no text)",
-                    " · ".join(p for p in (team if several else "", m.channel, m.author) if p),
-                    ago(m.sent, context.now),
-                    url=m.url,
-                    group=team,
-                )
-                for team, m in mentions
-            ],
-            group_label="workspaces",
-            **status,
         )
 
     async def _load_dms(self, context: WidgetContext) -> list[AccountResult]:
@@ -341,31 +301,52 @@ class SlackPlugin(Plugin):
             context, [self.provider], "dms", fetch, fresh=3 * 60, max_age=60 * 60
         )
 
-    async def _dms_widget(self, context: WidgetContext) -> WidgetData:
-        results = await self._load_dms(context)
+    async def _widget(self, context: WidgetContext) -> WidgetData:
+        results, dm_results = await asyncio.gather(self._load(context), self._load_dms(context))
         status = connected_status(
             results, "Slack", Link("Connect Slack", "/integrations/slack/connect")
         )
         loaded = [r for r in results if r.data is not None]
         if not loaded:
             return WidgetData(value=None, **status)
+        # Direct messages that cannot be read (e.g. a token from before they were shown) leave
+        # the mentions: a note on what to fix, not a broken source.
+        dm_status = connected_status(dm_results, "Slack", status.get("message_action"))
+        if "message" not in status and "message" in dm_status:
+            status["message"] = dm_status["message"]
+            status["message_tone"] = "info" if dm_status["message_tone"] == "info" else "warn"
+            status["message_action"] = dm_status.get("message_action")
+        dms_loaded = [r for r in dm_results if r.data is not None]
         several = len(loaded) > 1
         conversations = sorted(
-            ((r.account, c) for r in loaded for c in r.data),
+            ((r.account, c) for r in dms_loaded for c in r.data),
+            key=lambda item: item[1].sent,
+            reverse=True,
+        )
+        # A mention in a direct message is there once: as unread, or read and done with.
+        read_dms = {r.account for r in dms_loaded}
+        mentions = sorted(
+            (
+                (r.account, m)
+                for r in loaded
+                for m in r.data
+                if not (r.account in read_dms and m.channel in ("Direct message", "Group message"))
+            ),
             key=lambda item: item[1].sent,
             reverse=True,
         )
         unread = sum(c.unread for _, c in conversations)
+        parts = [f"{unread} unread" if conversations else ""]
+        parts.append(f"{len(mentions)} " + ("mention" if len(mentions) == 1 else "mentions"))
         return WidgetData(
-            value=unread,
-            summary=f"unread in {len(conversations)} "
-            + ("conversation" if len(conversations) == 1 else "conversations"),
+            value=unread + len(mentions),
+            summary=" · ".join(p for p in parts if p),
             stats=[
-                Stat(unread, "Unread"),
-                Stat(len(conversations), "Conversations"),
+                Stat(unread, "Unread DMs", filter="dm"),
+                Stat(len(mentions), "Mentions · 24 h", filter="mention"),
                 Stat(len(loaded), "Workspaces"),
             ],
-            list_title="Unread direct messages",
+            list_title="Direct messages and mentions",
             rows=[
                 Row(
                     c.text[:140] or "(no text)",
@@ -380,10 +361,23 @@ class SlackPlugin(Plugin):
                         if p
                     ),
                     ago(c.sent, context.now),
+                    tone="info",
                     url=c.url,
+                    tags=("dm",),
                     group=team,
                 )
                 for team, c in conversations
+            ]
+            + [
+                Row(
+                    m.text[:140] or "(no text)",
+                    " · ".join(p for p in (team if several else "", m.channel, m.author) if p),
+                    ago(m.sent, context.now),
+                    url=m.url,
+                    tags=("mention",),
+                    group=team,
+                )
+                for team, m in mentions
             ],
             group_label="workspaces",
             **status,
