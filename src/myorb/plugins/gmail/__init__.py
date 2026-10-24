@@ -78,6 +78,8 @@ def summarize_message(
         "subject": _header(message, "Subject") or "(no subject)",
         "received": received,
         "url": inbox_url(email, message.get("threadId")),
+        "thread_id": message.get("threadId", ""),
+        "message_id": message.get("id", ""),
         "to": recipient(message, email, own or {email.lower()}),
         # The start of the text, as Gmail shows it in the list: for the AI summary.
         "snippet": html.unescape(message.get("snippet", "")),
