@@ -65,3 +65,19 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") document.querySelectorAll("details.menu[open]").forEach((menu) => (menu.open = false));
 });
+
+// On an iPhone or iPad, a Gmail link opens the Gmail app at that email, through the app's
+// own googlegmail:// address (undocumented by Google, so tried: if the app does not open
+// within a moment, e.g. it is not installed, the web page opens as before).
+const appleTouch =
+  /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+document.addEventListener("click", (event) => {
+  if (!appleTouch || event.defaultPrevented) return;
+  const link = event.target.closest('a[href^="https://mail.google.com/"]');
+  if (!link) return;
+  event.preventDefault();
+  const thread = new URL(link.href).hash.match(/^#inbox\/([0-9a-f]+)$/i)?.[1];
+  const fallback = setTimeout(() => (location.href = link.href), 1500);
+  document.addEventListener("visibilitychange", () => clearTimeout(fallback), { once: true });
+  location.href = thread ? `googlegmail:///cv=${thread}/accountId=1&create-new-tab` : "googlegmail://";
+});
