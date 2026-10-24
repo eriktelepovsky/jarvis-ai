@@ -100,6 +100,8 @@ def test_parse_days():
     assert len(days) == 2
     # A Shortcut without a date sends today's numbers.
     assert parse_days({"steps": 1200}, today)[0]["day"] == today
+    # A Shortcut that found no sleep sends a sum of 0: no sleep was measured.
+    assert parse_days({"steps": 1200, "sleep_minutes": 0}, today)[0]["sleep_minutes"] is None
     # A date variable Shortcuts did not format arrives in the phone's own format.
     for body in [{}, [], {"date": "23. 10. 2026 o 12:28"}, {"date": "yesterday"}, ["x"]]:
         with pytest.raises(ValueError):
@@ -124,6 +126,36 @@ def test_webhook_stores_days_without_session_or_origin(client: TestClient):
     assert '<span class="node-label">Sleep</span>' in text
     assert "8,410" in text
     assert "Apple Health" in text
+
+
+def test_orb_shows_the_chosen_number(client: TestClient):
+    path = webhook_url(client)
+    today = datetime.now().date().isoformat()
+    client.post(path, json={"date": today, "steps": 8410, "sleep_minutes": 432})
+    # Automatic: last night's sleep.
+    assert '<span class="node-value">7h12</span>' in client.get("/welcome/widgets").text
+
+    page = client.post("/integrations/health/orb", data={"show": "steps"}).text
+    assert "The orb shows the chosen number now." in page
+    assert '<option value="steps" selected>Steps today</option>' in page
+    text = client.get("/welcome/widgets").text
+    assert '<span class="node-value">8,410</span>' in text
+    assert '<span class="node-label">Steps</span>' in text
+
+    # Strava is not connected: its number is a dash rather than another number.
+    client.post("/integrations/health/orb", data={"show": "km"})
+    assert '<span class="node-value">—</span>' in client.get("/welcome/widgets").text
+    assert client.post("/integrations/health/orb", data={"show": "pulse"}).status_code == 400
+
+
+def test_automatic_skips_sleep_that_was_not_measured(client: TestClient):
+    path = webhook_url(client)
+    today = datetime.now().date().isoformat()
+    client.post(path, json={"date": today, "steps": 928, "sleep_minutes": 0})
+    text = client.get("/welcome/widgets").text
+    # Without sleep or Strava, today's steps rather than "0h00".
+    assert '<span class="node-value">928</span>' in text
+    assert "0h00" not in text
 
 
 def test_new_address_replaces_the_old(client: TestClient):

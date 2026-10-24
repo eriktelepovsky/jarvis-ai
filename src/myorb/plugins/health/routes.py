@@ -14,7 +14,7 @@ from myorb.auth.tokens import sign, unsign
 from myorb.connections import store
 from myorb.connections.providers import ProviderError
 from myorb.db import get_db
-from myorb.plugins.health import strava
+from myorb.plugins.health import ORB, ORB_CHOICES, strava
 from myorb.plugins.health.models import HealthDay
 
 router = APIRouter()
@@ -33,6 +33,7 @@ MESSAGES = {
     "scope": "myOrb needs permission to read your activities. Connect again and allow it.",
     "removed": "Strava was disconnected.",
     "token": "A new webhook address was created. Update it in your Shortcut.",
+    "orb": "The orb shows the chosen number now.",
 }
 # Problems passed in the query string; only these fixed texts are shown.
 ERRORS = {
@@ -71,6 +72,10 @@ async def settings_page(
             "callback_domain": expected_origin(request).split("://", 1)[1].split(":")[0],
             "webhook": f"{expected_origin(request)}/hooks/health/{token}" if token else None,
             "last": last,
+            "orb_choices": ORB_CHOICES,
+            "orb_show": (
+                (await store.get_provider_settings(db, request.app.state.secret_box, ORB)) or {}
+            ).get("show", "auto"),
             "message": MESSAGES.get(status or ""),
             "error": ERRORS.get(error or ""),
         },
@@ -181,6 +186,15 @@ async def new_token(request: Request, db: Db) -> Response:
     return RedirectResponse(f"{PAGE}?status=token", 303)
 
 
+@router.post(f"{PAGE}/orb")
+async def save_orb(request: Request, db: Db, show: Annotated[str, Form()]) -> Response:
+    if show not in ORB_CHOICES:
+        raise HTTPException(status_code=400, detail="Unknown choice")
+    await store.save_provider_settings(db, request.app.state.secret_box, ORB, {"show": show})
+    request.app.state.cache.invalidate("health:")
+    return RedirectResponse(f"{PAGE}?status=orb", 303)
+
+
 def _number(value: Any) -> float | None:
     return float(value) if isinstance(value, int | float) and value >= 0 else None
 
@@ -208,6 +222,9 @@ def parse_days(body: Any, today: date) -> list[dict[str, Any]]:
         sleep = _number(item.get("sleep_minutes"))
         if sleep is None and (hours := _number(item.get("sleep_hours"))) is not None:
             sleep = hours * 60
+        # A Shortcut that found no sleep sends a sum of 0: nothing was measured, and an
+        # earlier call's sleep for the day stays.
+        sleep = sleep or None
         steps = _number(item.get("steps"))
         days.append(
             {
