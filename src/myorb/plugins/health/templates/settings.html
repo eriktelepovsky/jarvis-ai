@@ -29,18 +29,52 @@
 <section class="panel panel-narrow" aria-labelledby="apple-title">
   <div class="panel-header"><h2 class="label" id="apple-title">Apple Health · sleep and steps</h2></div>
   <div class="panel-section instructions">
-    <p style="margin: 0">Apple Health data stays on your iPhone, so a Shortcut sends it to myOrb every morning through a secret webhook address.</p>
+    <p style="margin: 0">Apple Health data stays on your iPhone, so a Shortcut sends today's steps and last night's sleep to myOrb through a secret webhook address. It takes about ten minutes to set up, once.</p>
     {% if webhook %}
     <div class="copy" style="margin-top: 12px"><code id="webhook">{{ webhook }}</code><button type="button" class="btn" data-copy="#webhook">Copy</button></div>
-    <ol style="margin-top: 12px">
-      <li>In the <strong>Shortcuts</strong> app, create a new shortcut named <code>Send health to myOrb</code>.</li>
-      <li>Add <strong>Find Health Samples</strong> for <em>Steps</em> started <em>today</em>, then <strong>Calculate Statistics</strong> → <em>Sum</em>.</li>
-      <li>Add a second <strong>Find Health Samples</strong> (not <em>Filter</em>, which would search the steps) where <em>All</em> of these are true: type <em>Sleep</em>, started in the last 1 day, value is not <em>In Bed</em>, value is not <em>Awake</em>. Without the value filters, time in bed counts too and the sleep comes out about double. Then <strong>Calculate Statistics</strong> → <em>Sum</em>. Sleep is only there when something measures it, such as an Apple Watch worn at night. With only an iPhone, Health has the time in bed (Sleep → Options → Track Time in Bed with iPhone): leave out the <em>In Bed</em> filter to send that instead, or skip sleep and choose another number for the orb above.</li>
-      <li>Add <strong>Get Contents of URL</strong> with the address above, method <em>POST</em>, request body <em>JSON</em> with the fields <code>steps</code> and <code>sleep_minutes</code>, each set to the <em>Sum</em> of its own <strong>Calculate Statistics</strong> (not the health samples). To see whether the sleep sum is in hours or minutes, run the shortcut once with <strong>Show Content</strong> after it; for hours, name the field <code>sleep_hours</code> instead. No date is needed: myOrb takes the day it arrives.</li>
-      <li>In <strong>Automation</strong>, run the shortcut every day at a time after you wake up, and turn off <em>Ask Before Running</em>.</li>
+    {% if last %}<p class="muted" style="margin-top: 8px">Last received: {{ last.updated_at | localtime }} (day {{ last.day.strftime("%-d %b") }}).</p>{% else %}<p class="label" style="margin-top: 8px">○ Nothing received yet</p>{% endif %}
+
+    <h3 class="label">1 · Create the shortcut</h3>
+    <ol>
+      <li>In the <strong>Shortcuts</strong> app, tap <strong>+</strong> and name the new shortcut <code>Send health to myOrb</code>.</li>
+      <li><strong>Steps.</strong> Add <strong>Find Health Samples</strong> where <em>All</em> of these are true: <em>Type is Steps</em>, <em>Start Date is today</em>. Then add <strong>Calculate Statistics</strong> → <em>Sum</em>.</li>
+      <li><strong>Sleep</strong> (skip it if nothing measures your sleep, see below). Add a second <strong>Find Health Samples</strong>, not <em>Filter</em>, where <em>All</em> of these are true:
+        <ul>
+          <li><em>Type is Sleep</em></li>
+          <li><em>Start Date is in the last 1 day</em></li>
+          <li><em>Value is not In Bed</em> and <em>Value is not Awake</em>, or the time in bed counts too and the sleep comes out about double.</li>
+        </ul>
+        Then add <strong>Calculate Statistics</strong> → <em>Sum</em>.</li>
+      <li><strong>Send.</strong> Add <strong>Get Contents of URL</strong> with the address above, <em>Method POST</em> and <em>Request Body JSON</em> with two fields:
+        <ul>
+          <li><code>steps</code>: the <em>Sum</em> of the steps' Calculate Statistics</li>
+          <li><code>sleep_minutes</code>: the <em>Sum</em> of the sleep's Calculate Statistics</li>
+        </ul>
+        Pick each value with <em>Select Variable</em>, and take the <em>Sum</em>, not the health samples, which would send every sample instead of one number. Both are called <em>Sum</em>: tap one and choose <em>Reveal Action</em> to see which it is. No date is needed; myOrb takes the day the numbers arrive.</li>
     </ol>
-    <p class="muted">The body can also hold <code>resting_heart_rate</code>, <code>active_energy</code>, a <code>date</code> as <code>yyyy-MM-dd</code> (in Shortcuts, through <strong>Format Date</strong> with that custom format, since a plain date variable is sent in the phone's own format) or a list of several days: <code>{"days": [{"date": "2026-10-22", "steps": 8410, "sleep_minutes": 432}]}</code>. Your iPhone must be able to reach myOrb, so this needs its public address.</p>
-    {% if last %}<p class="muted">Last received: {{ last.updated_at | localtime }} (day {{ last.day.strftime("%-d %b") }}).</p>{% else %}<p class="label">○ Nothing received yet</p>{% endif %}
+
+    <h3 class="label">2 · Run it once</h3>
+    <ol>
+      <li>Add <strong>Show Content</strong> after the sleep's <em>Sum</em> and run the shortcut with ▶. About <em>7</em> means hours: rename the field to <code>sleep_hours</code>. About <em>430</em> means minutes: keep <code>sleep_minutes</code>. Then delete <em>Show Content</em> again.</li>
+      <li>When the iPhone asks to allow sending health samples to <em>{{ callback_domain }}</em>, choose <strong>Always Allow</strong>; otherwise the daily run stops at that question. It lists the samples behind the sums, but only the two numbers are sent.</li>
+      <li>Check <em>Last received</em> under the address above, and the number on the orb.</li>
+    </ol>
+
+    <h3 class="label">3 · Run it every day</h3>
+    <ol>
+      <li>In Shortcuts, open the <strong>Automation</strong> tab, tap <strong>+</strong> and choose <strong>Time of Day</strong>: a time after you wake up, <em>Daily</em>, and <strong>Run Immediately</strong> (turn off <em>Notify When Run</em> if you like). Tap <em>Next</em> and pick <code>Send health to myOrb</code>.</li>
+      <li>For the morning, <strong>Alarm → Is Stopped</strong> works instead of a time: it runs when you turn off your wake-up alarm, with the phone in your hand.</li>
+      <li>Steps sent once in the morning stay the morning's all day. Add more automations, e.g. at 12:00, 17:00 and 21:00: each one replaces today's steps, and the sleep from the morning stays.</li>
+    </ol>
+
+    <h3 class="label">Good to know</h3>
+    <ul>
+      <li><strong>Sleep has to be measured by something</strong>: an Apple Watch worn at night (Health → Sleep → Full Schedule &amp; Options: a sleep schedule, the Sleep Focus and <em>Track Sleep with Apple Watch</em>), or another device or app that writes sleep to Health. An iPhone alone only notes the <em>time in bed</em> (<em>Track Time in Bed with iPhone</em> in the same options); to send that, leave out <em>Value is not In Bed</em>. It counts falling asleep too.</li>
+      <li>Not tracking sleep? Leave out the sleep part and choose another number <a href="#orb-title">on the orb</a>. A sleep of 0 minutes, what the sum of no samples gives, counts as not measured.</li>
+      <li><strong>A locked iPhone</strong> keeps Health data closed, so a run while it lies locked may find nothing. Choose times when you usually use the phone.</li>
+      <li>The body can also hold <code>resting_heart_rate</code>, <code>active_energy</code>, a <code>date</code> as <code>yyyy-MM-dd</code> (in Shortcuts, through <strong>Format Date</strong> with that custom format, since a plain date variable is sent in the phone's own format) or a list of several days: <code>{"days": [{"date": "2026-10-22", "steps": 8410, "sleep_minutes": 432}]}</code>.</li>
+      <li>Your iPhone must be able to reach myOrb, so this needs its public address.</li>
+    </ul>
     {% endif %}
   </div>
   <form method="post" action="/integrations/health/apple/token" class="panel-section actions">
