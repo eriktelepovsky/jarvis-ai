@@ -56,21 +56,6 @@ window.addEventListener("pageshow", () => {
   });
 });
 
-// The Slovak keyboard on an iPhone writes "ť" as "t" plus a separate caron, which the fonts do
-// not show: the letter looked like a plain "t". Each letter and its accents become one
-// character as they are typed, with the cursor where it was.
-function composeAccents(event) {
-  const field = event.target;
-  if (event.isComposing || !field.matches?.('input:not([type]), input[type="text"], input[type="search"], textarea')) return;
-  const text = field.value.normalize("NFC");
-  if (text === field.value) return;
-  const cursor = field.value.slice(0, field.selectionEnd ?? field.value.length).normalize("NFC").length;
-  field.value = text;
-  field.setSelectionRange(cursor, cursor);
-}
-document.addEventListener("input", composeAccents);
-document.addEventListener("compositionend", composeAccents);
-
 // Menus (<details class="menu">): one open at a time, closed by a click elsewhere or Escape.
 document.addEventListener("click", (event) => {
   document.querySelectorAll("details.menu[open]").forEach((menu) => {

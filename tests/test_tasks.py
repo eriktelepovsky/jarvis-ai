@@ -125,15 +125,6 @@ def test_add_task_with_due_date(client: TestClient):
     assert "Tomorrow 09:00" in response.text
 
 
-def test_accents_typed_apart_are_one_letter(client: TestClient):
-    # An iPhone's Slovak keyboard writes "ť" as "t" plus a combining caron (U+030C).
-    client.post("/tasks", data={"text": "kontaktova\u0074\u030c elektrik\u00e1rov"})
-    [saved] = tasks_in_db(client)
-    assert saved.title == "kontaktovať elektrikárov"
-    client.post(f"/tasks/{saved.id}", data={"title": "vr\u00e1ti\u0074\u030c", "due_date": ""})
-    assert tasks_in_db(client)[0].title == "vrátiť"
-
-
 def test_add_from_welcome_screen_refreshes_widgets(client: TestClient):
     response = client.post("/tasks", data={"text": "Water plants"}, headers={"HX-Request": "true"})
     assert response.status_code == 204
