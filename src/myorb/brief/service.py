@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from datetime import time as clock
@@ -81,6 +81,9 @@ class BriefService:
         self._last_attempt: float | None = None
         self.error: str | None = None
         self._eur = spend.EurRate()
+        # Run after a brief is written, without holding it up (e.g. reading it in advance).
+        self.on_written: Callable[[Brief], Awaitable[None]] | None = None
+        self._after: set[asyncio.Task] = set()
 
     @property
     def generating(self) -> bool:
@@ -225,6 +228,10 @@ class BriefService:
             self.error = None
             kind = KICKERS.get(brief.kind, "Brief")
             await record(self._sessionmaker, f"{kind} written: {brief.content['headline']}", "ok")
+            if self.on_written is not None:
+                task = asyncio.create_task(self.on_written(brief))
+                self._after.add(task)
+                task.add_done_callback(self._after.discard)
             return brief
 
     async def due(self) -> bool:

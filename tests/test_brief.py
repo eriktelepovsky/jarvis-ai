@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -511,3 +512,57 @@ def test_spend_is_counted_and_shown_in_euros(client: TestClient, claude: FakeCla
 
     client.portal.call(add)
     assert "€32.00 in the last 30 days" in client.get("/integrations").text
+
+
+# Reading aloud in advance
+
+
+def test_new_brief_is_read_in_advance(make_client: MakeClient, claude: FakeClaude):
+    """With Azure Speech, a new brief is read right away in its own language and the ones
+    chosen to preload, so Read aloud plays it without waiting."""
+    azure_host = "westeurope.tts.speech.microsoft.com"
+    spoken: list[str] = []
+
+    def transport(request: httpx2.Request) -> httpx2.Response:
+        if request.url.host != azure_host:
+            return claude(request)
+        if request.url.path.endswith("/voices/list"):
+            voices = [
+                {"ShortName": name, "LocalName": name, "Gender": "Female", "Locale": name[:5]}
+                | {"VoiceType": "Neural"}
+                for name in ("en-GB-SoniaNeural", "sk-SK-ViktoriaNeural")
+            ]
+            return httpx2.Response(200, json=voices)
+        spoken.append(request.content.decode())
+        return httpx2.Response(200, content=b"ID3 mp3 bytes")
+
+    client = make_client(transport=httpx2.MockTransport(transport), plugins={})
+    complete_setup(client)
+    connect(client)
+    form = {
+        "provider": "azure",
+        "azure_key": "azure-key",
+        "azure_region": "westeurope",
+        "voices_shown": "1",
+        "preload_sk": "on",
+    }
+    client.post("/integrations/voice", data=form)
+    page = client.get("/integrations/voice").text
+    assert 'name="preload_sk" checked' in page
+    # The brief is written in English: always read in advance.
+    assert 'name="preload_en"' not in page
+
+    client.post("/brief/generate")
+    [brief] = briefs(client)
+    for _ in range(50):
+        if len(spoken) == 2:
+            break
+        time.sleep(0.05)
+    assert len(spoken) == 2
+    assert any("A quiet day." in text for text in spoken)
+    assert any("Pokojný deň." in text for text in spoken)
+
+    for language in ("en", "sk"):
+        audio = client.get(f"/brief/{brief.id}/audio", params={"language": language})
+        assert audio.headers["content-type"] == "audio/mpeg"
+    assert len(spoken) == 2  # played from what was read in advance

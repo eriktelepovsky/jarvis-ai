@@ -121,6 +121,9 @@ def create_app(
             context=lambda: app_context(app),
             transport=http_transport,
         )
+        app.state.brief.on_written = lambda brief: voice.preload_brief(
+            app, brief.id, brief.language
+        )
         scheduler = asyncio.create_task(app.state.brief.run_scheduler())
         background = [
             asyncio.create_task(job)

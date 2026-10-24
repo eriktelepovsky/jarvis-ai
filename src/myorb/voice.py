@@ -1,18 +1,21 @@
 """How myOrb reads the brief aloud: the browser's own voices, or Microsoft Azure Speech.
 
 With Azure, the server turns the text into an MP3 and keeps it, so a brief that is played again
-costs nothing; any browser can play it. The browser's voices differ per device, so which one
-reads is chosen on each device and kept there.
+costs nothing; any browser can play it. A new brief is read in advance in its own language and
+in the languages chosen to preload, so pressing Read aloud plays it at once. The browser's
+voices differ per device, so which one reads is chosen on each device and kept there.
 """
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated, Any
 from xml.sax.saxutils import escape
 
 import httpx2
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +23,8 @@ from myorb.brief.writer import READ_LANGUAGES, BriefError
 from myorb.connections import store
 from myorb.connections.providers import ProviderError, request_json, status_error
 from myorb.db import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -60,6 +65,8 @@ class VoiceSettings:
     azure_key: str = ""
     azure_region: str = ""
     voices: dict[str, str] = field(default_factory=dict)
+    # Languages a new brief is read in as soon as it is written, besides its own.
+    preload: list[str] = field(default_factory=list)
 
     @property
     def azure(self) -> bool:
@@ -70,7 +77,11 @@ class VoiceSettings:
 
 
 async def load_voice(request: Request, db: AsyncSession) -> VoiceSettings:
-    data = await store.get_provider_settings(db, request.app.state.secret_box, PROVIDER)
+    return await voice_settings(db, request.app.state.secret_box)
+
+
+async def voice_settings(db: AsyncSession, box: Any) -> VoiceSettings:
+    data = await store.get_provider_settings(db, box, PROVIDER)
     return VoiceSettings(**data) if data else VoiceSettings()
 
 
@@ -146,6 +157,7 @@ async def _page(
     status_code: int = 200,
 ) -> Response:
     voices: dict[str, list[dict[str, Any]]] = {}
+    claude = await request.app.state.brief.settings()
     if settings.azure and error is None:
         try:
             for voice in await azure_voices(
@@ -162,6 +174,8 @@ async def _page(
             "languages": _languages(),
             "azure_voices": voices,
             "samples": SAMPLES,
+            # Always read in advance: the language the brief is written in.
+            "brief_language": claude.language if claude else None,
             "error": error,
             "message": message,
         },
@@ -190,11 +204,18 @@ async def save_voice(
         for code in READ_LANGUAGES
         if str(form.get(f"voice_{code}", "")).strip()
     }
+    # The checkboxes are in the voice list, shown once a key works: kept until then.
+    preload = (
+        [code for code in READ_LANGUAGES if form.get(f"preload_{code}")]
+        if "voices_shown" in form
+        else existing.preload
+    )
     settings = VoiceSettings(
         provider="azure" if provider == "azure" else "browser",
         azure_key=azure_key.strip() or existing.azure_key,
         azure_region=azure_region.strip().lower() or existing.azure_region,
         voices={**existing.voices, **voices},
+        preload=preload,
     )
     if settings.provider == "azure":
         error = None
@@ -218,21 +239,46 @@ async def save_voice(
     return RedirectResponse("/integrations/voice?saved=true", status_code=303)
 
 
-def _audio_path(request: Request, name: str) -> Any:
-    folder = request.app.state.settings.data_dir / "audio"
-    folder.mkdir(parents=True, exist_ok=True)
-    return folder / f"{name}.mp3"
-
-
-async def _speech(request: Request, settings: VoiceSettings, language: str, text: str, name: str):
+async def speech_file(
+    app: FastAPI, settings: VoiceSettings, language: str, text: str, name: str
+) -> Path:
     """The MP3 for the text, made once and kept; the voice is part of the name."""
     voice = settings.voice(language)
     digest = hashlib.sha256(f"{voice}\n{text}".encode()).hexdigest()[:16]
-    path = _audio_path(request, f"{name}-{language}-{digest}")
+    folder = app.state.settings.data_dir / "audio"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{name}-{language}-{digest}.mp3"
     if not path.exists():
-        audio = await synthesize(request.app.state.http, settings, language, text)
+        audio = await synthesize(app.state.http, settings, language, text)
         path.write_bytes(audio)
+    return path
+
+
+async def _speech(request: Request, settings: VoiceSettings, language: str, text: str, name: str):
+    path = await speech_file(request.app, settings, language, text, name)
     return FileResponse(path, media_type="audio/mpeg")
+
+
+async def preload_brief(app: FastAPI, brief_id: int, brief_language: str) -> None:
+    """Read a new brief in advance, in its own language and the ones chosen to preload
+    (translated by Claude first). A failure only means waiting when it is played."""
+    async with app.state.sessionmaker() as db:
+        settings = await voice_settings(db, app.state.secret_box)
+    if not settings.azure:
+        return
+    languages = [brief_language] + [
+        code for code in settings.preload if code in READ_LANGUAGES and code != brief_language
+    ]
+    for language in languages:
+        try:
+            paragraphs = await app.state.brief.translation(brief_id, language)
+            await speech_file(app, settings, language, "\n\n".join(paragraphs), f"brief-{brief_id}")
+        except (BriefError, ProviderError) as error:
+            logger.warning(
+                "Reading brief %s in %s in advance failed: %s", brief_id, language, error
+            )
+        except Exception:
+            logger.exception("Reading brief %s in %s in advance failed", brief_id, language)
 
 
 @router.get("/integrations/voice/sample")
