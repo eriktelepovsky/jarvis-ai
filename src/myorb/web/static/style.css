@@ -1240,7 +1240,8 @@ code,
 
 /* Setup instructions on connect pages */
 
-.instructions ol {
+.instructions ol,
+.instructions ul {
   margin: 0;
   padding-left: 1.2em;
   color: var(--text-body);
@@ -1248,6 +1249,21 @@ code,
 
 .instructions li + li {
   margin-top: 6px;
+}
+
+/* A list inside a step: its items closer together than the steps. */
+.instructions li > ul {
+  margin: 6px 0;
+}
+
+.instructions li > ul li + li {
+  margin-top: 2px;
+}
+
+/* A guide in parts: each part's title above its steps. */
+.instructions h3 {
+  margin: 22px 0 8px;
+  color: var(--text-strong);
 }
 
 .instructions p {
