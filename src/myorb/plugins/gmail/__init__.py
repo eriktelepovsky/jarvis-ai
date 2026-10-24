@@ -9,6 +9,7 @@ from urllib.parse import quote
 from myorb.connections import google as google_oauth
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
+    Action,
     BriefSection,
     Plugin,
     Row,
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
 API = "https://gmail.googleapis.com/gmail/v1/users/me"
 API_NAME = "Gmail API"
 SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+# Marking an email as read; accounts connected before it was asked for can only read.
+MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 # Unread conversations listed in the details (with search), as Gmail counts them: each by
 # its newest unread email. The brief gets the newest BRIEF_UNREAD.
 UNREAD_SHOWN = 100
@@ -78,6 +81,7 @@ def summarize_message(
         "subject": _header(message, "Subject") or "(no subject)",
         "received": received,
         "url": inbox_url(email, message.get("threadId")),
+        "thread_id": message.get("threadId", ""),
         "to": recipient(message, email, own or {email.lower()}),
         # The start of the text, as Gmail shows it in the list: for the AI summary.
         "snippet": html.unescape(message.get("snippet", "")),
@@ -141,6 +145,11 @@ async def fetch_inbox(
         ],
         "url": inbox_url(account.email),
     }
+
+
+def thread_of(message: dict[str, Any]) -> str:
+    """The email's Gmail thread; emails cached before it was kept have it in their link."""
+    return message.get("thread_id") or message["url"].rsplit("/", 1)[-1]
 
 
 def received_badge(received: datetime, now: datetime) -> str:
@@ -235,6 +244,19 @@ class GmailPlugin(Plugin):
             reverse=True,
         )[:UNREAD_SHOWN]
         several = len(accounts) > 1
+        # Each email opens in myOrb; with the permission, it can be marked as read from here.
+        google_accounts = {a.email: a for a in await context.google.list()}
+
+        def actions(email: str, message: dict[str, Any]) -> list[Action]:
+            account = google_accounts.get(email)
+            if account is None or MODIFY_SCOPE not in account.scopes:
+                return []
+            return [Action("Mark read", f"/email/{account.id}/{thread_of(message)}/read")]
+
+        def reading(email: str, message: dict[str, Any]) -> str:
+            account = google_accounts.get(email)
+            return f"/email/{account.id}/{thread_of(message)}" if account else message["url"]
+
         return WidgetData(
             value=unread,
             summary=f"unread · {today_label} emails today",
@@ -249,7 +271,9 @@ class GmailPlugin(Plugin):
                     title=message["sender"],
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
-                    url=message["url"],
+                    url=reading(email, message),
+                    url_label="Read",
+                    actions=actions(email, message),
                     tags=tuple(
                         tag
                         for tag, applies in (

@@ -69,11 +69,28 @@ class GoogleAccounts:
         self, account: GoogleAccount, url: str, api_name: str, params: dict | None = None
     ) -> Any:
         """GET a Google API endpoint as the account. Raises GoogleError with a readable message."""
+        return await self.request_json(account, "GET", url, api_name, params=params)
+
+    async def request_json(
+        self,
+        account: GoogleAccount,
+        method: str,
+        url: str,
+        api_name: str,
+        params: dict | None = None,
+        json: Any = None,
+    ) -> Any:
+        """Call a Google API endpoint as the account. Raises GoogleError with a readable
+        message."""
         for attempt in range(2):
             token = await self._access_token(account)
             try:
-                response = await self._http.get(
-                    url, params=params, headers={"Authorization": f"Bearer {token}"}
+                response = await self._http.request(
+                    method,
+                    url,
+                    params=params,
+                    json=json,
+                    headers={"Authorization": f"Bearer {token}"},
                 )
             except httpx2.HTTPError as error:
                 raise google.GoogleError("Google could not be reached.") from error

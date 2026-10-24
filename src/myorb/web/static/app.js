@@ -111,3 +111,24 @@ document.addEventListener("click", (event) => {
   document.addEventListener("visibilitychange", () => clearTimeout(fallback), { once: true });
   location.href = `x-safari-${link.href}`;
 });
+
+// An email's frame is as tall as its content, so the page scrolls rather than the frame; a
+// folded message is sized when it is opened.
+function sizeEmailFrame(frame) {
+  const page = frame.contentDocument?.documentElement;
+  if (!page || !frame.offsetWidth) return;
+  // Measured at no height, else a frame made wider could not get shorter.
+  frame.style.height = "0px";
+  frame.style.height = `${page.scrollHeight}px`;
+}
+const sizeEmailFrames = () => document.querySelectorAll("[data-email-frame]").forEach(sizeEmailFrame);
+document.addEventListener("DOMContentLoaded", sizeEmailFrames);
+document.addEventListener("htmx:afterSettle", sizeEmailFrames);
+document.addEventListener("load", (event) => {
+  if (event.target.matches?.("[data-email-frame]")) sizeEmailFrame(event.target);
+}, true);
+document.addEventListener("toggle", (event) => {
+  event.target.querySelectorAll?.("[data-email-frame]").forEach(sizeEmailFrame);
+}, true);
+window.addEventListener("resize", sizeEmailFrames);
+

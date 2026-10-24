@@ -41,6 +41,14 @@ CAPABILITIES = (
         api_url="https://console.cloud.google.com/apis/library/gmail.googleapis.com",
     ),
     Capability(
+        id="gmail.modify",
+        label="Mark Gmail as read",
+        scope="https://www.googleapis.com/auth/gmail.modify",
+        check_url="https://gmail.googleapis.com/gmail/v1/users/me/profile",
+        api_name="Gmail API",
+        api_url="https://console.cloud.google.com/apis/library/gmail.googleapis.com",
+    ),
+    Capability(
         id="calendar.read",
         label="Read Google Calendar",
         scope="https://www.googleapis.com/auth/calendar.readonly",
