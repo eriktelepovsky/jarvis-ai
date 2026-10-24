@@ -1,4 +1,4 @@
-"""Slack mentions of the user, found with Slack search through the user's own Slack app."""
+"""Slack mentions of the user and unread direct messages, through the user's own Slack app."""
 
 import json
 import re
@@ -30,19 +30,40 @@ from myorb.plugins.base import (
 from myorb.plugins.connection_data import AccountResult, connected_status, load_connected
 
 API = "https://slack.com/api"
+DM_ICON = "M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"
 ICON = "M16 12a4 4 0 1 1-8 0a4 4 0 1 1 8 0M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"
 MANIFEST = {
     "display_information": {
         "name": "myOrb",
-        "description": "Shows your Slack mentions on your myOrb dashboard.",
+        "description": "Shows your Slack mentions and unread direct messages in myOrb.",
     },
-    "oauth_config": {"scopes": {"user": ["search:read"]}},
+    "oauth_config": {"scopes": {"user": ["search:read", "im:read", "mpim:read"]}},
     "settings": {
         "org_deploy_enabled": False,
         "socket_mode_enabled": False,
         "token_rotation_enabled": False,
     },
 }
+
+
+# Direct messages are looked for among the messages of the last days; unread ones older than
+# that are not shown. Each conversation found costs a request for its read state.
+DM_DAYS = 3
+DM_PAGES = 2
+MAX_CONVERSATIONS = 15
+DM_PERMISSIONS = "im:read and mpim:read"
+
+
+@dataclass(frozen=True)
+class Conversation:
+    """A direct or group message conversation with messages the user has not read."""
+
+    group: bool
+    author: str
+    text: str
+    sent: datetime
+    url: str
+    unread: int
 
 
 @dataclass(frozen=True)
@@ -83,8 +104,10 @@ async def slack(http: httpx2.AsyncClient, method: str, token: str, **params: Any
                 "Slack rejected the token. Install the app again and copy the new token."
             )
         if error == "missing_scope":
+            needed = data.get("needed") or "search:read"
             raise ProviderError(
-                "The token lacks the search:read permission. Use the manifest myOrb shows."
+                f"The token lacks the {needed} permission. Update the app with the manifest "
+                "myOrb shows, reinstall it and paste the new token."
             )
         if error == "not_allowed_token_type":
             raise ProviderError("Use the User OAuth Token (xoxp-…), not the bot token.")
@@ -113,14 +136,76 @@ class SlackWorkspace(Provider):
             "team": identity.get("team", ""),
             "url": identity.get("url", ""),
         }
-        capability = {"id": "search", "label": "Search messages", "ok": True}
+        search = {"id": "search", "label": "Search messages", "ok": True}
         try:
             await slack(http, "search.messages", token, query="test", count=1)
         except ProviderError as error:
-            capability |= {"ok": False, "detail": str(error)}
+            search |= {"ok": False, "detail": str(error)}
+        dms = {"id": "dms", "label": "Unread direct messages", "ok": True}
+        try:
+            await slack(http, "users.conversations", token, types="im,mpim", limit=1)
+        except ProviderError:
+            dms |= {
+                "ok": False,
+                "detail": f"Needs the {DM_PERMISSIONS} permissions: update the app with the "
+                "manifest above, reinstall it and paste the new token.",
+            }
         return Verified(
-            identity.get("team") or identity.get("url", "Slack"), credentials, [capability]
+            identity.get("team") or identity.get("url", "Slack"), credentials, [search, dms]
         )
+
+    async def direct_messages(
+        self, http: httpx2.AsyncClient, credentials: dict[str, Any], now: datetime
+    ) -> list[Conversation]:
+        """Conversations with unread messages: those with messages from others in the last
+        days (found by search), then each one's read state."""
+        token, me = credentials["token"], credentials["user_id"]
+        since = now - timedelta(days=DM_DAYS)
+        after = (since - timedelta(days=1)).date().isoformat()
+        found: dict[str, list[dict[str, Any]]] = {}
+        for page in range(1, DM_PAGES + 1):
+            data = await slack(
+                http,
+                "search.messages",
+                token,
+                query=f"after:{after}",
+                sort="timestamp",
+                sort_dir="desc",
+                count=100,
+                page=page,
+            )
+            messages = data.get("messages", {})
+            for match in messages.get("matches", []):
+                channel = match.get("channel") or {}
+                sent = datetime.fromtimestamp(float(match.get("ts", 0)), UTC)
+                if (
+                    (channel.get("is_im") or channel.get("is_mpim"))
+                    and channel.get("id")
+                    and match.get("user") != me
+                    and sent >= since
+                ):
+                    found.setdefault(channel["id"], []).append(match)
+            if page >= messages.get("paging", {}).get("pages", 1):
+                break
+        conversations = []
+        for channel_id, matches in list(found.items())[:MAX_CONVERSATIONS]:
+            info = (await slack(http, "conversations.info", token, channel=channel_id))["channel"]
+            last_read = float(info.get("last_read") or 0)
+            unread = [m for m in matches if float(m.get("ts", 0)) > last_read]
+            if not unread:
+                continue
+            latest = max(unread, key=lambda m: float(m.get("ts", 0)))
+            conversations.append(
+                Conversation(
+                    group=bool(info.get("is_mpim")),
+                    author=latest.get("username") or "someone",
+                    text=plain_text(latest.get("text", "")),
+                    sent=datetime.fromtimestamp(float(latest["ts"]), UTC),
+                    url=latest.get("permalink", ""),
+                    unread=info.get("unread_count_display") or len(unread),
+                )
+            )
+        return sorted(conversations, key=lambda c: c.sent, reverse=True)
 
     async def mentions(
         self, http: httpx2.AsyncClient, credentials: dict[str, Any], now: datetime
@@ -189,7 +274,16 @@ class SlackPlugin(Plugin):
                 load=self._widget,
                 weight=0.9,
                 refresh=3 * 60,
-            )
+            ),
+            Widget(
+                id="dms",
+                label="DMs",
+                title="Slack · direct messages",
+                icon=DM_ICON,
+                load=self._dms_widget,
+                weight=0.9,
+                refresh=3 * 60,
+            ),
         ]
 
     async def _load(self, context: WidgetContext) -> list[AccountResult]:
@@ -237,17 +331,83 @@ class SlackPlugin(Plugin):
             **status,
         )
 
+    async def _load_dms(self, context: WidgetContext) -> list[AccountResult]:
+        async def fetch(provider: Provider, account: ConnectedAccount) -> list[Conversation]:
+            return await self.provider.direct_messages(
+                context.http, account.credentials, context.now
+            )
+
+        return await load_connected(
+            context, [self.provider], "dms", fetch, fresh=3 * 60, max_age=60 * 60
+        )
+
+    async def _dms_widget(self, context: WidgetContext) -> WidgetData:
+        results = await self._load_dms(context)
+        status = connected_status(
+            results, "Slack", Link("Connect Slack", "/integrations/slack/connect")
+        )
+        loaded = [r for r in results if r.data is not None]
+        if not loaded:
+            return WidgetData(value=None, **status)
+        several = len(loaded) > 1
+        conversations = sorted(
+            ((r.account, c) for r in loaded for c in r.data),
+            key=lambda item: item[1].sent,
+            reverse=True,
+        )
+        unread = sum(c.unread for _, c in conversations)
+        return WidgetData(
+            value=unread,
+            summary=f"unread in {len(conversations)} "
+            + ("conversation" if len(conversations) == 1 else "conversations"),
+            stats=[
+                Stat(unread, "Unread"),
+                Stat(len(conversations), "Conversations"),
+                Stat(len(loaded), "Workspaces"),
+            ],
+            list_title="Unread direct messages",
+            rows=[
+                Row(
+                    c.text[:140] or "(no text)",
+                    " · ".join(
+                        p
+                        for p in (
+                            team if several else "",
+                            "Group message" if c.group else "Direct message",
+                            c.author,
+                            f"{c.unread} unread",
+                        )
+                        if p
+                    ),
+                    ago(c.sent, context.now),
+                    url=c.url,
+                    group=team,
+                )
+                for team, c in conversations
+            ],
+            group_label="workspaces",
+            **status,
+        )
+
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         loaded = [r for r in await self._load(context) if r.data is not None]
         if not loaded:
             return None
+        tz = context.now.tzinfo
         lines = [
-            f"{m.author} in {m.channel} "
-            f"({m.sent.astimezone(context.now.tzinfo):%H:%M}): {m.text[:200]}"
+            f"Mention by {m.author} in {m.channel} ({m.sent.astimezone(tz):%H:%M}): {m.text[:200]}"
             for r in loaded
             for m in r.data
+        ] or ["No new mentions in the last 24 hours."]
+        # Without the direct message permissions, the mentions are still worth a brief.
+        dms = [r for r in await self._load_dms(context) if r.data is not None]
+        lines += [
+            f"Unread {'group' if c.group else 'direct'} message from {c.author} "
+            f"({c.unread} unread, {c.sent.astimezone(tz):%a %H:%M}): {c.text[:200]}"
+            for r in dms
+            for c in r.data
         ]
-        return BriefSection("Slack mentions (last 24 hours)", lines or ["No new Slack mentions."])
+        return BriefSection("Slack", lines)
 
     @staticmethod
     def manifest() -> str:

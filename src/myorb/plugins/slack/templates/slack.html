@@ -1,9 +1,10 @@
 <ol class="steps-inline">
   <li>Open <a href="https://api.slack.com/apps?new_app=1" target="_blank" rel="noopener">Slack API → Create New App</a>, choose <strong>From a manifest</strong> and pick your workspace.</li>
-  <li>Paste this manifest (JSON) and create the app. It only asks to search messages you can see (<code>search:read</code>).
+  <li>Paste this manifest (JSON) and create the app. It asks to search messages you can see (<code>search:read</code>) and to see which of your direct and group messages are unread (<code>im:read</code>, <code>mpim:read</code>). It cannot send anything.
     <div class="copy" style="margin-top: 8px"><pre class="manifest" id="slack-manifest">{{ slack_manifest() }}</pre><button type="button" class="btn" data-copy="#slack-manifest">Copy</button></div>
   </li>
   <li>Click <strong>Install to Workspace</strong> and allow it. Your workspace may need an admin to approve the app.</li>
   <li>Under <strong>OAuth &amp; Permissions</strong>, copy the <strong>User OAuth Token</strong> (it starts with <code>xoxp-</code>) and paste it below.</li>
 </ol>
 <p class="muted">For more workspaces, install the app in each one and connect each token.</p>
+<p class="muted">Connected before myOrb showed direct messages? Open your app, paste the manifest under <strong>App Manifest</strong>, reinstall the app and connect the new token.</p>
