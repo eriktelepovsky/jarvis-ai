@@ -1228,13 +1228,58 @@ code,
   font-size: 14px;
 }
 
+/* Safari on iOS draws date and time fields its own way: wider than their column (the time ran
+   off the screen), taller than the other fields and centered. Without its appearance they
+   take the size given here. */
+.task-edit input[type="date"],
+.task-edit input[type="time"] {
+  min-width: 0;
+  appearance: none;
+}
+
+.task-edit ::-webkit-date-and-time-value {
+  min-height: 1lh;
+  text-align: left;
+}
+
+/* Phone: after the rules it adjusts. The title on a line of its own, then the date and the
+   time with their names above them, since an empty one shows nothing at all on an iPhone. */
 @media (max-width: 720px) {
   .task-edit {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 6px;
   }
 
   .task-edit .input:first-of-type {
     grid-column: 1 / -1;
+  }
+
+  .task-edit-label {
+    position: static;
+    grid-row: 2;
+    width: auto;
+    height: auto;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    text-transform: uppercase;
+    clip-path: none;
+  }
+
+  .task-edit-label[for^="time-"],
+  .task-edit input[type="time"] {
+    grid-column: 2;
+  }
+
+  .task-edit input[type="date"],
+  .task-edit input[type="time"] {
+    grid-row: 3;
+  }
+
+  .task-edit .btn {
+    margin-top: 6px;
   }
 }
 
