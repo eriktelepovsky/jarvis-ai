@@ -1,0 +1,14 @@
+{% if brief %}
+{% for item in brief.content.priorities %}
+<button type="button" class="priority" data-open-report>
+  <span class="badge badge-{{ item.tone }}">{{ item.tag }}</span>
+  <span class="priority-text"><span class="t1">{{ item.title }}</span>{% if item.detail %}<span class="t2">{{ item.detail }}</span>{% endif %}</span>
+</button>
+{% else %}
+<p class="t2">Nothing needs you today.</p>
+{% endfor %}
+{% elif configured %}
+<p class="t2">No brief yet today.</p>
+{% else %}
+<p class="t2">Connect Claude for a daily brief with what needs you. <a href="/integrations/claude">Connect</a></p>
+{% endif %}

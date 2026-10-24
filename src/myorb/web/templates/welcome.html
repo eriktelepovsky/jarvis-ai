@@ -103,7 +103,7 @@
         <form class="command-bar" hx-post="/command" hx-target="#command-result" hx-on::after-request="if (event.detail.successful) this.reset()"{% if can_ask %} data-ask{% endif %}>
           <span class="command-prompt" aria-hidden="true">›</span>
           <label class="visually-hidden" for="command-input">{{ "Add a task or ask a question" if can_ask else "Add a task" }}</label>
-          <input id="command-input" name="text" placeholder="{% if can_ask %}Add a task, or ask {{ assistant }} something ending with ?{% else %}Add a task… e.g. “call the accountant tomorrow 10:00”{% endif %}" autocomplete="off" required>
+          <input id="command-input" name="text" placeholder="{% if can_ask %}Add a task, or ask a question ending with ?{% else %}Add a task, e.g. “call Anna tomorrow 10:00”{% endif %}" autocomplete="off" required>
           <kbd class="command-key" title="Press / to type here">/</kbd>
         </form>
         <div class="label command-result" id="command-result" role="status" aria-live="polite"></div>
@@ -145,6 +145,15 @@
     </div>
 
     <section class="side side-right" aria-label="Activity">
+      {% if can_ask %}
+      {# Questions asked often, one click away; each opens the Ask dialog with its answer. #}
+      <div class="side-head"><span class="label strong">Quick actions</span><span class="label">Ask {{ assistant }}</span></div>
+      <div class="quick-actions">
+        {% for label, question, path in quick_actions %}
+        <button type="button" class="btn quick-action" data-ask-quick="{{ question }}" title="{{ question }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ path }}"/></svg>{{ label }}</button>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="side-head"><span class="label strong">Activity</span><span class="label">Latest</span></div>
       <div hx-get="/activity" hx-trigger="load, every 60s, myorb:refresh from:body, myorb:brief from:body">
         <p class="t2">Loading…</p>
