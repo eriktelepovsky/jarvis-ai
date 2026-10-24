@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import select
@@ -9,11 +10,18 @@ from myorb.tasks.parse import parse_task
 MAX_TITLE = 500
 
 
+def _clean(text: str) -> str:
+    """Trimmed, with letters and their accents as one character each: the Slovak keyboard on
+    an iPhone writes "ť" as "t" plus a separate caron, which the fonts do not show."""
+    return unicodedata.normalize("NFC", text).strip()
+
+
 async def add_task(db: AsyncSession, text: str, today: date) -> Task:
     """Add a task written in plain language; its due date and time are recognized."""
-    parsed = parse_task(text.strip(), today)
+    text = _clean(text)
+    parsed = parse_task(text, today)
     task = Task(
-        title=(parsed.title or text.strip())[:MAX_TITLE],
+        title=(parsed.title or text)[:MAX_TITLE],
         due_date=parsed.due_date,
         due_time=parsed.due_time,
         created_at=datetime.now(UTC),
@@ -47,7 +55,7 @@ async def set_done(db: AsyncSession, task: Task, done: bool) -> None:
 async def update_task(
     db: AsyncSession, task: Task, title: str, due_date: date | None, due_time: time | None
 ) -> None:
-    task.title = title.strip()[:MAX_TITLE] or task.title
+    task.title = _clean(title)[:MAX_TITLE] or task.title
     task.due_date = due_date
     task.due_time = due_time if due_date else None
     await db.commit()
