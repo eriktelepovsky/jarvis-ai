@@ -533,7 +533,7 @@
     }
   }
 
-  async function askQuestion(question, { fromCommand = false } = {}) {
+  async function askQuestion(question, { fromCommand = false, aloud = "" } = {}) {
     const dialog = showAsk();
     if (!dialog || dialog.dataset.busy) return;
     const log = dialog.querySelector("[data-ask-log]");
@@ -544,6 +544,8 @@
       conversation: ask.conversation,
       messages: ask.messages,
     });
+    // A spoken question gets a spoken answer, without the list markers and bold.
+    if (aloud && text) window.myorbSpeech?.speak(text.replace(/\*\*|^\s*- /gm, ""), aloud);
     // Nothing answered: the question is taken back, so asking again does not repeat it.
     if (error && !text) {
       ask.messages = ask.messages.filter((m, i) => !(i === ask.messages.length - 1 && m.role === "user"));
@@ -572,6 +574,75 @@
     const question = input.value.trim();
     form.reset();
     askQuestion(question);
+  });
+
+  // Voice: the browser's speech recognition hears a question, shown as it is heard in the
+  // command line, and asks it when the speaker stops; the answer is read aloud. Esc or the
+  // button again cancels. Hidden in browsers that cannot recognize speech.
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let listening = null;
+
+  function stopListening() {
+    listening?.abort();
+  }
+
+  function listen() {
+    const form = document.querySelector(".command-bar[data-voice-lang]");
+    const input = form?.querySelector("#command-input");
+    if (!input) return;
+    if (listening) return stopListening();
+    const recognition = new Recognition();
+    recognition.lang = form.dataset.voiceLang;
+    recognition.interimResults = true;
+    const placeholder = input.placeholder;
+    let heard = "";
+    const buttons = document.querySelectorAll("[data-voice-ask]");
+    const setState = (on) => {
+      buttons.forEach((button) => button.classList.toggle("is-listening", on));
+      form.classList.toggle("is-listening", on);
+      input.placeholder = on ? "Listening… ask your question" : placeholder;
+      document.querySelectorAll("[data-voice-state]").forEach((state) => {
+        state.textContent = on ? "Listening…" : state.dataset.idle;
+      });
+    };
+    recognition.onresult = (event) => {
+      heard = Array.from(event.results, (result) => result[0].transcript).join("");
+      input.value = heard;
+    };
+    recognition.onend = () => {
+      listening = null;
+      setState(false);
+      input.value = "";
+      if (heard.trim()) askQuestion(heard.trim(), { aloud: recognition.lang });
+    };
+    recognition.onerror = (event) => {
+      heard = "";
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        document.getElementById("command-result").textContent = "The microphone is not allowed for this page.";
+      }
+    };
+    listening = recognition;
+    setState(true);
+    recognition.start();
+  }
+
+  function showVoice() {
+    document.querySelectorAll("[data-voice-ask], [data-voice-panel]").forEach((element) => {
+      element.hidden = !Recognition;
+    });
+  }
+  showVoice();
+  document.addEventListener("htmx:afterSettle", showVoice);
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-voice-ask]")) listen();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && listening) {
+      event.preventDefault();
+      stopListening();
+    }
   });
 
   // A quick action asks its question in a new conversation.
@@ -608,9 +679,9 @@
     const box = column.getBoundingClientRect();
     const across = (rect) => rect.height && rect.left < box.right && rect.right > box.left;
     const covering = panels.filter(across);
-    // The column is centred beside the orb: it may grow as far as the nearer of the clock
-    // above (with the next event) and, below, the YouTube window or the dock's controls (or
-    // the window's edge); events that do not fit fade out (CSS animates the height).
+    // The column may fill the room between the clock above (with the next event) and, below,
+    // the YouTube window or the dock's controls (or the window's edge); events that do not
+    // fit fade out (CSS animates the height).
     // Every part of the header above it: the next event's pill sits outside the clock's box.
     const above = [...document.querySelectorAll(".welcome-header *")]
       .map((el) => el.getBoundingClientRect())
@@ -620,8 +691,11 @@
       .map((el) => el.getBoundingClientRect())
       .filter(across);
     const bottom = Math.min(window.innerHeight, ...[...covering, ...controls].map((rect) => rect.top)) - 16;
-    const centre = box.top + box.height / 2;
-    const room = 2 * Math.min(bottom - centre, centre - top);
+    // Where the grid centres it, without the shift (see below) as it is drawn now.
+    const transform = getComputedStyle(column).transform;
+    const moved = transform === "none" ? 0 : new DOMMatrix(transform).m42;
+    const centre = box.top - moved + box.height / 2;
+    const room = bottom - top;
     const padding = parseFloat(getComputedStyle(column).paddingBottom) || 0;
     let height = column.scrollHeight;
     if (height > room) {
@@ -633,6 +707,10 @@
       item.classList.toggle("is-cut", item.getBoundingClientRect().bottom - box.top + padding > height + 1);
     });
     column.style.maxHeight = `${Math.ceil(height)}px`;
+    // Centred beside the orb while that fits, else moved up (or down) into the room.
+    const half = height / 2;
+    const shift = Math.min(0, bottom - (centre + half)) + Math.max(0, top - (centre - half));
+    column.style.transform = shift ? `translateY(${Math.round(shift)}px)` : "";
   }
 
   document.addEventListener("htmx:afterSwap", (event) => {

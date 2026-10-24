@@ -1,6 +1,6 @@
 # myOrb
 
-myOrb is your personal AI-powered daily briefing dashboard. It connects to email, calendar, tasks, finances and other third-party services, then uses AI to summarize what matters today: unread and new emails, upcoming events, open TODOs, spending and more. Self-hosted, extensible with plugins and written in Python.
+myOrb is your personal AI-powered daily briefing dashboard. It connects to email, calendar, tasks and other third-party services, then uses AI to summarize what matters today: unread and new emails, upcoming events, open TODOs and more. Your own apps can join in as custom sources, e.g. your invoicing or a wallet app to keep an eye on your finances. Self-hosted, extensible with plugins and written in Python.
 
 > 🚧 Work in progress.
 
@@ -9,6 +9,33 @@ myOrb is your personal AI-powered daily briefing dashboard. It connects to email
 *The welcome screen, with sample data.*
 
 Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anything else at setup, and it greets you, sits in the middle of the orb and writes your brief under that name.
+
+## Features
+
+- **The orb:** one number per source around your assistant, larger when something needs you. Click a number for its details: the list behind it, filters and actions.
+- **Sources:** Gmail, Google Calendar, the built-in task list, pull requests from GitHub, GitLab and Bitbucket, Jira, Asana, Slack mentions, uptime checks of your websites (every minute, with TLS certificate warnings), weather from Open-Meteo, YouTube subscriptions, Apple Health and Strava, and your own apps through [custom sources](https://github.com/eriktelepovsky/myorb/blob/main/docs/CUSTOM_SOURCES.md), e.g. invoices and spending from your invoicing or wallet app.
+- **Daily brief:** Claude writes what awaits you today at a time you choose, in English or Slovak, with what needs you first. Read it aloud with your browser's voices or Microsoft Azure Speech, in several languages.
+- **Ask:** ask about your dashboard in the command line (end with “?”), by voice, or with one of the quick actions. Claude can also act for you once you confirm: add tasks, mark videos as seen, add uptime monitors, change Jira issues, complete Asana tasks, approve or comment on pull requests. Most actions can be undone.
+- **Tasks:** due dates written in plain language, e.g. “call Anna tomorrow 10:00”.
+- **Side columns:** today's schedule, tasks, priorities from the brief and the weather on the left; quick actions and what happened lately on the right.
+- **Music and sounds:** generated ambient music or any YouTube video or playlist while you work, and quiet interface sounds.
+- **Yours:** self-hosted, a password and passkeys for sign-in, works on a phone and installs as an app. Claude's cost is counted in euros. Extend it with [plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md).
+
+![The daily brief: the day at a glance, a summary, what needs you and every source with its change since yesterday](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/report.jpg)
+
+*The daily brief.*
+
+![Details of a number: Jira issues assigned to you, grouped by workspace](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/details.jpg)
+
+*Details behind a number.*
+
+![Ask: Claude plans the morning from the dashboard and offers to add a task](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/ask.jpg)
+
+*Ask, with an action to confirm.*
+
+<img src="https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/phone.jpg" alt="myOrb on a phone: the orb with its numbers and the command line" width="300">
+
+*On a phone.*
 
 ## Run on your computer
 
@@ -140,7 +167,7 @@ Then, in myOrb:
 | `MYORB_TRUSTED_PROXIES` | `127.0.0.1` | IP addresses or networks of the reverse proxy whose `X-Forwarded-For` and `X-Forwarded-Proto` headers are trusted, or `*`. |
 | `MYORB_SECRET_KEY` | generated in the data directory | Key that encrypts connected accounts and API keys. Keep it outside the data volume and do not lose it: changing it means connecting all accounts again. |
 | `MYORB_DATA_DIR` | `data` (`/data` in Docker) | Where the database and the generated key are stored. |
-| `MYORB_PLUGINS` | none | Custom plugins to install at startup, as for pip: `myorb-wallet==1.2`, a wheel URL or a mounted directory. See [writing plugins](docs/PLUGINS.md). |
+| `MYORB_PLUGINS` | none | Custom plugins to install at startup, as for pip: `myorb-wallet==1.2`, a wheel URL or a mounted directory. See [writing plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md). |
 | `MYORB_HOST`, `MYORB_PORT` | `127.0.0.1`, `8000` (`0.0.0.0` in Docker) | Interface and port to listen on. |
 
 ### Updates and backups
@@ -172,20 +199,20 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
-See the [architecture](docs/ARCHITECTURE.md) for how myOrb is built, and [writing plugins](docs/PLUGINS.md) to connect your own services.
+See the [architecture](https://github.com/eriktelepovsky/myorb/blob/main/docs/ARCHITECTURE.md) for how myOrb is built, and [writing plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md) to connect your own services.
 
 ## Roadmap
 
-See the [roadmap](ROADMAP.md) for planned features and their order.
+See the [roadmap](https://github.com/eriktelepovsky/myorb/blob/main/ROADMAP.md) for planned features and their order.
 
 ## Contributing
 
-Contributions are welcome! Before your first pull request can be merged, you need to sign the [Contributor License Agreement](CLA.md). The CLA bot will guide you through it with a single comment in your pull request.
+Contributions are welcome! Before your first pull request can be merged, you need to sign the [Contributor License Agreement](https://github.com/eriktelepovsky/myorb/blob/main/CLA.md). The CLA bot will guide you through it with a single comment in your pull request.
 
 ## License
 
 Copyright © 2026 Erik Telepovský
 
-myOrb is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). If you run a modified version of myOrb as a network service, you must make its source code available to its users.
+myOrb is licensed under the [GNU Affero General Public License v3.0](https://github.com/eriktelepovsky/myorb/blob/main/LICENSE) (AGPL-3.0). If you run a modified version of myOrb as a network service, you must make its source code available to its users.
 
 For commercial licensing that is not subject to the AGPL terms, please contact the author.
