@@ -81,3 +81,18 @@ document.addEventListener("click", (event) => {
   document.addEventListener("visibilitychange", () => clearTimeout(fallback), { once: true });
   location.href = "googlegmail://";
 });
+
+// Installed on an iPhone's home screen, myOrb opens other sites in its own browser window,
+// which does not share Safari's sign-ins (Google, Jira, GitHub…). Such links open in Safari
+// itself instead, through its x-safari-https:// address (iOS 17 and later); on older iOS the
+// link opens as before.
+const installed = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+document.addEventListener("click", (event) => {
+  if (!appleTouch || !installed || event.defaultPrevented) return;
+  const link = event.target.closest("a[href]");
+  if (!link || link.origin === location.origin || !/^https?:$/.test(link.protocol)) return;
+  event.preventDefault();
+  const fallback = setTimeout(() => (location.href = link.href), 1500);
+  document.addEventListener("visibilitychange", () => clearTimeout(fallback), { once: true });
+  location.href = `x-safari-${link.href}`;
+});
