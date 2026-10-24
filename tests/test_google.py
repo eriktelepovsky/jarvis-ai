@@ -157,15 +157,16 @@ def test_disabled_api_is_reported_with_link(client: TestClient, fake_google: Fak
     response = connect(client, fake_google)
     assert "The Gmail API is not enabled in your Google project" in response.text
     assert "https://console.cloud.google.com/apis/library/gmail.googleapis.com" in response.text
-    assert "✕ 1 problem" in response.text
-    assert response.text.count("✕ Not working") == 1
+    # Reading Gmail and marking it as read both need the Gmail API.
+    assert "✕ 2 problems" in response.text
+    assert response.text.count("✕ Not working") == 2
 
 
 def test_missing_permission_is_reported(client: TestClient, fake_google: FakeGoogle):
     fake_google.granted_scopes = " ".join(google.BASE_SCOPES)
     save_oauth_client(client)
     response = connect(client, fake_google)
-    assert response.text.count("Permission was not granted") == 3
+    assert response.text.count("Permission was not granted") == len(google.CAPABILITIES)
 
 
 def test_revoked_access_is_reported_on_test(client: TestClient, fake_google: FakeGoogle):

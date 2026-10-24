@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs
@@ -25,6 +26,14 @@ def query(request: httpx2.Request) -> dict[str, list[str]]:
     return parse_qs(request.url.query.decode())
 
 
+# What was sent to mark threads as read.
+modified: list[str] = []
+
+
+def b64(text: str) -> str:
+    return base64.urlsafe_b64encode(text.encode()).decode().rstrip("=")
+
+
 def gmail_api(request: httpx2.Request) -> httpx2.Response:
     path = request.url.path.removeprefix("/gmail/v1/users/me")
     if path == "/labels/INBOX":
@@ -37,6 +46,10 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
     if path == "/threads":
         assert "is:unread" in query(request)["q"][0]
         return httpx2.Response(200, json={"threads": [{"id": "t1"}]})
+    if path == "/threads/t1/modify":
+        assert request.method == "POST"
+        modified.append(request.content.decode())
+        return httpx2.Response(200, json={"id": "t1"})
     if path == "/threads/t1":
         # A conversation with a read email and, newest, an unread reply: listed once, by it.
         def message(sender: str, subject: str, labels: list[str]) -> dict:
@@ -50,12 +63,20 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
                     "value": "Pepper <pepper@x.example>, Tony <Tony@StarkIndustries.example>",
                 },
             ]
+            payload: dict = {"headers": headers}
+            if query(request).get("format") == ["full"]:
+                html = '<p>Can we move it?</p><img src="https://track.example/pixel.gif">'
+                payload["parts"] = [
+                    {"mimeType": "text/plain", "body": {"data": b64("Can we move it?")}},
+                    {"mimeType": "text/html", "body": {"data": b64(html)}},
+                    {"filename": "agenda.pdf", "body": {"attachmentId": "a1", "size": 245000}},
+                ]
             return {
                 "threadId": "t1",
                 "labelIds": labels,
                 "snippet": "Can we move it to 10:00 &amp; meet in the lab?",
                 "internalDate": "1792656000000",
-                "payload": {"headers": headers},
+                "payload": payload,
             }
 
         messages = [
@@ -155,7 +176,9 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     assert text.count('class="modal-row"') == 1  # one per unread conversation
     # Grouped by the user's address it was sent to, here another mailbox Gmail collects.
     assert 'data-group="tony@starkindustries.example"' in text
-    assert "#inbox/t1" in text
+    # Each email opens in myOrb; marking it as read needs the permission, granted here.
+    assert 'href="/email/1/t1"' in text and ">Read<" in text
+    assert 'hx-post="/email/1/t1/read"' in text
     # Gmail marks it important: counted, and the number narrows the list to such emails.
     assert 'data-filter="important"' in text and ">Important<" in text
     assert 'data-tags="important' in text  # and "today" too on the day it was received
@@ -526,3 +549,40 @@ def test_open_buttons_cover_every_account():
     assert open_buttons("Open Jira", [("archivis", "https://a/"), ("swida", "https://s/")]) == {
         "links": [Link("Open archivis", "https://a/"), Link("Open swida", "https://s/")]
     }
+
+
+# Reading an email
+
+
+def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    page = client.get("/email/1/t1").text
+    assert '<h1 class="email-subject">Board meeting &lt;today&gt;</h1>' in page
+    assert "Pepper Potts" in page and "pepper@stark.example" in page
+    # The email's HTML in a frame without scripts, its images blocked until asked for.
+    assert 'sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"' in page
+    assert "img-src data:&#34;" in page or "img-src data:&quot;" in page
+    assert "agenda.pdf · 245 kB" in page
+    assert "Mark as read" in page and 'href="?images=true"' in page
+    assert (
+        "https:"
+        in client.get("/email/1/t1", params={"images": "true"}).text.split("img-src")[1][:30]
+    )
+
+    modified.clear()
+    response = client.post("/email/1/t1/read", follow_redirects=False)
+    assert response.headers["location"] == "/email/1/t1?read=true"
+    assert modified == ['{"removeLabelIds":["UNREAD"]}']
+    assert client.post("/email/1/t1/read", headers={"HX-Request": "true"}).status_code == 204
+    assert client.get("/email/9/t1").status_code == 404
+
+
+def test_marking_read_needs_the_permission(client: TestClient, fake_google: FakeGoogle):
+    fake_google.granted_scopes = " ".join(
+        s for s in fake_google.granted_scopes.split() if not s.endswith("gmail.modify")
+    )
+    connect_google(client, fake_google)
+    assert "/email/1/t1/read" not in client.get("/welcome/widgets").text
+    page = client.get("/email/1/t1").text
+    assert "Mark as read" not in page and "connect this Google account again" in page
+    assert client.post("/email/1/t1/read").status_code == 403

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% set subject = messages[-1].subject if messages else "Email" %}
+{% block title %}{{ subject }} · {{ assistant }}{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Email · {{ account.email }}</div><h1 class="email-subject">{{ subject }}</h1></div>
+</div>
+
+<div class="email-actions panel-narrow">
+  <a class="btn" href="/">← Back</a>
+  {% if can_mark_read and messages | selectattr("unread") | list %}
+  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"><button type="submit" class="btn btn-primary">Mark as read</button></form>
+  {% endif %}
+  <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
+  {% if not images and messages | selectattr("html") | list %}
+  <a class="btn btn-ghost" href="?images=true">Show images</a>
+  {% endif %}
+</div>
+
+{% if marked_read %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}
+{% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+{% if not can_mark_read %}<p class="muted panel-narrow email-note">To mark emails as read from myOrb, connect this Google account again in <a href="/integrations">Integrations</a> and allow it.</p>{% endif %}
+
+{% for message in messages %}
+{# The newest message is open; earlier ones of the conversation are folded, as in Gmail. #}
+<details class="panel panel-narrow email-message"{% if loop.last or message.unread %} open{% endif %}>
+  <summary class="email-head">
+    <span style="min-width: 0">
+      <span class="t1">{{ message.sender }}{% if message.address and message.address != message.sender %} <span class="muted">&lt;{{ message.address }}&gt;</span>{% endif %}</span>
+      <span class="t2 trunc">To {{ message.to }}{% if message.cc %} · Cc {{ message.cc }}{% endif %}</span>
+    </span>
+    <span class="email-when">{% if message.unread %}<span class="badge badge-info">Unread</span>{% endif %}<span class="label">{{ message.received.strftime("%-d %b %Y, %H:%M") }}</span></span>
+  </summary>
+  {% if message.html %}
+  {# No scripts; same origin only so the page can size the frame to its content. #}
+  <iframe class="email-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ frame_document(message.html, images) }}" title="Email from {{ message.sender }}" data-email-frame></iframe>
+  {% else %}
+  <div class="email-text">{{ message.text }}</div>
+  {% endif %}
+  {% if message.attachments %}
+  <ul class="email-attachments" aria-label="Attachments">
+    {% for attachment in message.attachments %}<li class="label">📎 {{ attachment.name }} · {{ size_label(attachment.size) }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</details>
+{% endfor %}
+{% endblock %}

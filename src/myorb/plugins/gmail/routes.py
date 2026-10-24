@@ -4,10 +4,14 @@ request (it costs a Claude call), and kept until the unread emails change."""
 import time
 from typing import Any
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from myorb.brief.writer import BriefError
+from myorb.connections.google import GoogleError
+from myorb.connections.google_accounts import GoogleAccount
+from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url
+from myorb.plugins.gmail.message import frame_document, read_message, size_label
 from myorb.profile import load_profile
 from myorb.web.routes import widget_context
 
@@ -68,3 +72,64 @@ async def write_summary(request: Request) -> Response:
     saved = {**content, "key": _key(emails), "at": time.time()}
     request.app.state.email_summary = saved
     return _render(request, summary=saved, count=len(emails), new=0)
+
+
+# Reading an email in myOrb
+
+
+async def _account(request: Request, account_id: int) -> GoogleAccount:
+    account = next((a for a in await request.app.state.google.list() if a.id == account_id), None)
+    if account is None:
+        raise HTTPException(status_code=404, detail="This Google account is not connected.")
+    return account
+
+
+@router.get("/email/{account_id}/{thread_id}", response_class=HTMLResponse)
+async def read_email(
+    request: Request, account_id: int, thread_id: str, images: bool = False, read: bool = False
+) -> Response:
+    account = await _account(request, account_id)
+    context: dict[str, Any] = {
+        "account": account,
+        "thread_id": thread_id,
+        "gmail_url": inbox_url(account.email, thread_id),
+        "can_mark_read": MODIFY_SCOPE in account.scopes,
+        "images": images,
+        "marked_read": read,
+        "frame_document": frame_document,
+        "size_label": size_label,
+    }
+    try:
+        thread = await request.app.state.google.get_json(
+            account, f"{API}/threads/{thread_id}", API_NAME, {"format": "full"}
+        )
+        timezone = request.app.state.timezone
+        context["messages"] = [read_message(m, timezone) for m in thread.get("messages", [])]
+    except GoogleError as error:
+        context["error"] = str(error)
+        context["messages"] = []
+    return request.app.state.templates.TemplateResponse(request, "gmail/email.html", context)
+
+
+@router.post("/email/{account_id}/{thread_id}/read")
+async def mark_read(request: Request, account_id: int, thread_id: str) -> Response:
+    account = await _account(request, account_id)
+    if MODIFY_SCOPE not in account.scopes:
+        raise HTTPException(
+            status_code=403, detail="Connect the Google account again to allow marking as read."
+        )
+    try:
+        await request.app.state.google.request_json(
+            account,
+            "POST",
+            f"{API}/threads/{thread_id}/modify",
+            API_NAME,
+            json={"removeLabelIds": ["UNREAD"]},
+        )
+    except GoogleError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    request.app.state.cache.invalidate(f"google:{account.id}:gmail")
+    # A button in the email details refreshes the screen; the email's own page shows it.
+    if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
+        return Response(status_code=204, headers={"HX-Trigger": "myorb:refresh"})
+    return RedirectResponse(f"/email/{account_id}/{thread_id}?read=true", status_code=303)
