@@ -47,6 +47,7 @@
       </div>
       {% if azure_voices %}
       <span class="label">Voice per language</span>
+      <input type="hidden" name="voices_shown" value="1">
       {% for code, name, tag in languages %}
       {% if azure_voices.get(code) %}
       <div class="voice-row">
@@ -55,9 +56,15 @@
           {% for voice in azure_voices[code] | sort(attribute="ShortName") %}<option value="{{ voice.ShortName }}" {% if voice.ShortName == settings.voice(code) %}selected{% endif %}>{{ voice.LocalName }} · {{ voice.Gender }} · {{ voice.Locale }}</option>{% endfor %}
         </select>
         <button type="button" class="btn" data-try-azure="{{ code }}">▶ Try</button>
+        {% if code == brief_language %}
+        <label class="label preload" title="The brief is written in this language: it is always read in advance"><input type="checkbox" checked disabled> Preload</label>
+        {% else %}
+        <label class="label preload" title="Read each new brief in this language in advance (translated by Claude)"><input type="checkbox" name="preload_{{ code }}" {% if code in settings.preload %}checked{% endif %}> Preload</label>
+        {% endif %}
       </div>
       {% endif %}
       {% endfor %}
+      <p class="muted voice-note" style="margin: 0">Preload: each new brief is read in that language as soon as it is written, so Read aloud plays at once. The brief's own language is always ready; others are translated by Claude first.</p>
       {% elif settings.azure %}
       {% else %}
       <p class="muted voice-note" style="margin: 0">After saving the key, choose a voice for each language here.</p>

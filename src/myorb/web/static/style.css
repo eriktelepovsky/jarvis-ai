@@ -1562,13 +1562,21 @@ code,
 
 .voice-row {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr) auto;
+  grid-template-columns: 110px minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: center;
 }
 
 .voice-row[hidden] {
   display: none;
+}
+
+.preload {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .voice-note {
