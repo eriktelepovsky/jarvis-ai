@@ -62,9 +62,11 @@
 
     <h3 class="label">3 · Run it every day</h3>
     <ol>
-      <li>In Shortcuts, open the <strong>Automation</strong> tab, tap <strong>+</strong> and choose <strong>Time of Day</strong>: a time after you wake up, <em>Daily</em>, and <strong>Run Immediately</strong> (turn off <em>Notify When Run</em> if you like). Tap <em>Next</em> and pick <code>Send health to myOrb</code>.</li>
+      <li>In Shortcuts, open the <strong>Automation</strong> tab and tap <strong>+</strong> for a new automation, named for example <code>myOrb Health data</code>.</li>
+      <li>Add a <strong>Time of Day</strong> trigger (<em>At 07:00</em>), a time after you wake up. Then add more times to the same automation, e.g. <em>12:00</em>, <em>16:00</em>, <em>20:00</em> and <em>23:00</em>; they are joined by <em>or</em>, so it runs at each of them. Steps sent only in the morning would stay the morning's all day: each later run replaces today's steps, and the sleep from the morning stays.</li>
+      <li>Open each time with its <strong>›</strong>: it repeats <em>Daily</em>, and runs without asking for confirmation (<em>Run Immediately</em>).</li>
+      <li>As the action, add <strong>Run Shortcut</strong> → <code>Send health to myOrb</code>.</li>
       <li>For the morning, <strong>Alarm → Is Stopped</strong> works instead of a time: it runs when you turn off your wake-up alarm, with the phone in your hand.</li>
-      <li>Steps sent once in the morning stay the morning's all day. Add more automations, e.g. at 12:00, 17:00 and 21:00: each one replaces today's steps, and the sleep from the morning stays.</li>
     </ol>
 
     <h3 class="label">Good to know</h3>
