@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from myorb import __version__
+from myorb.brief.writer import READ_LANGUAGES
 from myorb.cache import due as due_now
 from myorb.cache import refreshing
 from myorb.db import get_db
@@ -132,6 +133,7 @@ QUICK_ACTIONS = [
 @router.get("/", response_class=HTMLResponse)
 async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> HTMLResponse:
     panels = [(plugin, panel) for plugin in ordered_plugins(request) for panel in plugin.panels()]
+    claude = await request.app.state.brief.settings()
     return request.app.state.templates.TemplateResponse(
         request,
         "welcome.html",
@@ -142,7 +144,9 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "name": await user_name(request, db),
             "slots": widget_slots(request),
             # Questions ending with "?" go to Claude when it is connected.
-            "can_ask": await request.app.state.brief.settings() is not None,
+            "can_ask": claude is not None,
+            # Voice questions are heard in the language the brief is written in.
+            "voice_lang": READ_LANGUAGES.get(claude.language, ("", "en-GB"))[1] if claude else None,
             "quick_actions": QUICK_ACTIONS,
         },
     )

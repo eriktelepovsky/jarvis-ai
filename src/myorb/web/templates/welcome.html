@@ -100,10 +100,11 @@
 
       <div class="command">
         {# A task, or with Claude connected, a question ending with "?" (opens the Ask dialog). #}
-        <form class="command-bar" hx-post="/command" hx-target="#command-result" hx-on::after-request="if (event.detail.successful) this.reset()"{% if can_ask %} data-ask{% endif %}>
+        <form class="command-bar" hx-post="/command"{% if can_ask %} data-voice-lang="{{ voice_lang }}"{% endif %} hx-target="#command-result" hx-on::after-request="if (event.detail.successful) this.reset()"{% if can_ask %} data-ask{% endif %}>
           <span class="command-prompt" aria-hidden="true">›</span>
           <label class="visually-hidden" for="command-input">{{ "Add a task or ask a question" if can_ask else "Add a task" }}</label>
-          <input id="command-input" name="text" placeholder="{% if can_ask %}Add a task, or ask a question ending with ?{% else %}Add a task, e.g. “call Anna tomorrow 10:00”{% endif %}" autocomplete="off" required>
+          <input id="command-input" name="text" placeholder="{% if can_ask %}Add a task, or ask with a “?”{% else %}Add a task, e.g. “call Anna tomorrow 10:00”{% endif %}" autocomplete="off" required>
+          {% if can_ask %}<button type="button" class="icon-btn command-voice" data-voice-ask aria-label="Ask {{ assistant }} by voice" title="Ask {{ assistant }} by voice" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>{% endif %}
           <kbd class="command-key" title="Press / to type here">/</kbd>
         </form>
         <div class="label command-result" id="command-result" role="status" aria-live="polite"></div>
@@ -152,6 +153,17 @@
         {% for label, question, path in quick_actions %}
         <button type="button" class="btn quick-action" data-ask-quick="{{ question }}" title="{{ question }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ path }}"/></svg>{{ label }}</button>
         {% endfor %}
+      </div>
+      {# Hidden in browsers that cannot recognize speech (welcome.js). #}
+      <div class="voice-panel" data-voice-panel hidden>
+        <div class="side-head"><span class="label strong">Voice</span><span class="label">Browser · {{ voice_lang }}</span></div>
+        <div class="voice">
+          <button type="button" class="voice-mic" data-voice-ask aria-label="Ask {{ assistant }} by voice"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+          <span style="min-width: 0">
+            <span class="t1" data-voice-state data-idle="Idle · tap to ask {{ assistant }}">Idle · tap to ask {{ assistant }}</span>
+            <span class="t2">Speak, then pause · Esc cancels</span>
+          </span>
+        </div>
       </div>
       {% endif %}
       <div class="side-head"><span class="label strong">Activity</span><span class="label">Latest</span></div>

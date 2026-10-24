@@ -511,6 +511,34 @@ a.ti:hover .t1 {
   visibility: hidden;
 }
 
+.command-voice {
+  flex: none;
+  color: var(--accent);
+}
+
+.command-voice.is-listening,
+.voice-mic.is-listening {
+  animation: listening 1.4s ease-in-out infinite;
+}
+
+.command-bar.is-listening {
+  border-color: var(--accent);
+  box-shadow: 0 0 34px -8px var(--accent-glow);
+}
+
+@keyframes listening {
+  50% {
+    box-shadow: 0 0 0 6px rgb(79 209 232 / 18%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-voice.is-listening,
+  .voice-mic.is-listening {
+    animation: none;
+  }
+}
+
 .command-result {
   min-height: 16px;
   margin-top: 10px;
@@ -1397,6 +1425,41 @@ button.row-btn {
 .quick-action svg {
   flex: none;
   color: var(--accent);
+}
+
+/* Voice: a round microphone button and what it is doing */
+
+.voice-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.voice {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.voice-mic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  color: var(--accent);
+  background: radial-gradient(circle, rgb(79 209 232 / 14%), rgb(79 209 232 / 4%));
+  border: 1px solid var(--line-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 22px -6px var(--accent-glow), inset 0 0 12px -4px var(--accent-glow);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.voice-mic:hover,
+.voice-mic.is-listening {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px -4px var(--accent-glow), inset 0 0 14px -4px var(--accent-glow);
 }
 
 /* Priorities from today's brief; each opens the report */
@@ -2294,7 +2357,7 @@ dialog.is-refreshing .modal-head::after {
 
 .side-right {
   overflow: hidden;
-  transition: max-height 0.45s ease;
+  transition: max-height 0.45s ease, transform 0.45s ease;
 }
 
 .activity-item {

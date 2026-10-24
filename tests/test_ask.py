@@ -36,13 +36,15 @@ def text_of(lines: list[dict]) -> str:
 def test_the_command_line_offers_ask_only_with_claude(client: TestClient):
     page = client.get("/").text
     assert "data-ask" not in page and 'id="ask"' not in page
-    assert "Quick actions" not in page
+    assert "Quick actions" not in page and "data-voice-ask" not in page
     connect(client)
     page = client.get("/").text
     assert 'class="command-bar"' in page and "data-ask" in page
-    assert 'id="ask"' in page and "ask a question ending with ?" in page
+    assert 'id="ask"' in page and "Add a task, or ask with a “?”" in page
     # Quick actions ask their question; without Claude they are not offered.
     assert 'data-ask-quick="Plan my day: what should I do first, and when?"' in page
+    # Voice questions, heard in the brief's language.
+    assert "data-voice-ask" in page and 'data-voice-lang="en-GB"' in page
 
 
 def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeClaude):
