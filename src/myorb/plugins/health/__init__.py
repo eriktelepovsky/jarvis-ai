@@ -26,6 +26,15 @@ ICON = "M3 12h4l2-5 4 10 2-5h6"
 SETUP = Link("Set up health", "/integrations/health")
 # Strava activities listed in the details; "km this week" counts the last 7 days of them.
 HISTORY_DAYS = 30
+# Which number the orb shows, chosen on the Health page. Automatic is last night's sleep, or
+# without it the week's kilometres from Strava, or without Strava today's steps.
+ORB = "health_orb"
+ORB_CHOICES = {
+    "auto": "Automatic",
+    "sleep": "Sleep last night",
+    "steps": "Steps today",
+    "km": "Km this week · Strava",
+}
 
 
 def sleep_text(minutes: int | None) -> str:
@@ -109,7 +118,8 @@ class HealthPlugin(Plugin):
                 connected=False,
                 message_action=SETUP,
             )
-        sleep = latest.sleep_minutes if latest and latest.day == today else None
+        # A Shortcut that found no sleep sends a sum of 0: nothing was measured.
+        sleep = (latest.sleep_minutes or None) if latest and latest.day == today else None
         steps = next((d.steps for d in days if d.day == today and d.steps is not None), None)
         week_ago = context.now - timedelta(days=7)
         week_km = round(sum(a.distance_km for a in activities if a.start >= week_ago), 1)
@@ -158,14 +168,26 @@ class HealthPlugin(Plugin):
                 "message_tone": "warn",
                 "message_action": SETUP,
             }
+        show = ((await context.connections.settings(ORB)) or {}).get("show", "auto")
+        if show == "auto":
+            show = (
+                "sleep"
+                if sleep is not None
+                else "km"
+                if strava_connected
+                else "steps"
+                if steps is not None
+                else "sleep"
+            )
+        value, summary, label = {
+            "sleep": (sleep_text(sleep), "sleep last night", "Sleep"),
+            "steps": (f"{steps:,}" if steps is not None else "—", "steps today", "Steps"),
+            "km": (f"{week_km:g}" if strava_connected else "—", "km this week", "Km · week"),
+        }[show]
         return WidgetData(
-            value=sleep_text(sleep)
-            if sleep is not None
-            else (f"{week_km:g}" if strava_connected else None),
-            summary="sleep last night"
-            if sleep is not None
-            else ("km this week" if strava_connected else ""),
-            label="Sleep" if sleep is not None or not strava_connected else "Km · week",
+            value=value,
+            summary=summary,
+            label=label,
             stats=[
                 Stat(sleep_text(sleep), "Sleep"),
                 Stat(f"{steps:,}" if steps is not None else "—", "Steps today"),
