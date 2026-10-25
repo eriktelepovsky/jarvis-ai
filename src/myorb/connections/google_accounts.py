@@ -100,6 +100,8 @@ class GoogleAccounts:
                 continue
             if response.status_code == 200:
                 return response.json()
+            if response.status_code == 204:  # e.g. deleted
+                return None
             if google.is_api_disabled(response):
                 raise google.GoogleError(f"The {api_name} is not enabled in your Google project.")
             if response.status_code == 403:

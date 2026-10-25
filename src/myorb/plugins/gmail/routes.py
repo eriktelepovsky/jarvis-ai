@@ -13,7 +13,8 @@ from myorb.brief.writer import BriefError
 from myorb.connections import store
 from myorb.connections.google import GoogleError
 from myorb.connections.google_accounts import GoogleAccount
-from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url, own_addresses
+from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url
+from myorb.plugins.gmail.actions import fetch_conversation
 from myorb.plugins.gmail.draft import reply_message, write_reply
 from myorb.plugins.gmail.message import (
     MAX_INLINE,
@@ -248,15 +249,9 @@ async def _conversation(
     request: Request, account: GoogleAccount, thread_id: str
 ) -> tuple[list[dict[str, Any]], set[str]]:
     """The conversation's messages (oldest first) and the user's own addresses in it."""
-    google = request.app.state.google
-    thread, own = await asyncio.gather(
-        google.get_json(account, f"{API}/threads/{thread_id}", API_NAME, {"format": "full"}),
-        own_addresses(google, account),
+    return await fetch_conversation(
+        request.app.state.google, account, thread_id, request.app.state.timezone
     )
-    messages = [read_message(m, request.app.state.timezone) for m in thread.get("messages", [])]
-    if not messages:
-        raise GoogleError("This conversation has no messages.")
-    return messages, own | {account.email.lower()}
 
 
 def _render_draft(request: Request, account: GoogleAccount, thread_id: str, **context: Any):

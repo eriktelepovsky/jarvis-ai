@@ -43,7 +43,8 @@ def _plain(body_html: str) -> str:
     return re.sub(r"\n\s*\n+", "\n\n", re.sub(r"[ \t\xa0]+", " ", text)).strip()
 
 
-def conversation_prompt(messages: list[dict[str, Any]], own: set[str], note: str) -> str:
+def conversation_text(messages: list[dict[str, Any]], own: set[str]) -> str:
+    """The conversation's newest messages as text, each marked with who wrote it."""
     lines = []
     for message in messages[-MAX_MESSAGES:]:
         author = "the user" if message["address"].lower() in own else message["sender"]
@@ -52,9 +53,13 @@ def conversation_prompt(messages: list[dict[str, Any]], own: set[str], note: str
             f"--- From {author} <{message['address']}>, {message['received']:%d %b %Y %H:%M} | "
             f"Subject: {message['subject']}\n{text[:MAX_CHARS]}"
         )
-    note = note.strip()[:MAX_NOTE]
-    lines.append(f"\nTheir note on what to say: {note}" if note else "\nThey left no note.")
     return "\n\n".join(lines)
+
+
+def conversation_prompt(messages: list[dict[str, Any]], own: set[str], note: str) -> str:
+    note = note.strip()[:MAX_NOTE]
+    ending = f"Their note on what to say: {note}" if note else "They left no note."
+    return f"{conversation_text(messages, own)}\n\n\n{ending}"
 
 
 async def write_reply(

@@ -143,7 +143,7 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
             "name": await user_name(request, db),
             "slots": widget_slots(request),
-            # Questions ending with "?" go to Claude when it is connected.
+            # Everything typed under the orb goes to Claude when it is connected.
             "can_ask": claude is not None,
             # Voice questions are heard in the language the brief is written in.
             "voice_lang": READ_LANGUAGES.get(claude.language, ("", "en-GB"))[1] if claude else None,

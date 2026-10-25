@@ -480,7 +480,6 @@
       // Storage unavailable: kept until the page reloads.
     }
   };
-  const isQuestion = (text) => /^\?|\?\s*$/.test(text.trim());
 
   const escapeHtml = (text) =>
     text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -519,23 +518,6 @@
     }
     log.scrollTop = log.scrollHeight;
     return dialog;
-  }
-
-  // A line from the command line that was meant as a task (it just ends with "?").
-  function offerTask(log, text) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ask-as-task";
-    button.textContent = "Add as a task instead";
-    button.addEventListener("click", async () => {
-      const body = new FormData();
-      body.set("text", text);
-      const response = await fetch("/command", { method: "POST", body, headers: { "HX-Request": "true" } });
-      button.disabled = true;
-      button.textContent = response.ok ? "Added as a task." : "The task could not be added.";
-      if (response.ok) htmx.trigger(document.body, "myorb:refresh");
-    });
-    log.append(button);
   }
 
   // Reads a stream of JSON lines from /ask or /ask/decide into the log: the answer's text, the
@@ -607,8 +589,6 @@
   // turn is decided, the decisions go back and Claude goes on.
   function showProposals(dialog, proposals) {
     const log = dialog.querySelector("[data-ask-log]");
-    // Claude took it as something to do: "Add as a task instead" would only repeat it.
-    log.querySelectorAll(".ask-as-task").forEach((offer) => offer.remove());
     const decided = new Map();
     for (const proposal of proposals) {
       const card = document.createElement("div");
@@ -664,13 +644,12 @@
     }
   }
 
-  async function askQuestion(question, { fromCommand = false, aloud = "" } = {}) {
+  async function askQuestion(question, { aloud = "" } = {}) {
     const dialog = showAsk();
     if (!dialog || dialog.dataset.busy) return;
     const log = dialog.querySelector("[data-ask-log]");
     ask.messages.push({ role: "user", content: question });
     log.append(askBubble("user", question));
-    if (fromCommand) offerTask(log, question);
     const { text, error } = await askStream(dialog, "/ask", {
       conversation: ask.conversation,
       messages: ask.messages,
@@ -684,16 +663,16 @@
     }
   }
 
-  // The command line: a question goes to Ask instead of becoming a task.
+  // The command line: with Claude connected, everything typed goes to Ask (Claude adds
+  // tasks too); without, it adds a task.
   document.addEventListener("htmx:beforeRequest", (event) => {
     const form = event.detail.elt;
     if (!form.matches?.(".command-bar[data-ask]")) return;
     const input = form.querySelector("#command-input");
-    if (!isQuestion(input.value)) return;
     event.preventDefault();
-    const question = input.value.trim().replace(/^\?\s*/, "");
+    const question = input.value.trim();
     form.reset();
-    askQuestion(question, { fromCommand: true });
+    if (question) askQuestion(question);
   });
 
   document.addEventListener("submit", (event) => {
