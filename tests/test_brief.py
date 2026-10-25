@@ -293,6 +293,19 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     assert "YESTERDAY" not in client.get("/brief/report").text
     assert briefs(client)[0].content["timeline"] == []  # the day's calendar, kept with it
 
+    async def keep(day_offset: int, title: str) -> None:
+        async with client.app.state.sessionmaker() as db:
+            brief = await db.scalar(select(Brief))
+            day = (datetime.now(TZ) + timedelta(days=day_offset)).replace(hour=9, minute=0)
+            event = {"start": day.isoformat(), "end": (day + timedelta(hours=1)).isoformat()}
+            brief.content = {**brief.content, "timeline": [{**event, "title": title}]}
+            await db.commit()
+
+    # Today's brief shows the calendar it was written from, with "now" still moving.
+    client.portal.call(keep, 0, "Kept standup")
+    report = client.get("/brief/report").text
+    assert "Kept standup" in report and "● Now" in report
+
     async def age_brief(days: int) -> None:
         async with client.app.state.sessionmaker() as db:
             brief = await db.scalar(select(Brief))

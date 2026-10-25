@@ -160,9 +160,10 @@ async def report(request: Request) -> Response:
     context = await _brief_context(request)
     now = widget_context(request).now
     brief = context["brief"]
-    if context["stale"]:
-        # Yesterday's brief shows yesterday's calendar, as it saw it, so the two agree; today's
-        # calendar comes with today's brief.
+    kept = brief is not None and "timeline" in brief.content
+    if kept or context["stale"]:
+        # The calendar the brief was written from, so the two agree: a later meeting shows up
+        # with the next brief. On the brief's own day "now" and the free time still move.
         written = brief.created_at.astimezone(now.tzinfo)
         items = [
             TimelineItem(
@@ -172,11 +173,15 @@ async def report(request: Request) -> Response:
             )
             for i in brief.content.get("timeline", [])
         ]
-        context["glance"] = glance(items, written, day_over=True)
+        if context["stale"]:
+            context["glance"] = glance(items, written, day_over=True)
+            context["glance_day"] = written
+            context["glance_kept"] = kept
+        else:
+            context["glance"] = glance(items, now)
         context["sources"] = await load_widgets(request)
-        context["glance_day"] = written
-        context["glance_kept"] = "timeline" in brief.content
     else:
+        # A brief from before briefs kept their calendar: today's, as it is now.
         context["glance"], context["sources"] = await asyncio.gather(
             _timeline(request), load_widgets(request)
         )
