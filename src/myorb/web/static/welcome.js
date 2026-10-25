@@ -229,9 +229,12 @@
       dialog.showModal();
       history.pushState({ myorbView: true }, "");
     }
+    centreSwipe();
+    labelGhosts();
     htmx.ajax("GET", link.getAttribute("href"), { target: "#page-view", swap: "innerHTML" }).then(() => {
       view.classList.remove("is-loading");
       view.scrollTop = 0;
+      centreSwipe();
       link.closest(".modal-row")?.scrollIntoView({ block: "nearest" });
     });
     return true;
@@ -285,31 +288,45 @@
     });
   });
 
-  // Swipes, also over the email itself: its frame is a document of its own.
-  function watchSwipes(target) {
-    let start = null;
-    target.addEventListener("touchstart", (event) => {
-      const touch = event.touches[0];
-      start = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY, at: Date.now() } : null;
-    }, { passive: true });
-    target.addEventListener("touchend", (event) => {
-      if (!start || !viewDialog()?.open) return;
-      const touch = event.changedTouches[0];
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
-      const quick = Date.now() - start.at < 600;
-      start = null;
-      if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) stepView(dx < 0 ? 1 : -1);
-    }, { passive: true });
+  // Swipes: the view sits between its neighbours in a sideways scroller that snaps to each.
+  // Scrolling is native, so it also works over the email's frame (which runs no scripts, and
+  // Safari lets no script of the page watch touches in it). Settled on a neighbour, the view
+  // moves there and returns to the middle.
+  const swiper = () => document.querySelector("[data-page-swipe]");
+
+  function centreSwipe() {
+    const box = swiper();
+    if (box) box.scrollLeft = box.clientWidth;
   }
 
-  document.addEventListener("load", (event) => {
-    const frame = event.target;
-    if (!frame.matches?.("#page-view [data-email-frame]") || !frame.contentDocument) return;
-    watchSwipes(frame.contentDocument);
+  function labelGhosts() {
+    const rows = viewRows();
+    const at = rows.indexOf(viewing);
+    document.querySelectorAll("[data-ghost]").forEach((ghost) => {
+      const row = rows[at + Number(ghost.dataset.ghost)];
+      ghost.classList.toggle("is-none", !row);
+      ghost.querySelector(".page-ghost-title").textContent = row
+        ? row.querySelector(".trunc")?.textContent.trim() || ""
+        : "No more emails";
+    });
+  }
+
+  let swipeTimer = null;
+  document.addEventListener("scroll", (event) => {
+    const box = event.target;
+    if (!box.matches?.("[data-page-swipe]")) return;
+    clearTimeout(swipeTimer);
+    swipeTimer = setTimeout(() => {
+      const width = box.clientWidth;
+      const step = box.scrollLeft < width * 0.25 ? -1 : box.scrollLeft > width * 1.75 ? 1 : 0;
+      if (!step) return;
+      const rows = viewRows();
+      if (rows[rows.indexOf(viewing) + step]) stepView(step);
+      else box.scrollTo({ left: width, behavior: "smooth" });
+    }, 120);
   }, true);
 
-  watchSwipes(document);
+  window.addEventListener("resize", () => viewDialog()?.open && centreSwipe());
 
   document.addEventListener("keydown", (event) => {
     if (!viewDialog()?.open || event.target.closest("input, textarea")) return;
