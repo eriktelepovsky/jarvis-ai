@@ -296,6 +296,30 @@
     htmx.trigger(document.body, "myorb:refresh");
   }, true);
 
+  // A button in the email (Mark as read, Show images under the conversation) answers with the
+  // email again: it stays where it was scrolled. Its frames have their height only once they
+  // load, so the place is put back then too.
+  let viewTop = null;
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    const view = document.getElementById("page-view");
+    if (event.detail.target !== view || !view.contains(event.detail.requestConfig?.elt)) return;
+    viewTop = { top: view.scrollTop, until: Date.now() + 3000 };
+  });
+  function keepViewTop() {
+    const view = document.getElementById("page-view");
+    if (!viewTop || !view) return;
+    if (Date.now() > viewTop.until) viewTop = null;
+    else view.scrollTop = viewTop.top;
+  }
+  document.addEventListener("htmx:afterSettle", keepViewTop);
+  document.addEventListener("load", (event) => {
+    if (event.target.matches?.("[data-email-frame]")) requestAnimationFrame(keepViewTop);
+  }, true);
+  // Once the user scrolls, the place is theirs.
+  ["wheel", "touchstart", "keydown"].forEach((type) =>
+    document.addEventListener(type, () => (viewTop = null), { passive: true }),
+  );
+
   // Swipes: the view sits between its neighbours in a sideways scroller that snaps to each.
   // Scrolling is native, so it also works over the email's frame (which runs no scripts, and
   // Safari lets no script of the page watch touches in it). Settled on a neighbour, the view

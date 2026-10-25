@@ -1,6 +1,6 @@
 [project]
 name = "myorb"
-version = "0.18.3"
+version = "0.18.4"
 description = "Personal AI-powered daily briefing dashboard that summarizes your email, calendar, tasks, finances and more."
 readme = "README.md"
 license = "AGPL-3.0-only"
