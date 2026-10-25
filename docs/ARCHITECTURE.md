@@ -189,7 +189,7 @@ The generated key protects copies of the database on their own, e.g. in a backup
 The first connection, Google, lives in `src/myorb/connections/`; the generic Connection API above will be extracted from it when the second provider arrives.
 
 - The setup wizard (`/integrations/google/setup`) walks through creating the Google Cloud project, enabling the Gmail and Calendar APIs, publishing the app (apps in *Testing* lose access every 7 days) and creating the OAuth client. It shows the exact redirect URI to copy.
-- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `gmail.modify`, `calendar.readonly`, `youtube.readonly`) with offline access; accounts connected before a capability was added are asked to connect again.
+- One connection is stored per Google account. Connecting requests the scopes of all capabilities (`gmail.readonly`, `gmail.modify`, `calendar.readonly`, `calendar.events`, `youtube.readonly`) with offline access; accounts connected before a capability was added are asked to connect again.
 - YouTube: the subscriptions come from the YouTube Data API (cached for 12 hours, a few quota units a day) and the videos from each channel's public RSS feed, which costs no quota.
 - After connecting and on **Test connection**, myOrb refreshes the access token and makes a cheap read request per capability. The result tells apart a revoked connection, a permission that was not granted and an API that is not enabled in the Google project (with a link to enable it).
 - Disconnecting revokes the token at Google and deletes it.

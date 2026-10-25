@@ -511,6 +511,13 @@ a.ti:hover .t1 {
   visibility: hidden;
 }
 
+/* "Press / to type here" is for a keyboard: a phone has none. */
+@media (hover: none) and (pointer: coarse) {
+  .command-key {
+    display: none;
+  }
+}
+
 .command-voice {
   flex: none;
   color: var(--accent);
@@ -763,10 +770,27 @@ a.ti:hover .t1 {
     margin-bottom: calc(var(--d) * 0.08);
   }
 
+  /* The menu's four links on one line, each in one piece. */
+  .header-nav {
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .header-nav > * + *::before {
+    margin-right: 8px;
+  }
+
+  .header-nav a,
+  .header-nav button {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  /* As wide as the orb above it. */
   .command {
     position: static;
-    width: 100%;
-    margin-top: calc(var(--d) * 0.1);
+    width: min(var(--d), 100%);
+    margin: calc(var(--d) * 0.1) auto 0;
     transform: none;
   }
 
@@ -858,6 +882,7 @@ a.ti:hover .t1 {
 
   .command {
     grid-area: command;
+    width: 100%;
     margin: 0;
     padding-left: 26px;
   }
@@ -2351,9 +2376,18 @@ dialog.is-refreshing .modal-head::after {
 /* Ask: the conversation with the assistant, the latest at the bottom */
 
 .ask-modal {
-  --modal-height: min(820px, calc(100vh - 64px));
+  --modal-height: min(820px, calc(var(--screen) - 64px));
 
   width: min(760px, calc(100% - 48px));
+}
+
+/* On a phone as the other dialogs: the visible screen, clear of the status bar. */
+@media (max-width: 760px) {
+  .ask-modal {
+    --modal-height: calc(var(--screen) - 32px - var(--safe-top) - var(--safe-bottom));
+
+    width: calc(100% - 24px);
+  }
 }
 
 .ask-log {

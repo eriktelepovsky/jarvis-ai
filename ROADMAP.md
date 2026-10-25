@@ -46,7 +46,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [x] **Chat with myOrb:** everything typed under the orb goes to the chat about your dashboard, with follow-ups
 - [x] **Actions in chat:** Claude proposes, you confirm: tasks, YouTube videos seen, uptime monitors, Jira status and comments, Asana tasks, approving and commenting GitHub pull requests; most can be undone
 - [x] **Reply to an email as a Gmail draft:** written by Claude on the email's page or in the chat, never sent by myOrb
-- [ ] **Actions in chat, Google:** calendar events (need wider Google permissions)
+- [x] **Calendar in chat:** add, move, rename and delete events, answer invitations (Google permission to change events)
 - [x] **Email:** read an email and its conversation in myOrb (images blocked until asked for) and mark it as read
 - [x] **Quick actions:** common questions for Ask (plan today, inbox brief, focus block…) one click away
 - [ ] **Triage:** mark items as done or snooze them for later

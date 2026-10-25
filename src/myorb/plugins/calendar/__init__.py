@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
+    AskAction,
     BriefSection,
     Panel,
     Plugin,
@@ -22,6 +23,8 @@ from myorb.plugins.google_data import AccountData, account_status, load_accounts
 API = "https://www.googleapis.com/calendar/v3"
 API_NAME = "Google Calendar API"
 SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
+# Adding and changing events from Ask; accounts connected before it was asked for only read.
+EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 DAYS_AHEAD = 7
 EVENTS_PER_CALENDAR = 25
 ICON = "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"
@@ -68,7 +71,18 @@ def parse_event(
         "video_url": video,
         "url": event.get("htmlLink"),
         "calendar": None if calendar.get("primary") else calendar.get("summary"),
+        # What Ask needs to change the event (see actions.py).
+        "id": event.get("id", ""),
+        "calendar_id": calendar.get("id", ""),
     }
+
+
+def event_ref(event: dict[str, Any]) -> str:
+    """ "event 1 primary@x.example 7kq3…": the account in myOrb, the calendar and the event.
+    Events cached by an earlier version have none."""
+    if not event.get("id") or not event.get("account_id"):
+        return ""
+    return f"event {event['account_id']} {event['calendar_id']} {event['id']}"
 
 
 def describe(event: dict[str, Any]) -> str:
@@ -169,7 +183,7 @@ async def fetch_events(
         )
     )
     events = [
-        parsed
+        {**parsed, "account_id": account.id}
         for calendar, response in zip(calendars, responses, strict=True)
         for event in response.get("items", [])
         if (parsed := parse_event(event, calendar, now.tzinfo)) is not None
@@ -186,6 +200,11 @@ class CalendarPlugin(Plugin):
     name = "Calendar"
     templates_dir = Path(__file__).parent / "templates"
     position = 20
+
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.calendar.actions import ask_actions
+
+        return ask_actions()
 
     def widgets(self) -> list[Widget]:
         return [Widget(id="today", label="Events", title="Calendar", icon=ICON, load=self._widget)]
@@ -301,6 +320,7 @@ class CalendarPlugin(Plugin):
                     badge="Over" if event.get("kind") == "past" else event_badge(event, now),
                     tone="neutral" if event.get("kind") == "past" else "info",
                     url=event["url"],
+                    ref=event_ref(event),
                     tags=tuple(tags),
                     group=event["calendar"] or event.get("account") or "Primary",
                 )

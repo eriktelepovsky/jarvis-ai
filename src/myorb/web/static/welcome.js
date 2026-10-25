@@ -764,6 +764,13 @@
     askQuestion(quick.dataset.askQuick);
   });
 
+  // Chat in the header: the conversation as it was left, ready for the next question.
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-ask-open]")) return;
+    showAsk();
+    document.getElementById("ask-input")?.focus();
+  });
+
   document.addEventListener("click", (event) => {
     if (!event.target.closest("[data-ask-new]")) return;
     ask = { conversation: null, messages: [] };

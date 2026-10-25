@@ -57,6 +57,14 @@ CAPABILITIES = (
         api_url="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com",
     ),
     Capability(
+        id="calendar.events",
+        label="Add and change calendar events",
+        scope="https://www.googleapis.com/auth/calendar.events",
+        check_url="https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1",
+        api_name="Google Calendar API",
+        api_url="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com",
+    ),
+    Capability(
         id="youtube.read",
         label="Read YouTube subscriptions",
         scope="https://www.googleapis.com/auth/youtube.readonly",
