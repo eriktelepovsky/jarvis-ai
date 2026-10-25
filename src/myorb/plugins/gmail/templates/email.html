@@ -18,7 +18,7 @@
   <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"{{ view_form("/email/%d/%s/read" % (account.id, thread_id)) }}><button type="submit" class="btn btn-primary">Mark as read</button></form>
   {% endif %}
   {% if can_draft and messages %}
-  <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/draft" hx-target="#email-draft" hx-swap="outerHTML">↩ Reply</button>
+  <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/draft" hx-target="#email-draft" hx-swap="outerHTML">↩&#xFE0E; Reply</button>
   {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
   {% if blocked_domains %}
