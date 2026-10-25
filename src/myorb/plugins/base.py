@@ -205,6 +205,8 @@ class AskAction:
     summary: Callable[[WidgetContext, dict[str, Any]], Awaitable[str]]
     run: Callable[[WidgetContext, dict[str, Any]], Awaitable[ActionResult]]
     confirm: bool = True
+    # The welcome screen loads its numbers again after it runs (e.g. new data was fetched).
+    refresh: bool = False
 
 
 @dataclass(frozen=True)

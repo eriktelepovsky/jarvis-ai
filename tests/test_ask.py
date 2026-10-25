@@ -75,6 +75,7 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
         "tasks__complete_task",
         "tasks__reschedule_task",
         "tasks__rename_task",
+        "myorb__refresh",
     }
     assert all(tool["strict"] for tool in tools.values())
 
@@ -120,6 +121,31 @@ def test_warming_up_caches_the_dashboard_for_the_first_question(
     # A failed warm-up loses nothing: the question just reads the dashboard itself.
     claude.status = 529
     assert client.post("/ask/warm", json={}).status_code == 200
+
+
+def test_claude_loads_new_data_when_asked(client: TestClient, claude: FakeClaude):
+    connect(client)
+    lines = ask(client, [{"role": "user", "content": "Refresh the data"}])
+    conversation = lines[0]["conversation"]
+    client.post("/command", data={"text": "Call mom"})
+    claude.tool_calls = [("myorb__refresh", {})]
+    lines = ask(
+        client,
+        [
+            {"role": "user", "content": "Refresh the data"},
+            {"role": "assistant", "content": text_of(lines)},
+            {"role": "user", "content": "And now?"},
+        ],
+        conversation,
+    )
+    # Run at once, no confirmation; the welcome screen reloads, Claude reads the new data.
+    assert {"refresh": True} in lines and not any("proposal" in line for line in lines)
+    [result] = [
+        block
+        for block in claude.requests[-1]["messages"][-1]["content"]
+        if block.get("type") == "tool_result"
+    ]
+    assert "loaded again" in result["content"] and "Call mom" in result["content"]
 
 
 def test_streamed_answers_are_counted(client: TestClient, claude: FakeClaude):

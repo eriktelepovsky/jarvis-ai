@@ -1194,6 +1194,50 @@
     event.detail.elt.closest?.(".refresh-btn")?.closest("dialog")?.classList.remove("is-refreshing");
   });
 
+  // Pull to refresh: on a touch screen, where the details have no Refresh button, pulling their
+  // body down from the top loads new data, as the button does.
+  const PULL = 70; // px to pull before letting go refreshes
+  let pull = null;
+  document.addEventListener("touchstart", (event) => {
+    const body = event.target.closest?.("dialog[data-detail] .modal-body");
+    const dialog = body?.closest("dialog");
+    if (!body || body.scrollTop > 0 || event.touches.length > 1 || dialog.classList.contains("is-refreshing")) return;
+    pull = { body, dialog, y: event.touches[0].clientY, dy: 0, hint: null };
+  }, { passive: true });
+  document.addEventListener("touchmove", (event) => {
+    if (!pull) return;
+    const dy = event.touches[0].clientY - pull.y;
+    if (dy <= 0 || pull.body.scrollTop > 0) {
+      if (!pull.hint) pull = null; // scrolling the list, not pulling
+      return;
+    }
+    event.preventDefault(); // no bounce of its own: the body follows the finger
+    pull.dy = Math.min(dy * 0.5, PULL * 1.5);
+    if (!pull.hint) {
+      pull.hint = document.createElement("div");
+      pull.hint.className = "label pull-hint";
+      pull.body.before(pull.hint);
+      pull.hint.style.top = `${pull.body.offsetTop}px`; // in the room above the pulled body
+    }
+    const ready = pull.dy >= PULL;
+    pull.hint.textContent = ready ? "↻ Release to refresh" : "↓ Pull to refresh";
+    pull.hint.classList.toggle("is-ready", ready);
+    pull.hint.style.height = `${pull.dy}px`;
+    pull.body.style.transform = `translateY(${pull.dy}px)`;
+  }, { passive: false });
+  function endPull() {
+    if (!pull) return;
+    const { body, dialog, dy, hint } = pull;
+    pull = null;
+    body.style.transition = "transform 0.2s";
+    body.style.transform = "";
+    setTimeout(() => (body.style.transition = ""), 200);
+    hint?.remove();
+    if (dy >= PULL) dialog.querySelector(".refresh-btn")?.click();
+  }
+  document.addEventListener("touchend", endPull);
+  document.addEventListener("touchcancel", endPull);
+
   // Each number refreshes at its own pace (its widget's `refresh`): the node's border fills up
   // as its data gets older, and when it is full the number is fetched again (`due`).
   const ringTimers = new WeakMap();

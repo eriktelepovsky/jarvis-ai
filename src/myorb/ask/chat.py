@@ -190,6 +190,8 @@ async def turn(
                     conversation.replies.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": result.message}
                     )
+                    if action.refresh:
+                        yield {"refresh": True}
                     continue
                 summary = await action.summary(context, block.input)
             except (ActionError, KeyError, TypeError, ValueError) as error:
