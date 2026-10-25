@@ -70,8 +70,6 @@ class Row:
     """One item in a widget's details, e.g. an email or an event."""
 
     title: str
-    # A symbol before the title, e.g. "★" for a starred email.
-    mark: str = ""
     subtitle: str = ""
     badge: str = ""
     tone: Tone = "neutral"
@@ -91,6 +89,9 @@ class Row:
     subgroup: str = ""
     # What the plugin's Ask actions take to find it again, e.g. a task's id: Claude sees it.
     ref: str = ""
+    # A symbol before the title, e.g. "★" for a starred email. Last, as plugins pass the
+    # fields before it by position.
+    mark: str = ""
 
 
 @dataclass(frozen=True)

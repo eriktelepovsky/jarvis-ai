@@ -203,7 +203,7 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     # Grouped by the user's address it was sent to, here another mailbox Gmail collects.
     assert 'data-group="tony@starkindustries.example"' in text
     # Each email opens in myOrb; marking it as read needs the permission, granted here.
-    assert '<a class="row-link" href="/email/1/t1">' in text and ">Read<" not in text
+    assert '<a class="row-link" href="/email/1/t1" data-view>' in text and ">Read<" not in text
     assert 'hx-post="/email/1/t1/read"' in text
     assert '<span class="row-mark" aria-hidden="true">★</span>Pepper Potts' in text  # starred
     # Gmail marks it important: counted, and the number narrows the list to such emails.
@@ -658,3 +658,17 @@ def test_pages_ask_proxies_not_to_change_them(client: TestClient):
     # Cloudflare would hide every email address on the page behind "[email protected]".
     assert client.get("/").headers["cache-control"] == "no-transform"
     assert "no-transform" not in client.get("/static/style.css").headers["cache-control"]
+
+
+def test_rows_keep_their_fields_by_position():
+    # Plugins pass a row's first fields by position (Jira, YouTube…): new ones go last.
+    from myorb.plugins import Row
+
+    row = Row("AR-16 Import", "Due 26 Feb", "26 Feb", "fail", "https://jira.example/AR-16")
+    assert (row.subtitle, row.badge, row.tone, row.url, row.mark) == (
+        "Due 26 Feb",
+        "26 Feb",
+        "fail",
+        "https://jira.example/AR-16",
+        "",
+    )

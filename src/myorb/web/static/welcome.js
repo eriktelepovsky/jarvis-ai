@@ -214,7 +214,7 @@
 
   function viewRows() {
     const list = viewing?.closest("dialog[data-detail]");
-    return list ? [...list.querySelectorAll(".modal-row:not([hidden]) a.row-link")] : [];
+    return list ? [...list.querySelectorAll(".modal-row:not([hidden]) a.row-link[data-view]")] : [];
   }
 
   function showView(link, step = 0) {
@@ -256,7 +256,7 @@
 
   // Caught on the way down, before hx-boost's own handler on the link takes the whole page there.
   document.addEventListener("click", (event) => {
-    const link = event.target.closest?.("a.row-link");
+    const link = event.target.closest?.("a.row-link[data-view]");
     if (!link || link.target || !link.getAttribute("href").startsWith("/")) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if (showView(link)) {

@@ -694,6 +694,11 @@ a.ti:hover .t1 {
    rather than narrow, but takes the same header, greeting and command line; the block after
    this one lays them out beside the orb. */
 @media (max-width: 720px), (orientation: landscape) and (max-height: 560px) {
+  /* The row opens from anywhere on it (see the details' rows): no button for it. */
+  .row-actions .row-open {
+    display: none;
+  }
+
   /* The circles reach about 5% past the orb on each side (more for a large one with its
      warning badge), so the orb leaves that much of the screen free. */
   .stage { --d: min(86vw, calc(var(--screen) - 120px)); }
