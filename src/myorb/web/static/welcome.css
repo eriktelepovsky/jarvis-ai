@@ -2317,6 +2317,25 @@ dialog.is-refreshing .modal-head::after {
   position: relative;
 }
 
+/* Pull to refresh (see welcome.js): the note in the room the pulled body leaves above it. */
+.pull-hint {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 10.5px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.pull-hint.is-ready {
+  color: var(--accent);
+}
+
 /* A group with nothing left after the other filters */
 
 .group-item.is-empty {

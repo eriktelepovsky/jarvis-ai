@@ -20,6 +20,8 @@ from myorb.ask.chat import ask_question, clean_history, decide, turn, warm
 from myorb.ask.context import dashboard
 from myorb.ask.conversation import Conversation, offered
 from myorb.brief.writer import BriefError
+from myorb.cache import refreshing
+from myorb.plugins import ActionResult, AskAction, Plugin, WidgetContext
 from myorb.profile import load_profile
 from myorb.web.routes import ordered_plugins, widget_context
 
@@ -49,11 +51,41 @@ async def _client(request: Request) -> tuple[anthropic.AsyncAnthropic, str]:
     return service.client(settings.api_key, settings.workspace_id), settings.model
 
 
+def _refresh_action(plugins: list[Plugin]) -> AskAction:
+    """Loading every source again, for "refresh the data": Claude reads the new dashboard."""
+
+    async def run(context: WidgetContext, data: dict[str, Any]) -> ActionResult:
+        token = refreshing.set(True)
+        try:
+            text, _ = await dashboard(context, plugins)
+        finally:
+            refreshing.reset(token)
+        return ActionResult(f"Every source was loaded again. The dashboard now:\n\n{text}")
+
+    async def summary(context: WidgetContext, data: dict[str, Any]) -> str:
+        return "Load new data from every source."
+
+    return AskAction(
+        name="refresh",
+        description=(
+            "Load new data from every source now, when the user asks to refresh or update "
+            "the data. The dashboard above is from when the conversation began; this returns "
+            "it as it is now, to answer from."
+        ),
+        schema={"type": "object", "properties": {}, "required": [], "additionalProperties": False},
+        summary=summary,
+        run=run,
+        confirm=False,
+        refresh=True,
+    )
+
+
 async def _start(request: Request, earlier: list[dict[str, str]]) -> Conversation:
-    """A new conversation: the dashboard now, the actions of the services set up, and the
-    earlier turns the browser kept (e.g. after a restart) as plain text."""
-    text, set_up = await dashboard(widget_context(request), ordered_plugins(request))
-    actions, tools = offered(set_up)
+    """A new conversation: the dashboard now, the actions of the services set up (and loading
+    new data), and the earlier turns the browser kept (e.g. after a restart) as plain text."""
+    plugins = ordered_plugins(request)
+    text, set_up = await dashboard(widget_context(request), plugins)
+    actions, tools = offered(set_up, [_refresh_action(plugins)])
     async with request.app.state.sessionmaker() as db:
         assistant = (await load_profile(db, request.app.state.secret_box))["assistant"]
     conversation = Conversation(dashboard=text, actions=actions, tools=tools, assistant=assistant)

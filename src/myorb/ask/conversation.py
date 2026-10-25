@@ -4,7 +4,7 @@ user: proposed actions to confirm, done ones to undo."""
 
 import secrets
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,22 +36,24 @@ def tool_name(plugin: Plugin, action: AskAction) -> str:
     return f"{plugin.id}__{action.name}"
 
 
-def offered(plugins: list[Plugin]) -> tuple[dict[str, AskAction], list[dict[str, Any]]]:
-    """The actions of these plugins, by tool name, and their tool definitions for the API."""
+def offered(
+    plugins: list[Plugin], own: Sequence[AskAction] = ()
+) -> tuple[dict[str, AskAction], list[dict[str, Any]]]:
+    """The actions of these plugins and myOrb's `own` (as "myorb__…"), by tool name, and their
+    tool definitions for the API."""
     actions: dict[str, AskAction] = {}
     tools: list[dict[str, Any]] = []
-    for plugin in plugins:
-        for action in plugin.ask_actions():
-            name = tool_name(plugin, action)
-            actions[name] = action
-            tools.append(
-                {
-                    "name": name,
-                    "description": action.description,
-                    "input_schema": action.schema,
-                    "strict": True,
-                }
-            )
+    named = [(tool_name(p, a), a) for p in plugins for a in p.ask_actions()]
+    for name, action in [*named, *((f"myorb__{a.name}", a) for a in own)]:
+        actions[name] = action
+        tools.append(
+            {
+                "name": name,
+                "description": action.description,
+                "input_schema": action.schema,
+                "strict": True,
+            }
+        )
     return actions, tools
 
 
