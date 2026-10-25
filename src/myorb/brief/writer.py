@@ -60,7 +60,11 @@ coming up soon, overdue tasks and today's deadlines come before newsletters, rec
 notifications. Look ahead too: tomorrow's travel (flights, trains), early starts and events \
 that need preparing belong in the brief, all the more in the afternoon and evening. Say it \
 plainly and briefly, like a capable assistant talking to their boss. \
-Address the user directly as "you". Do not use the user's name. Write times in 24-hour format.
+Address the user directly as "you". Do not use the user's name. Write times in 24-hour format. \
+Leave out codes and identifiers, which say nothing to the user and stumble when read aloud: \
+flight and train numbers, issue keys (e.g. "AR-16"), error IDs (e.g. "WEBLATE-91"), ticket, \
+order and invoice numbers. Name the thing by what it is instead: "the flight to Košice", \
+"the Jira task about the export", "the failed cron job in Weblate".
 
 Fields:
 - headline: one short sentence (at most 60 characters) shown in the center of the dashboard, \
