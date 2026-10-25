@@ -79,6 +79,8 @@ class Row:
     url_label: str = "Open"
     # Open `url` in a new tab even though it is within myOrb (e.g. a redirect to YouTube).
     new_tab: bool = False
+    # The whole row opens `url` (e.g. an email), with no button for it.
+    open_row: bool = False
     # What the row is, for the numbers that filter the list (Stat.filter), e.g. ("review",).
     tags: tuple[str, ...] = ()
     # Where it belongs, e.g. a Jira workspace or a repository; see WidgetData.group_label.

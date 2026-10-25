@@ -122,7 +122,19 @@ function sizeEmailFrame(frame) {
   // Measured at no height, else a frame made wider could not get shorter. The extra pixel
   // covers a fractional height, which would leave the frame a pixel to scroll on its own.
   frame.style.height = "0px";
-  frame.style.height = `${Math.max(page.scrollHeight, frame.contentDocument.body?.scrollHeight || 0) + 1}px`;
+  // An email laid out wider than the frame (a fixed 600–700px newsletter) is scaled down to
+  // fit, as Gmail's app does, rather than scrolled sideways.
+  page.style.zoom = "";
+  const wide = page.scrollWidth / page.clientWidth;
+  if (wide > 1.01) page.style.zoom = String(Math.max(0.4, 1 / wide));
+  let height = Math.ceil(Math.max(page.scrollHeight, frame.contentDocument.body?.scrollHeight || 0) * (Number(page.style.zoom) || 1)) + 1;
+  frame.style.height = `${height}px`;
+  // Browsers differ in whether a zoomed page reports its sizes zoomed. Content and frame are
+  // compared in the same units, and the frame grows until nothing is cut off.
+  for (let tries = 0; tries < 3 && page.scrollHeight > page.clientHeight + 1; tries += 1) {
+    height = Math.ceil((height * page.scrollHeight) / page.clientHeight) + 1;
+    frame.style.height = `${height}px`;
+  }
   const body = frame.contentDocument.body;
   if (body && emailFrameWatch.get(frame)?.body !== body && "ResizeObserver" in window) {
     emailFrameWatch.get(frame)?.observer.disconnect();
