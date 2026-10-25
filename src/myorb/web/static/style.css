@@ -678,6 +678,15 @@ code,
   border-radius: 8px;
 }
 
+/* Safari on an iPhone zooms into a field whose text is smaller than 16px when it is tapped. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 .input:focus {
   border-color: var(--accent);
   outline: none;
