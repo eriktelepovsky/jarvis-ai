@@ -2139,6 +2139,7 @@ form.email-note {
   justify-content: space-between;
   padding: 14px 18px;
   cursor: pointer;
+  background: var(--surface-3);
   list-style: none;
 }
 

@@ -1393,23 +1393,28 @@ button.modal-stat[aria-pressed="true"] {
 }
 
 .page-view {
+  --view-pad: 22px;
+
   min-height: 0;
-  padding: 22px 22px 28px;
+  padding: 22px var(--view-pad) 28px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   transition: opacity 0.15s ease;
 }
 
-@media (max-width: 720px) {
-  /* On a phone the email takes the width: little room around it. */
-  .page-view {
-    padding: 16px 8px 20px;
-  }
+/* The email itself runs from edge to edge of the window. */
+.page-view .email-message {
+  max-width: none;
+  margin-inline: calc(-1 * var(--view-pad));
+  border-inline: 0;
+  border-radius: 0;
+}
 
-  .page-view .page-title,
-  .page-view .email-actions,
-  .page-view .email-note {
-    padding-inline: 8px;
+@media (max-width: 720px) {
+  .page-view {
+    --view-pad: 16px;
+
+    padding-block: 16px 20px;
   }
 }
 
