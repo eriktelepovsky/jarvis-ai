@@ -16,10 +16,23 @@
   <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"><button type="submit" class="btn btn-primary">Mark as read</button></form>
   {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
-  {% if not images and messages | selectattr("html") | list %}
+  {% if blocked_domains %}
+  {# Remembered for the sender's domain: its next emails show their images too. #}
+  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/images">
+    {% for domain in blocked_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
+    <button type="submit" class="btn btn-ghost" title="Images from {{ blocked_domains | join(', ') }} will show from now on">Show images</button>
+  </form>
+  {% elif not images and messages | selectattr("html") | rejectattr("images") | list %}
   <a class="btn btn-ghost" href="?images=true">Show images</a>
   {% endif %}
 </div>
+{% if allowed_domains and not images %}
+<form class="email-note panel-narrow muted" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images">
+  {% for domain in allowed_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
+  <input type="hidden" name="show" value="false">
+  Images from {{ allowed_domains | join(", ") }} are shown. <button type="submit" class="btn btn-ghost btn-small">Block them again</button>
+</form>
+{% endif %}
 
 {% if marked_read %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}
 {% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
@@ -37,7 +50,7 @@
   </summary>
   {% if message.html %}
   {# No scripts; same origin only so the page can size the frame to its content. #}
-  <iframe class="email-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ frame_document(message.html, images) }}" title="Email from {{ message.sender }}" data-email-frame></iframe>
+  <iframe class="email-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ frame_document(message.html, message.images) }}" title="Email from {{ message.sender }}" data-email-frame></iframe>
   {% else %}
   <div class="email-text">{{ message.text }}</div>
   {% endif %}

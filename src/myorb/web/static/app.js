@@ -113,13 +113,29 @@ document.addEventListener("click", (event) => {
 });
 
 // An email's frame is as tall as its content, so the page scrolls rather than the frame; a
-// folded message is sized when it is opened.
+// folded message is sized when it is opened, and a frame follows its content as it changes
+// (late styles, fonts, images shown).
+const emailFrameWatch = new WeakMap();
 function sizeEmailFrame(frame) {
   const page = frame.contentDocument?.documentElement;
   if (!page || !frame.offsetWidth) return;
-  // Measured at no height, else a frame made wider could not get shorter.
+  // Measured at no height, else a frame made wider could not get shorter. The extra pixel
+  // covers a fractional height, which would leave the frame a pixel to scroll on its own.
   frame.style.height = "0px";
-  frame.style.height = `${page.scrollHeight}px`;
+  frame.style.height = `${Math.max(page.scrollHeight, frame.contentDocument.body?.scrollHeight || 0) + 1}px`;
+  const body = frame.contentDocument.body;
+  if (body && emailFrameWatch.get(frame)?.body !== body && "ResizeObserver" in window) {
+    emailFrameWatch.get(frame)?.observer.disconnect();
+    let last = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      const height = Math.round(entry.contentRect.height);
+      if (height === last) return;
+      last = height;
+      requestAnimationFrame(() => sizeEmailFrame(frame));
+    });
+    observer.observe(body);
+    emailFrameWatch.set(frame, { body, observer });
+  }
 }
 const sizeEmailFrames = () => document.querySelectorAll("[data-email-frame]").forEach(sizeEmailFrame);
 document.addEventListener("DOMContentLoaded", sizeEmailFrames);

@@ -59,6 +59,19 @@ class RevalidatedStaticFiles(StaticFiles):
         return response
 
 
+async def untransformed_pages(request: Request, call_next: Any) -> Response:
+    """Pages a proxy must pass on as they are.
+
+    Cloudflare's Email Address Obfuscation would otherwise turn every address on a page into
+    "[email protected]" and a script myOrb does not load; it leaves "no-transform" alone.
+    """
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        cache = response.headers.get("Cache-Control")
+        response.headers["Cache-Control"] = f"{cache}, no-transform" if cache else "no-transform"
+    return response
+
+
 def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Templates:
     """Jinja environment with app templates and each plugin's templates under its id prefix."""
     plugin_loaders = {
@@ -160,6 +173,7 @@ def create_app(
     app.state.ask_conversations = Conversations()
     app.state.templates = create_templates(plugins, app.state.timezone)
     app.middleware("http")(auth_middleware)
+    app.middleware("http")(untransformed_pages)
     app.mount("/static", RevalidatedStaticFiles(directory=WEB_DIR / "static"), name="static")
     app.include_router(auth_routes.router)
     app.include_router(passkeys.router)

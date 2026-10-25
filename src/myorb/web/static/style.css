@@ -2116,6 +2116,13 @@ form.htmx-request .btn[type="submit"]::before {
   font-size: 13px;
 }
 
+form.email-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .email-message {
   margin-bottom: 12px;
   overflow: hidden;
