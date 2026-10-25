@@ -770,21 +770,27 @@ a.ti:hover .t1 {
     margin-bottom: calc(var(--d) * 0.08);
   }
 
-  /* The menu's links on one line, each in one piece, spread across the screen; the space
-     between them parts them, without the dots. */
+  /* The menu's links on one line, each in one piece, spread across the screen: every item
+     after the first takes an equal share of the room left, with its dot in the middle of it. */
   .header-line {
     width: 100%;
   }
 
   .header-nav {
     flex: 1;
-    justify-content: space-between;
     gap: 8px;
     white-space: nowrap;
   }
 
+  .header-nav > * + * {
+    flex: 1 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .header-nav > * + *::before {
-    display: none;
+    margin: 0 auto;
   }
 
   .header-nav a,
