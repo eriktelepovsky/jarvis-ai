@@ -577,6 +577,8 @@ def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google
     assert response.headers["location"] == "/email/1/t1?read=true"
     assert modified == ['{"removeLabelIds":["UNREAD"]}']
     assert client.post("/email/1/t1/read", headers={"HX-Request": "true"}).status_code == 204
+    # Gmail's search still finds it unread for a while; the list leaves it out already.
+    assert 'href="/email/1/t1"' not in client.get("/welcome/widgets").text
     assert client.get("/email/9/t1").status_code == 404
 
 

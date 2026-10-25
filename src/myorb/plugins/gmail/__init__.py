@@ -1,5 +1,6 @@
 import asyncio
 import html
+import time
 from datetime import datetime, tzinfo
 from email.utils import getaddresses, parseaddr
 from pathlib import Path
@@ -33,6 +34,8 @@ MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 # its newest unread email. The brief gets the newest BRIEF_UNREAD.
 UNREAD_SHOWN = 100
 BRIEF_UNREAD = 15
+# How long a conversation marked as read from myOrb stays out of the lists (see unread_of).
+MARKED_KEPT = 15 * 60
 # Message headers are read this many at a time, to stay within Gmail's rate limits.
 PARALLEL = 10
 # Counting today's emails stops here; more is shown as "500+".
@@ -165,6 +168,20 @@ class GmailPlugin(Plugin):
     position = 10
     templates_dir = Path(__file__).parent / "templates"
 
+    def __init__(self) -> None:
+        # Conversations marked as read from myOrb, by (address, thread) and when. Gmail's search
+        # finds them as unread for a while longer; until then the lists leave them out.
+        self._marked_read: dict[tuple[str, str], float] = {}
+
+    def marked_read(self, email: str, thread_id: str) -> None:
+        self._marked_read[(email, thread_id)] = time.monotonic()
+
+    def unread_of(self, email: str, data: dict[str, Any]) -> list[dict[str, Any]]:
+        """The account's latest unread conversations, without those just marked as read."""
+        now = time.monotonic()
+        self._marked_read = {k: at for k, at in self._marked_read.items() if now - at < MARKED_KEPT}
+        return [m for m in data["latest_unread"] if (email, thread_of(m)) not in self._marked_read]
+
     def router(self) -> "APIRouter":
         from myorb.plugins.gmail.routes import router
 
@@ -203,7 +220,7 @@ class GmailPlugin(Plugin):
             f"{sum(a.data['today'] for a in loaded)} emails received today."
         ]
         for account in loaded:
-            for message in account.data["latest_unread"][:BRIEF_UNREAD]:
+            for message in self.unread_of(account.email, account.data)[:BRIEF_UNREAD]:
                 received = received_badge(message["received"], context.now)
                 lines.append(f"Unread from {message['sender']}: {message['subject']} ({received})")
         return BriefSection("Email (Gmail)", lines)
@@ -223,7 +240,7 @@ class GmailPlugin(Plugin):
         important = sum(
             message.get("important", False)
             for account in loaded
-            for message in account.data["latest_unread"]
+            for message in self.unread_of(account.email, account.data)
         )
         more = any(account.data.get("unread_more", False) for account in loaded)
         important_label = f"{important}+" if more else str(important)
@@ -232,14 +249,14 @@ class GmailPlugin(Plugin):
         unread_today = sum(
             message["received"].date() == context.now.date()
             for account in loaded
-            for message in account.data["latest_unread"]
+            for message in self.unread_of(account.email, account.data)
         )
         unread_today_label = f"{unread_today}+" if more else str(unread_today)
         messages = sorted(
             (
                 (account.email, message)
                 for account in loaded
-                for message in account.data["latest_unread"]
+                for message in self.unread_of(account.email, account.data)
             ),
             key=lambda item: item[1]["received"],
             reverse=True,
