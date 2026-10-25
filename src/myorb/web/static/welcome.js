@@ -303,7 +303,18 @@
   document.addEventListener("htmx:beforeSwap", (event) => {
     const view = document.getElementById("page-view");
     if (event.detail.target !== view || !view.contains(event.detail.requestConfig?.elt)) return;
-    viewTop = { top: view.scrollTop, until: Date.now() + 3000 };
+    // The frames' heights too: the new ones get them at once, so the email is as long as
+    // before from the first paint and is not seen at the top for a moment.
+    const heights = [...view.querySelectorAll("[data-email-frame]")].map((frame) => frame.style.height);
+    viewTop = { top: view.scrollTop, heights, until: Date.now() + 3000 };
+  });
+  document.addEventListener("htmx:afterSwap", (event) => {
+    const view = document.getElementById("page-view");
+    if (!viewTop || event.detail.target !== view) return;
+    view.querySelectorAll("[data-email-frame]").forEach((frame, i) => {
+      if (viewTop.heights[i]) frame.style.height = viewTop.heights[i];
+    });
+    view.scrollTop = viewTop.top;
   });
   function keepViewTop() {
     const view = document.getElementById("page-view");
