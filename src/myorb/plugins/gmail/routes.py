@@ -24,7 +24,7 @@ async def _unread(request: Request) -> list[dict[str, Any]]:
     """The unread emails the details list, newest first (from the cache, as the widget)."""
     plugin = request.app.state.plugins["gmail"]
     accounts = await plugin._accounts(widget_context(request))
-    emails = [m for a in accounts if a.data is not None for m in a.data["latest_unread"]]
+    emails = [m for a in accounts if a.data is not None for m in plugin.unread_of(a.email, a.data)]
     return sorted(emails, key=lambda m: m["received"], reverse=True)
 
 
@@ -187,6 +187,7 @@ async def mark_read(request: Request, account_id: int, thread_id: str) -> Respon
     except GoogleError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
     request.app.state.cache.invalidate(f"google:{account.id}:gmail")
+    request.app.state.plugins["gmail"].marked_read(account.email, thread_id)
     if _in_view(request):
         # The list behind keeps its place; the email's row leaves it.
         response = await read_email(request, account_id, thread_id, read=True)
