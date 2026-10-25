@@ -597,8 +597,11 @@
   // actions Claude proposes (cards to confirm) and what the confirmed ones did.
   async function askStream(dialog, url, body) {
     const log = dialog.querySelector("[data-ask-log]");
+    // What is going on until (and between) the answer's text, with a spinner.
+    const working = (note) =>
+      `<span class="ask-thinking"><span class="ask-spinner" aria-hidden="true"></span>${escapeHtml(note)}</span>`;
     let bubble = askBubble("assistant", "", "thinking");
-    bubble.innerHTML = '<span class="ask-thinking">Looking at your dashboard…</span>';
+    bubble.innerHTML = working("Looking at your dashboard…");
     log.append(bubble);
     log.scrollTop = log.scrollHeight;
     dialog.dataset.busy = "true";
@@ -627,6 +630,15 @@
           if (data.refresh) htmx.trigger(document.body, "myorb:refresh");
           if (data.done) showDone(dialog, data.done);
           if (data.proposal) proposals.push(data.proposal);
+          if (data.status) {
+            if (!bubble.isConnected) {
+              bubble = askBubble("assistant", "");
+              log.append(bubble);
+            }
+            bubble.classList.toggle("is-thinking", !text);
+            bubble.innerHTML = (text ? renderAnswer(text) : "") + working(data.status);
+            log.scrollTop = log.scrollHeight;
+          }
           if (data.text) {
             if (!bubble.isConnected) {
               bubble = askBubble("assistant", "");

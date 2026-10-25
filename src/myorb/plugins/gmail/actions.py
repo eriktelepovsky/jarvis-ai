@@ -120,6 +120,7 @@ def ask_actions() -> list[AskAction]:
             _read_summary,
             _read,
             confirm=False,
+            working="Reading the email…",
         ),
         AskAction(
             "draft_reply",
