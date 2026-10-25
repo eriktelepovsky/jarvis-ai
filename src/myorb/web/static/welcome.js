@@ -222,7 +222,7 @@
     const view = document.getElementById("page-view");
     if (!dialog || !view) return false;
     viewing = link;
-    view.dataset.step = step;
+    view.dataset.slide = step;
     view.classList.add("is-loading");
     if (!dialog.open) {
       view.replaceChildren();
@@ -420,7 +420,7 @@
     } else if (opener && document.getElementById(opener.dataset.open)) {
       openDialog(document.getElementById(opener.dataset.open));
       sound("open");
-    } else if (event.target.closest("[data-step]")) {
+    } else if (dialog && event.target.closest("[data-step]")) {
       stepDialog(dialog, Number(event.target.closest("[data-step]").dataset.step));
       sound("click");
     } else if (event.target.closest("[data-open-report]")) {
