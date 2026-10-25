@@ -2135,7 +2135,9 @@ form.htmx-request .btn[type="submit"]::before {
   flex-direction: column;
   gap: 12px;
   margin-bottom: 16px;
-  padding: 16px;
+  /* No box of its own: the reply's field is the only frame, as wide as it can be. */
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .email-draft-head,
@@ -2158,8 +2160,8 @@ form.htmx-request .btn[type="submit"]::before {
 
 .email-draft-body {
   height: auto;
-  min-height: 14rem;
-  padding: 12px 14px;
+  min-height: 18rem;
+  padding: 10px 12px;
   line-height: 1.5;
   resize: vertical;
 }

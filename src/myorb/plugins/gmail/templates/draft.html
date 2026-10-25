@@ -1,13 +1,13 @@
 {# A reply to the email: what to say, the text to change, then saved as a Gmail draft. Each
    step answers with this panel again. myOrb never sends the reply. #}
 {% set base = "/email/%d/%s/draft" % (account.id, thread_id) %}
-<section class="panel panel-narrow email-draft" id="email-draft" aria-label="Reply">
+<section class="panel-narrow email-draft" id="email-draft" aria-label="Reply">
   <div class="email-draft-head">
-    <span class="label">Reply · saved as a Gmail draft, never sent</span>
+    <span class="label">Reply · as a Gmail draft</span>
     <button type="button" class="btn btn-ghost btn-small" data-draft-close>Close</button>
   </div>
   {% if saved %}
-  <div class="alert alert-success" role="status"><span class="alert-tag">✓ SAVED</span><span>The reply waits in the conversation in Gmail. Read it there and send it.</span></div>
+  <div class="alert alert-success" role="status"><span class="alert-tag">✓ SAVED</span><span>The reply waits in the conversation in Gmail. myOrb never sends it: read it there and send it.</span></div>
   <div class="email-draft-actions">
     <a class="btn btn-primary" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
   </div>
