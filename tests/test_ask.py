@@ -93,6 +93,35 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert "Call mom" in claude.requests[-1]["system"][1]["text"]
 
 
+def test_warming_up_caches_the_dashboard_for_the_first_question(
+    client: TestClient, claude: FakeClaude
+):
+    assert client.post("/ask/warm", json={}).status_code == 409  # Claude not connected
+    connect(client)
+    client.post("/command", data={"text": "Water the plants"})
+    response = client.post("/ask/warm", json={"conversation": None, "messages": []})
+    conversation = response.json()["conversation"]
+    warm = claude.requests[-1]
+    # Read into the cache, never answered: as the question will be sent, so it hits the cache.
+    assert warm["max_tokens"] == 0 and not warm.get("stream")
+    assert warm["system"][1]["cache_control"] == {"type": "ephemeral"}
+    ask(client, [{"role": "user", "content": "What do I have today?"}], conversation)
+    question = claude.requests[-1]
+    for key in ("model", "system", "tools", "output_config"):
+        assert question[key] == warm[key]
+    # Again for the same conversation; an unknown one starts anew, with the earlier turns.
+    client.post("/ask/warm", json={"conversation": conversation})
+    assert claude.requests[-1]["system"] == warm["system"]
+    earlier = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
+    other = client.post("/ask/warm", json={"conversation": "gone", "messages": earlier})
+    assert other.json()["conversation"] not in (conversation, "gone")
+    ask(client, [*earlier, {"role": "user", "content": "And now?"}], other.json()["conversation"])
+    assert len(claude.requests[-1]["messages"]) == 3
+    # A failed warm-up loses nothing: the question just reads the dashboard itself.
+    claude.status = 529
+    assert client.post("/ask/warm", json={}).status_code == 200
+
+
 def test_streamed_answers_are_counted(client: TestClient, claude: FakeClaude):
     # Streamed, so the client's response hook leaves them to Ask.
     from test_brief import usage_rows

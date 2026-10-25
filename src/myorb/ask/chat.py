@@ -10,10 +10,16 @@ import anthropic
 
 from myorb.activity.store import record
 from myorb.ask.conversation import Conversation
-from myorb.brief.writer import BriefError, api_error, model_effort, model_options
+from myorb.brief.writer import BriefError, api_error, model_options
 from myorb.plugins import ActionError, WidgetContext
 
 logger = logging.getLogger(__name__)
+
+# Questions about the dashboard rarely need long thought: low effort answers sooner, whatever
+# the brief's model. The same in warm(), else its cache would not match the questions'.
+EFFORT = "low"
+# What warm() asks: read with the dashboard, never answered.
+WARM_UP = "warmup"
 
 SYSTEM = """You are {assistant}, the user's personal assistant on their dashboard. Answer \
 their questions about their day and their work from the dashboard data below: email, \
@@ -97,6 +103,25 @@ def _system(conversation: Conversation) -> list[dict[str, Any]]:
     ]
 
 
+async def warm(client: anthropic.AsyncAnthropic, model: str, conversation: Conversation) -> None:
+    """Have Claude read the dashboard into its cache before the first question (e.g. while the
+    user types it), so the answer starts as soon as for a follow-up. With max_tokens 0 Claude
+    answers nothing; the cache lasts five minutes. Raises the API's errors."""
+    response = await client.beta.messages.create(
+        **model_options(model),
+        max_tokens=0,
+        output_config={"effort": EFFORT},
+        system=_system(conversation),
+        tools=conversation.tools,
+        messages=[{"role": "user", "content": WARM_UP}],
+    )
+    logger.info(
+        "Ask warm-up: %s tokens written to the cache, %s read from it",
+        response.usage.cache_creation_input_tokens or 0,
+        response.usage.cache_read_input_tokens or 0,
+    )
+
+
 async def turn(
     client: anthropic.AsyncAnthropic,
     model: str,
@@ -111,7 +136,7 @@ async def turn(
             async with client.beta.messages.stream(
                 **model_options(model),
                 max_tokens=16000,
-                output_config={"effort": model_effort(model)},
+                output_config={"effort": EFFORT},
                 system=_system(conversation),
                 tools=conversation.tools,
                 messages=conversation.messages,
