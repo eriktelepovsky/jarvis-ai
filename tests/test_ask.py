@@ -553,7 +553,8 @@ def test_an_event_is_added_from_the_chat_and_undone(make_client: MakeClient, cla
     assert done["message"] == "Added “Lunch with Peter” (Mon 5 Jan 12:00–13:00)."
     [(_, path, params, body)] = [s for s in sent if s[0] == "POST"]
     assert path == "/calendars/primary/events" and params == {"sendUpdates": "none"}
-    assert body["start"] == {"dateTime": "2099-01-05T12:00:00", "timeZone": "Europe/Bratislava"}
+    zone = str(app.app.state.timezone)
+    assert body["start"] == {"dateTime": "2099-01-05T12:00:00", "timeZone": zone}
     assert body["end"]["dateTime"] == "2099-01-05T13:00:00" and body["location"] == "Lab"
     assert "attendees" not in body
 

@@ -33,9 +33,9 @@
   <header class="welcome-header">
     <div class="header-line">
       <nav class="header-nav" aria-label="Main">
-        {% if can_ask %}<button type="button" class="label" data-ask-open>Chat</button>{% endif %}
         <a class="label" href="/integrations">Integrations</a>
         <a class="label" href="/settings/security">Security</a>
+        {% if can_ask %}<button type="button" class="label" data-ask-open>Chat</button>{% endif %}
         <form method="post" action="/logout" hx-boost="false"><button type="submit" class="label">Sign out</button></form>
       </nav>
       <a class="label header-item warn" id="attention" href="/integrations" hidden></a>
