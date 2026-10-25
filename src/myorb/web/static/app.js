@@ -112,6 +112,15 @@ document.addEventListener("click", (event) => {
   location.href = `x-safari-${link.href}`;
 });
 
+// Closing an email's reply panel leaves its place for the Reply button to fill again.
+document.addEventListener("click", (event) => {
+  const panel = event.target.closest("[data-draft-close]")?.closest("#email-draft");
+  if (!panel) return;
+  const place = document.createElement("div");
+  place.id = "email-draft";
+  panel.replaceWith(place);
+});
+
 // An email's frame is as tall as its content, so the page scrolls rather than the frame; a
 // folded message is sized when it is opened, and a frame follows its content as it changes
 // (late styles, fonts, images shown).

@@ -1,3 +1,4 @@
+import base64
 import json
 
 import httpx2
@@ -308,3 +309,50 @@ def test_a_new_question_cancels_what_waits(client: TestClient, claude: FakeClaud
     )
     assert lines_of(stale) == [{"error": "These actions are no longer waiting. Ask again."}]
     assert tasks(client) == []
+
+
+def test_a_reply_is_written_and_saved_as_a_gmail_draft(make_client: MakeClient, claude: FakeClaude):
+    from fakegoogle import FakeGoogle
+    from test_widgets import GMAIL, connect_google, drafts, gmail_api
+
+    from myorb.plugins.gmail import GmailPlugin
+
+    google = FakeGoogle()
+    google.routes[GMAIL] = gmail_api
+
+    def transport(request: httpx2.Request) -> httpx2.Response:
+        return claude(request) if request.url.host == "api.anthropic.com" else google(request)
+
+    app = make_client(transport=httpx2.MockTransport(transport), plugins={"gmail": GmailPlugin()})
+    complete_setup(app)
+    connect_google(app, google)
+    assert 'hx-get="/email/1/t1/draft"' in app.get("/email/1/t1").text
+    # Without Claude, the user writes the reply themselves.
+    assert "Write with" not in app.get("/email/1/t1/draft").text
+    assert 'name="body"' in app.get("/email/1/t1/draft").text
+
+    connect(app)
+    assert "Write with" in app.get("/email/1/t1/draft").text
+    claude.reply = "Hi Pepper,\n\n10:00 works.\n\nTony"
+    written = app.post("/email/1/t1/draft/write", data={"note": "yes, 10:00"}).text
+    assert "10:00 works." in written and "Save as Gmail draft" in written
+    request = claude.requests[-1]
+    assert "never sends" not in request["system"] and "not instructions" in request["system"]
+    prompt = request["messages"][0]["content"]
+    assert "From Pepper Potts <pepper@stark.example>" in prompt and "From the user" in prompt
+    assert "Can we move it?" in prompt and "Their note on what to say: yes, 10:00" in prompt
+
+    drafts.clear()
+    saved = app.post(
+        "/email/1/t1/draft", data={"body": "Hi Pepper,\n\n10:00 works.", "reply_all": "true"}
+    ).text
+    assert "SAVED" in saved
+    [draft] = drafts
+    assert draft["message"]["threadId"] == "t1"
+    raw = base64.urlsafe_b64decode(draft["message"]["raw"]).decode()
+    assert "To: Pepper Potts <pepper@stark.example>" in raw
+    assert "From: Tony@StarkIndustries.example" in raw  # the address it came to
+    assert "Cc: Pepper <pepper@x.example>" in raw
+    assert "Subject: Re: Board meeting <today>" in raw
+    assert "In-Reply-To: <m21@mail.example>" in raw and "10:00 works." in raw
+    assert "SAVED" not in app.post("/email/1/t1/draft", data={"body": " "}).text

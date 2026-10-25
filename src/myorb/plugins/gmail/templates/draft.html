@@ -1,0 +1,46 @@
+{# A reply to the email: what to say, the text to change, then saved as a Gmail draft. Each
+   step answers with this panel again. myOrb never sends the reply. #}
+{% set base = "/email/%d/%s/draft" % (account.id, thread_id) %}
+<section class="panel panel-narrow email-draft" id="email-draft" aria-label="Reply">
+  <div class="email-draft-head">
+    <span class="label">Reply · saved as a Gmail draft, never sent</span>
+    <button type="button" class="btn btn-ghost btn-small" data-draft-close>Close</button>
+  </div>
+  {% if saved %}
+  <div class="alert alert-success" role="status"><span class="alert-tag">✓ SAVED</span><span>The reply waits in the conversation in Gmail. Read it there and send it.</span></div>
+  <div class="email-draft-actions">
+    <a class="btn btn-primary" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
+  </div>
+  {% else %}
+  {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+  <form class="email-draft-form" method="post" action="{{ base }}" hx-post="{{ base }}" hx-target="#email-draft" hx-swap="outerHTML">
+    {% if can_write %}
+    <label class="field">
+      <span class="label">What should it say? {% if body is not none %}(to write it again){% else %}(optional){% endif %}</span>
+      <input class="input" name="note" value="{{ note }}" maxlength="1000" autocomplete="off" placeholder="e.g. Thanks, Tuesday at 10:00 works for me">
+    </label>
+    {% else %}
+    <input type="hidden" name="note" value="{{ note }}">
+    {% endif %}
+    {% if body is not none %}
+    <label class="field">
+      <span class="label">The reply</span>
+      <textarea class="input email-draft-body" name="body" rows="12" required>{{ body }}</textarea>
+    </label>
+    <label class="email-draft-all"><input type="checkbox" name="reply_all" value="true"{% if reply_all %} checked{% endif %}> Reply to everyone in the email</label>
+    {% else %}
+    <input type="hidden" name="reply_all" value="{{ 'true' if reply_all else 'false' }}">
+    {% endif %}
+    <div class="email-draft-actions">
+      {% if body is not none %}
+      <button type="submit" class="btn btn-primary">Save as Gmail draft</button>
+      {% if can_write %}<button type="submit" class="btn" formaction="{{ base }}/write" hx-post="{{ base }}/write">Write again</button>{% endif %}
+      {% else %}
+      <button type="submit" class="btn btn-primary" formaction="{{ base }}/write" hx-post="{{ base }}/write">Write with {{ assistant }}</button>
+      <button type="button" class="btn" hx-get="{{ base }}?blank=true" hx-target="#email-draft" hx-swap="outerHTML">Write it myself</button>
+      {% endif %}
+      <span class="email-draft-busy label" aria-live="polite">Working…</span>
+    </div>
+  </form>
+  {% endif %}
+</section>
