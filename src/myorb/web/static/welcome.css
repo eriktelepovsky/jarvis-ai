@@ -1346,13 +1346,57 @@ button.modal-stat[aria-pressed="true"] {
   z-index: 1;
 }
 
-/* A page over the details (an email): the details' size, its own scroll. */
-.page-view {
+/* A page over the details (an email): the details' size, its own scroll; beside it the
+   previous and next one, reached by swiping sideways. */
+.page-swipe {
+  display: flex;
   flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.page-swipe::-webkit-scrollbar {
+  display: none;
+}
+
+.page-swipe > * {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.page-ghost {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.page-ghost-title {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 16px;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-ghost.is-none .label {
+  display: none;
+}
+
+.page-view {
   min-height: 0;
   padding: 22px 22px 28px;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   transition: opacity 0.15s ease;
 }
 
