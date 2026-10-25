@@ -22,6 +22,7 @@ FRAME_STYLE = (
     "body{margin:0;padding:18px;font:15px/1.55 -apple-system,system-ui,sans-serif;color:#1d2125;"
     "background:#fff;overflow-wrap:anywhere}img{max-width:100%;height:auto}"
     "table{max-width:100%}a{color:#0b6bcb}"
+    "@media (max-width:480px){body{padding:10px}}"
 )
 
 

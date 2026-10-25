@@ -1400,6 +1400,19 @@ button.modal-stat[aria-pressed="true"] {
   transition: opacity 0.15s ease;
 }
 
+@media (max-width: 720px) {
+  /* On a phone the email takes the width: little room around it. */
+  .page-view {
+    padding: 16px 8px 20px;
+  }
+
+  .page-view .page-title,
+  .page-view .email-actions,
+  .page-view .email-note {
+    padding-inline: 8px;
+  }
+}
+
 .page-view.is-loading {
   opacity: 0.45;
 }

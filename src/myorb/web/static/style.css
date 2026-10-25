@@ -2184,6 +2184,7 @@ form.email-note {
 @media (max-width: 720px) {
   .email-head {
     flex-direction: column;
+    padding: 12px 14px;
   }
 
   .email-when {
