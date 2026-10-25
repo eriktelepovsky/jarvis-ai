@@ -129,8 +129,9 @@ async def turn(
     context: WidgetContext,
     on_usage: Callable[[str, Any], Awaitable[None]] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Claude's answer to the last message: {"text": …} pieces, then {"proposal": …} for each
-    action it wants to take (they wait for the user). Raises BriefError for the user."""
+    """Claude's answer to the last message: {"text": …} pieces, {"status": …} while an action
+    that needs no confirmation runs, then {"proposal": …} for each action it wants to take
+    (they wait for the user). Raises BriefError for the user."""
     for _ in range(MAX_ROUNDS):
         try:
             async with client.beta.messages.stream(
@@ -186,6 +187,7 @@ async def turn(
                 if action is None:
                     raise ActionError("There is no such action.")
                 if not action.confirm:
+                    yield {"status": action.working}  # until the answer goes on
                     result = await action.run(context, block.input)
                     conversation.replies.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": result.message}

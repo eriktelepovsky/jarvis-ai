@@ -207,6 +207,8 @@ class AskAction:
     confirm: bool = True
     # The welcome screen loads its numbers again after it runs (e.g. new data was fetched).
     refresh: bool = False
+    # What the chat shows while it runs without confirmation, e.g. "Reading the email…".
+    working: str = "Working…"
 
 
 @dataclass(frozen=True)

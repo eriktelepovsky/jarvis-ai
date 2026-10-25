@@ -77,6 +77,7 @@ def _refresh_action(plugins: list[Plugin]) -> AskAction:
         run=run,
         confirm=False,
         refresh=True,
+        working="Loading new data from every source…",
     )
 
 

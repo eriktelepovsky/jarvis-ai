@@ -140,6 +140,8 @@ def test_claude_loads_new_data_when_asked(client: TestClient, claude: FakeClaude
     )
     # Run at once, no confirmation; the welcome screen reloads, Claude reads the new data.
     assert {"refresh": True} in lines and not any("proposal" in line for line in lines)
+    # The chat says what is going on meanwhile.
+    assert {"status": "Loading new data from every source…"} in lines
     [result] = [
         block
         for block in claude.requests[-1]["messages"][-1]["content"]
