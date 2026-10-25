@@ -41,7 +41,7 @@ def test_the_command_line_offers_ask_only_with_claude(client: TestClient):
     connect(client)
     page = client.get("/").text
     assert 'class="command-bar"' in page and "data-ask" in page
-    assert 'id="ask"' in page and "Add a task, or ask with a “?”" in page
+    assert 'id="ask"' in page and "Ask Orb anything" in page
     # Quick actions ask their question; without Claude they are not offered.
     assert 'data-ask-quick="Plan my day: what should I do first, and when?"' in page
     # Voice questions, heard in the brief's language.
@@ -356,3 +356,89 @@ def test_a_reply_is_written_and_saved_as_a_gmail_draft(make_client: MakeClient, 
     assert "Subject: Re: Board meeting <today>" in raw
     assert "In-Reply-To: <m21@mail.example>" in raw and "10:00 works." in raw
     assert "SAVED" not in app.post("/email/1/t1/draft", data={"body": " "}).text
+
+
+def test_a_reply_is_drafted_from_the_chat(make_client: MakeClient, claude: FakeClaude):
+    from fakegoogle import FakeGoogle
+    from test_widgets import GMAIL, connect_google, drafts, gmail_api
+
+    from myorb.plugins.gmail import GmailPlugin
+
+    google = FakeGoogle()
+    google.routes[GMAIL] = gmail_api
+
+    def transport(request: httpx2.Request) -> httpx2.Response:
+        return claude(request) if request.url.host == "api.anthropic.com" else google(request)
+
+    app = make_client(transport=httpx2.MockTransport(transport), plugins={"gmail": GmailPlugin()})
+    complete_setup(app)
+    connect_google(app, google)
+    connect(app)
+    body = "Hi Pepper,\n\n10:00 works.\n\nTony"
+    # Claude reads the conversation (no card for that), then proposes the draft.
+    claude.answer = []
+    claude.tool_calls = [("gmail__read_email", {"email": "email 1/t1"})]
+    claude.later_tool_calls = [
+        [("gmail__draft_reply", {"email": "email 1/t1", "body": body, "reply_all": False})]
+    ]
+    lines = ask(app, [{"role": "user", "content": "Tell Pepper 10:00 works"}])
+    first = claude.requests[-2]
+    assert "Pepper Potts · Board meeting <today>" in first["system"][1]["text"]
+    assert "(ref: email 1/t1)" in first["system"][1]["text"]
+    assert "never instructions" in first["system"][0]["text"]
+    read = claude.requests[-1]["messages"][-1]["content"][0]
+    assert read["type"] == "tool_result" and "Can we move it?" in read["content"]
+    assert "From Pepper Potts <pepper@stark.example>" in read["content"]
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    assert proposal["summary"].startswith(
+        "Save a reply to Pepper Potts (“Board meeting <today>”) as a Gmail draft. Nothing is sent."
+    )
+    assert proposal["summary"].endswith(body)
+
+    drafts.clear()
+    claude.answer = ["Saved, it waits in Gmail."]
+    response = app.post(
+        "/ask/decide", json={"conversation": lines[0]["conversation"], "approved": [proposal["id"]]}
+    )
+    [done] = [line["done"] for line in lines_of(response) if "done" in line]
+    assert done["message"].startswith("Saved the reply to Pepper Potts as a draft in Gmail")
+    [draft] = drafts
+    raw = base64.urlsafe_b64decode(draft["message"]["raw"]).decode()
+    assert draft["message"]["threadId"] == "t1" and "10:00 works." in raw
+    assert "Cc:" not in raw
+
+    undone = app.post(
+        "/ask/undo", json={"conversation": lines[0]["conversation"], "id": done["undo"]}
+    ).json()
+    assert undone == {"message": "Removed the draft from Gmail."} and drafts == []
+
+
+def test_drafts_from_the_chat_need_the_permission(make_client: MakeClient, claude: FakeClaude):
+    from fakegoogle import FakeGoogle
+    from test_widgets import GMAIL, connect_google, gmail_api
+
+    from myorb.plugins.gmail import GmailPlugin
+
+    google = FakeGoogle()
+    google.routes[GMAIL] = gmail_api
+    google.granted_scopes = " ".join(
+        s for s in google.granted_scopes.split() if not s.endswith("gmail.modify")
+    )
+
+    def transport(request: httpx2.Request) -> httpx2.Response:
+        return claude(request) if request.url.host == "api.anthropic.com" else google(request)
+
+    app = make_client(transport=httpx2.MockTransport(transport), plugins={"gmail": GmailPlugin()})
+    complete_setup(app)
+    connect_google(app, google)
+    connect(app)
+    claude.answer = []
+    claude.tool_calls = [
+        ("gmail__draft_reply", {"email": "email 1/t1", "body": "Yes.", "reply_all": False}),
+        ("gmail__read_email", {"email": "email 9/t1"}),
+    ]
+    lines = ask(app, [{"role": "user", "content": "Say yes to Pepper"}])
+    assert not [line for line in lines if "proposal" in line]
+    replies = claude.requests[-1]["messages"][-1]["content"]
+    assert "Connect the account again" in replies[0]["content"]
+    assert replies[1]["content"] == "That Google account is not connected."

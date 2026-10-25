@@ -50,6 +50,8 @@ class FakeClaude:
         self.answer = ["You have ", "**one task** today: ", "water the plants."]
         # Tools the next streamed answer calls, as (name, input), once each.
         self.tool_calls: list[tuple[str, dict[str, Any]]] = []
+        # And those the answers after it call, in turn (e.g. reading before proposing).
+        self.later_tool_calls: list[list[tuple[str, dict[str, Any]]]] = []
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         if request.url.host == "www.ecb.europa.eu":
@@ -140,7 +142,8 @@ class FakeClaude:
             ),
             {"type": "content_block_stop", "index": 0},
         ]
-        calls, self.tool_calls = self.tool_calls, []
+        calls = self.tool_calls
+        self.tool_calls = self.later_tool_calls.pop(0) if self.later_tool_calls else []
         for index, (name, data) in enumerate(calls, start=1):
             block = {
                 "type": "tool_use",

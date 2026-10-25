@@ -53,6 +53,10 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "POST"
         modified.append(request.content.decode())
         return httpx2.Response(200, json={"id": "t1"})
+    if path == "/drafts/d1":
+        assert request.method == "DELETE"
+        drafts.clear()
+        return httpx2.Response(204)
     if path == "/drafts":
         assert request.method == "POST"
         drafts.append(json.loads(request.content))

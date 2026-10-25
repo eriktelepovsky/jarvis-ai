@@ -194,7 +194,8 @@ class AskAction:
     `name` is unique within the plugin. `schema` is the JSON schema of its input (an object;
     every property required, no others, as strict tool use wants). `summary` says in a line
     what it will do with that input, for the confirmation (raising ActionError when it cannot
-    be done, e.g. no such task); `run` does it.
+    be done, e.g. no such task); `run` does it. An action that only reads (e.g. an email's
+    text) has confirm=False: it runs at once and its message goes to Claude only.
     """
 
     name: str
@@ -202,6 +203,7 @@ class AskAction:
     schema: dict[str, Any]
     summary: Callable[[WidgetContext, dict[str, Any]], Awaitable[str]]
     run: Callable[[WidgetContext, dict[str, Any]], Awaitable[ActionResult]]
+    confirm: bool = True
 
 
 @dataclass(frozen=True)

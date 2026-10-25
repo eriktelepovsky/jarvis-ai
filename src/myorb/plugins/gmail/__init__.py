@@ -11,6 +11,7 @@ from myorb.connections import google as google_oauth
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.plugins.base import (
     Action,
+    AskAction,
     BriefSection,
     Plugin,
     Row,
@@ -187,6 +188,11 @@ class GmailPlugin(Plugin):
 
         return router
 
+    def ask_actions(self) -> list[AskAction]:
+        from myorb.plugins.gmail.actions import ask_actions
+
+        return ask_actions()
+
     def widgets(self) -> list[Widget]:
         return [
             Widget(
@@ -271,6 +277,10 @@ class GmailPlugin(Plugin):
                 return []
             return [Action("Mark read", f"/email/{account.id}/{thread_of(message)}/read")]
 
+        def ref(email: str, message: dict[str, Any]) -> str:
+            account = google_accounts.get(email)
+            return f"email {account.id}/{thread_of(message)}" if account else ""
+
         def reading(email: str, message: dict[str, Any]) -> str:
             account = google_accounts.get(email)
             return f"/email/{account.id}/{thread_of(message)}" if account else message["url"]
@@ -291,6 +301,8 @@ class GmailPlugin(Plugin):
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=reading(email, message),
+                    # Ask reads the conversation and drafts a reply by it (see actions.py).
+                    ref=ref(email, message),
                     open_row=True,
                     actions=actions(email, message),
                     tags=tuple(
