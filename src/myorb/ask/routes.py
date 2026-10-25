@@ -1,6 +1,7 @@
 """Ask: questions about the dashboard and actions Claude proposes, as streams of JSON lines.
 
 POST /ask         a question; Claude answers and may propose actions
+POST /ask/warm    Claude reads the dashboard while the user types the first question
 POST /ask/decide  the user confirms or cancels the proposed actions; Claude goes on
 POST /ask/undo    undoes a done action
 """
@@ -15,7 +16,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from myorb.activity.store import record
-from myorb.ask.chat import ask_question, clean_history, decide, turn
+from myorb.ask.chat import ask_question, clean_history, decide, turn, warm
 from myorb.ask.context import dashboard
 from myorb.ask.conversation import Conversation, offered
 from myorb.brief.writer import BriefError
@@ -48,7 +49,7 @@ async def _client(request: Request) -> tuple[anthropic.AsyncAnthropic, str]:
     return service.client(settings.api_key, settings.workspace_id), settings.model
 
 
-async def _start(request: Request, history: list[dict[str, str]]) -> Conversation:
+async def _start(request: Request, earlier: list[dict[str, str]]) -> Conversation:
     """A new conversation: the dashboard now, the actions of the services set up, and the
     earlier turns the browser kept (e.g. after a restart) as plain text."""
     text, set_up = await dashboard(widget_context(request), ordered_plugins(request))
@@ -56,7 +57,7 @@ async def _start(request: Request, history: list[dict[str, str]]) -> Conversatio
     async with request.app.state.sessionmaker() as db:
         assistant = (await load_profile(db, request.app.state.secret_box))["assistant"]
     conversation = Conversation(dashboard=text, actions=actions, tools=tools, assistant=assistant)
-    conversation.messages = [{"role": m["role"], "content": m["content"]} for m in history[:-1]]
+    conversation.messages = [{"role": m["role"], "content": m["content"]} for m in earlier]
     request.app.state.ask_conversations.add(conversation)
     return conversation
 
@@ -89,7 +90,7 @@ async def ask(request: Request) -> StreamingResponse:
         client, model = await _client(request)
         conversation = request.app.state.ask_conversations.get(body.get("conversation"))
         if conversation is None:
-            conversation = await _start(request, history)
+            conversation = await _start(request, history[:-1])
         yield {"conversation": conversation.id}
         ask_question(conversation, question)
         async for event in turn(
@@ -102,6 +103,32 @@ async def ask(request: Request) -> StreamingResponse:
             yield event
 
     return _stream(_guarded(events()))
+
+
+@router.post("/ask/warm")
+async def warm_up(request: Request) -> JSONResponse:
+    """{"conversation": id or null, "messages": [earlier turns]} when the user is about to ask:
+    the conversation (started now if the server has none) with its dashboard in Claude's
+    cache. {"conversation": id}; nothing is lost when warming fails, the question just waits."""
+    body = await _body(request)
+    try:
+        client, model = await _client(request)
+    except BriefError as error:
+        return JSONResponse({"error": str(error)}, status_code=409)
+    conversation = request.app.state.ask_conversations.get(body.get("conversation"))
+    if conversation is None:
+        messages = body.get("messages")
+        try:
+            # The earlier turns end with an answer; clean_history wants a question last.
+            earlier = clean_history([*messages, {"role": "user", "content": "?"}])[:-1]
+        except (BriefError, TypeError):
+            earlier = []
+        conversation = await _start(request, earlier)
+    try:
+        await warm(client, model, conversation)
+    except anthropic.AnthropicError:
+        logger.warning("Ask warm-up failed", exc_info=True)
+    return JSONResponse({"conversation": conversation.id})
 
 
 @router.post("/ask/decide")

@@ -489,6 +489,36 @@
     }
   };
 
+  // While the user is about to ask (the chat opened, the question line or the microphone in
+  // use), Claude reads the dashboard into its cache, so the answer starts sooner. Again after
+  // WARM_AGAIN while nothing is asked, as the cache lasts five minutes.
+  const WARM_AGAIN = 4 * 60 * 1000;
+  let warming = null;
+  let warmedAt = 0;
+  function warmAsk() {
+    if (!document.getElementById("ask") || warming || Date.now() - warmedAt < WARM_AGAIN) return;
+    warmedAt = Date.now();
+    const sent = ask;
+    warming = fetch("/ask/warm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation: ask.conversation, messages: ask.messages }),
+    })
+      .then((response) => (response.ok ? response.json() : {}))
+      .then((data) => {
+        // Unless a new conversation began meanwhile.
+        if (data.conversation && ask === sent) {
+          ask.conversation = data.conversation;
+          saveAsk();
+        }
+      })
+      .catch(() => {})
+      .finally(() => (warming = null));
+  }
+  document.addEventListener("focusin", (event) => {
+    if (event.target.matches?.("#ask-input, .command-bar[data-ask] #command-input")) warmAsk();
+  });
+
   const escapeHtml = (text) =>
     text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -658,6 +688,9 @@
     const log = dialog.querySelector("[data-ask-log]");
     ask.messages.push({ role: "user", content: question });
     log.append(askBubble("user", question));
+    // Asked while Claude is still reading the dashboard: in that conversation, from the cache.
+    if (warming) await warming;
+    warmedAt = Date.now(); // the question keeps the cache warm too
     const { text, error } = await askStream(dialog, "/ask", {
       conversation: ask.conversation,
       messages: ask.messages,
@@ -740,6 +773,7 @@
       }
     };
     listening = recognition;
+    warmAsk();
     setState(true);
     recognition.start();
   }
@@ -783,6 +817,7 @@
     if (!event.target.closest("[data-ask-new]")) return;
     ask = { conversation: null, messages: [] };
     saveAsk();
+    warmedAt = 0; // a new conversation reads the dashboard anew
     showAsk();
     document.getElementById("ask-input")?.focus();
   });
