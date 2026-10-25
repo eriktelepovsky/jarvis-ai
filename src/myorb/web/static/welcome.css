@@ -1346,6 +1346,49 @@ button.modal-stat[aria-pressed="true"] {
   z-index: 1;
 }
 
+/* A page over the details (an email): the details' size, its own scroll. */
+.page-view {
+  flex: 1;
+  min-height: 0;
+  padding: 22px 22px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: opacity 0.15s ease;
+}
+
+.page-view.is-loading {
+  opacity: 0.45;
+}
+
+.page-view:empty::before {
+  display: block;
+  padding: 40px 0;
+  color: var(--text-3);
+  text-align: center;
+  content: "Loading…";
+}
+
+@keyframes view-from-right {
+  from { opacity: 0; transform: translateX(28px); }
+}
+
+@keyframes view-from-left {
+  from { opacity: 0; transform: translateX(-28px); }
+}
+
+.page-view[data-step="1"]:not(.is-loading) > * {
+  animation: view-from-right 0.2s ease-out;
+}
+
+.page-view[data-step="-1"]:not(.is-loading) > * {
+  animation: view-from-left 0.2s ease-out;
+}
+
+.row-mark {
+  margin-right: 6px;
+  color: var(--warn);
+}
+
 .list-head + .modal-row {
   border-top: 0;
 }

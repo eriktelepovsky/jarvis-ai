@@ -87,6 +87,7 @@ def summarize_message(
         "snippet": html.unescape(message.get("snippet", "")),
         # Gmail's own "important" marker, which it learns from what the user reads and answers.
         "important": "IMPORTANT" in message.get("labelIds", []),
+        "starred": "STARRED" in message.get("labelIds", []),
     }
 
 
@@ -269,6 +270,7 @@ class GmailPlugin(Plugin):
             rows=[
                 Row(
                     title=message["sender"],
+                    mark="★" if message.get("starred") else "",
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=reading(email, message),

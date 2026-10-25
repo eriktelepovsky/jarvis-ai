@@ -175,6 +175,11 @@
   <footer class="label welcome-footer">Click a number to open its details</footer>
   <span class="label welcome-version">myOrb v{{ version }}</span>
 
+  {# A page opened over the details (an email), so closing it shows the list as it was. #}
+  <dialog class="modal page-view-modal" id="page-view-dialog" aria-label="Email">
+    <div class="page-view" id="page-view"></div>
+  </dialog>
+
   <dialog class="modal modal-report" id="report" aria-labelledby="report-title">
     <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, myorb:brief from:body">
       <div class="modal-head"><h2 id="report-title">Daily brief</h2></div>

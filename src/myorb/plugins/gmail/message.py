@@ -89,6 +89,7 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         "subject": _header(message, "Subject") or "(no subject)",
         "received": datetime.fromtimestamp(int(message.get("internalDate", 0)) / 1000, timezone),
         "unread": "UNREAD" in message.get("labelIds", []),
+        "starred": "STARRED" in message.get("labelIds", []),
         "html": body_html,
         "text": text or html.unescape(message.get("snippet", "")),
         "attachments": [

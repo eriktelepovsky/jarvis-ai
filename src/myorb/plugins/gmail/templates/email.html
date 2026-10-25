@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "gmail/email_view.html" if in_view else "base.html" %}
 
 {% set subject = messages[-1].subject if messages else "Email" %}
 {% block title %}{{ subject }} · {{ assistant }}{% endblock %}
@@ -6,28 +6,30 @@
 {% block main_class %}form{% endblock %}
 
 {% block content %}
+{# Over the details, forms answer with the email again rather than taking the page away. #}
+{% macro view_form(path) %}{% if in_view %} hx-post="{{ path }}" hx-target="#page-view"{% endif %}{% endmacro %}
 <div class="page-title">
   <div><div class="label">Email · {{ account.email }}</div><h1 class="email-subject">{{ subject }}</h1></div>
 </div>
 
 <div class="email-actions panel-narrow">
-  <a class="btn" href="/#detail-gmail-inbox">← Back</a>
+  {% if in_view %}<button type="button" class="btn" data-close-view>← Back</button>{% else %}<a class="btn" href="/#detail-gmail-inbox">← Back</a>{% endif %}
   {% if can_mark_read and messages | selectattr("unread") | list %}
-  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"><button type="submit" class="btn btn-primary">Mark as read</button></form>
+  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"{{ view_form("/email/%d/%s/read" % (account.id, thread_id)) }}><button type="submit" class="btn btn-primary">Mark as read</button></form>
   {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
   {% if blocked_domains %}
   {# Remembered for the sender's domain: its next emails show their images too. #}
-  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/images">
+  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
     {% for domain in blocked_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
     <button type="submit" class="btn btn-ghost" title="Images from {{ blocked_domains | join(', ') }} will show from now on">Show images</button>
   </form>
   {% elif not images and messages | selectattr("html") | rejectattr("images") | list %}
-  <a class="btn btn-ghost" href="?images=true">Show images</a>
+  <a class="btn btn-ghost" href="/email/{{ account.id }}/{{ thread_id }}?images=true"{% if in_view %} hx-get="/email/{{ account.id }}/{{ thread_id }}?images=true" hx-target="#page-view"{% endif %}>Show images</a>
   {% endif %}
 </div>
 {% if allowed_domains and not images %}
-<form class="email-note panel-narrow muted" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images">
+<form class="email-note panel-narrow muted" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
   {% for domain in allowed_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
   <input type="hidden" name="show" value="false">
   Images from {{ allowed_domains | join(", ") }} are shown. <button type="submit" class="btn btn-ghost btn-small">Block them again</button>
@@ -46,7 +48,7 @@
       <span class="t1">{{ message.sender }}{% if message.address and message.address != message.sender %} <span class="muted">&lt;{{ message.address }}&gt;</span>{% endif %}</span>
       <span class="t2 trunc">To {{ message.to }}{% if message.cc %} · Cc {{ message.cc }}{% endif %}</span>
     </span>
-    <span class="email-when">{% if message.unread %}<span class="badge badge-info">Unread</span>{% endif %}<span class="label">{{ message.received.strftime("%-d %b %Y, %H:%M") }}</span></span>
+    <span class="email-when">{% if message.starred %}<span class="email-star" title="Starred">★</span>{% endif %}{% if message.unread %}<span class="badge badge-info">Unread</span>{% endif %}<span class="label">{{ message.received.strftime("%-d %b %Y, %H:%M") }}</span></span>
   </summary>
   {% if message.html %}
   {# No scripts; same origin only so the page can size the frame to its content. #}

@@ -2111,6 +2111,10 @@ form.htmx-request .btn[type="submit"]::before {
   margin: 0;
 }
 
+.email-star {
+  color: var(--warn);
+}
+
 .email-note {
   margin: 0 auto 16px;
   font-size: 13px;
