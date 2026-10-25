@@ -15,7 +15,13 @@ from myorb.connections.google import GoogleError
 from myorb.connections.google_accounts import GoogleAccount
 from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url, own_addresses
 from myorb.plugins.gmail.draft import reply_message, write_reply
-from myorb.plugins.gmail.message import frame_document, read_message, size_label
+from myorb.plugins.gmail.message import (
+    MAX_INLINE,
+    embed_inline,
+    frame_document,
+    read_message,
+    size_label,
+)
 from myorb.profile import load_profile
 from myorb.web.routes import widget_context
 
@@ -103,6 +109,29 @@ async def _image_domains(request: Request) -> list[str]:
     return (data or {}).get("domains", [])
 
 
+async def _fetch_inline(request: Request, account: GoogleAccount, messages: list) -> None:
+    """Fetches the images sent inside the emails that did not come with the thread."""
+
+    async def fetch(message: dict[str, Any], image: dict[str, Any]) -> None:
+        url = f"{API}/messages/{message['id']}/attachments/{image['attachment_id']}"
+        try:
+            found = await request.app.state.google.get_json(account, url, API_NAME)
+        except GoogleError:
+            return  # The email shows without this image.
+        image["data"] = found.get("data", "")
+
+    await asyncio.gather(
+        *(
+            fetch(message, image)
+            for message in messages
+            for image in message["inline"]
+            if not image["data"] and image["attachment_id"] and image["size"] <= MAX_INLINE
+        )
+    )
+    for message in messages:
+        message["html"] = embed_inline(message["html"], message["inline"])
+
+
 def _in_view(request: Request) -> bool:
     """Whether the email is shown over the welcome screen's details rather than as a page."""
     return request.headers.get("HX-Target") == "page-view"
@@ -132,6 +161,7 @@ async def read_email(
         )
         timezone = request.app.state.timezone
         context["messages"] = [read_message(m, timezone) for m in thread.get("messages", [])]
+        await _fetch_inline(request, account, context["messages"])
     except GoogleError as error:
         context["error"] = str(error)
         context["messages"] = []

@@ -2,7 +2,8 @@
 
 An email's HTML is shown in a sandboxed frame (no scripts) whose content policy blocks
 everything from the internet until the user asks for images: they also tell the sender
-that the email was opened.
+that the email was opened. Images sent inside the email (cid: addresses) tell nobody
+anything and are always shown, embedded as data: addresses.
 """
 
 import base64
@@ -24,6 +25,8 @@ FRAME_STYLE = (
     "table{max-width:100%}a{color:#0b6bcb}"
     "@media (max-width:480px){body{padding:10px}}"
 )
+# Larger images sent inside an email are left out rather than put into the page.
+MAX_INLINE = 5_000_000
 
 
 def _parts(part: dict[str, Any]):
@@ -43,6 +46,50 @@ def _decode(data: str) -> str:
 def _header(message: dict[str, Any], name: str) -> str:
     headers = message.get("payload", {}).get("headers", [])
     return next((h["value"] for h in headers if h["name"].lower() == name.lower()), "")
+
+
+def _part_header(part: dict[str, Any], name: str) -> str:
+    headers = part.get("headers", []) or []
+    return next((h["value"] for h in headers if h["name"].lower() == name.lower()), "")
+
+
+def _inline(parts: list[dict[str, Any]], body_html: str) -> list[dict[str, Any]]:
+    """The images the HTML shows from inside the email, by their cid: address."""
+    found = []
+    for part in parts:
+        cid = (_part_header(part, "Content-ID") or _part_header(part, "X-Attachment-Id")).strip()
+        cid = cid.removeprefix("<").removesuffix(">")
+        if not cid or not part.get("mimeType", "").startswith("image/"):
+            continue
+        if f"cid:{cid}".lower() not in body_html.lower():
+            continue
+        body = part.get("body", {})
+        found.append(
+            {
+                "cid": cid,
+                "mime": part["mimeType"],
+                "attachment_id": body.get("attachmentId", ""),
+                "size": body.get("size", 0),
+                # Small ones come with the message; the others are fetched (attachments.get).
+                "data": body.get("data", ""),
+            }
+        )
+    return found
+
+
+def embed_inline(body_html: str, inline: list[dict[str, Any]]) -> str:
+    """The HTML with each cid: address it can fill replaced by the image as a data: address."""
+    images = {}
+    for image in inline:
+        if image["data"]:
+            data = image["data"].replace("-", "+").replace("_", "/").rstrip("=")
+            data += "=" * (-len(data) % 4)
+            images[image["cid"].lower()] = f"data:{image['mime']};base64,{data}"
+
+    def swap(match: re.Match) -> str:
+        return images.get(match.group(1).lower(), match.group(0))
+
+    return re.sub(r"cid:([^\"'\s)>]+)", swap, body_html, flags=re.I) if images else body_html
 
 
 def _people(value: str) -> str:
@@ -80,6 +127,8 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         ),
         "",
     )
+    inline = _inline(parts, body_html)
+    shown_inside = {image["attachment_id"] for image in inline if image["attachment_id"]}
     name, address = parseaddr(_header(message, "From"))
     return {
         "id": message.get("id", ""),
@@ -101,10 +150,14 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         "starred": "STARRED" in message.get("labelIds", []),
         "html": body_html,
         "text": text or html.unescape(message.get("snippet", "")),
+        "inline": inline,
+        # Images shown in the email are not listed again, as in Gmail.
         "attachments": [
             {"name": p["filename"], "size": p.get("body", {}).get("size", 0)}
             for p in parts
-            if p.get("filename") and p.get("body", {}).get("attachmentId")
+            if p.get("filename")
+            and p.get("body", {}).get("attachmentId")
+            and p["body"]["attachmentId"] not in shown_inside
         ],
     }
 

@@ -57,6 +57,8 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "POST"
         drafts.append(json.loads(request.content))
         return httpx2.Response(200, json={"id": "d1"})
+    if path.startswith("/messages/m-") and path.endswith("/attachments/logo1"):
+        return httpx2.Response(200, json={"data": "iVBORw0KGgo_-w", "size": 10})
     if path == "/threads/t1":
         # A conversation with a read email and, newest, an unread reply: listed once, by it.
         def message(sender: str, subject: str, labels: list[str]) -> dict:
@@ -73,13 +75,25 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
             ]
             payload: dict = {"headers": headers}
             if query(request).get("format") == ["full"]:
-                html = '<p>Can we move it?</p><img src="https://track.example/pixel.gif">'
+                html = (
+                    '<p>Can we move it?</p><img src="https://track.example/pixel.gif">'
+                    '<img src="cid:Logo1@stark">'
+                )
+                logo = [{"name": "Content-ID", "value": "<logo1@stark>"}]
                 payload["parts"] = [
                     {"mimeType": "text/plain", "body": {"data": b64("Can we move it?")}},
                     {"mimeType": "text/html", "body": {"data": b64(html)}},
                     {"filename": "agenda.pdf", "body": {"attachmentId": "a1", "size": 245000}},
+                    # An image sent inside the email, shown by its cid: address.
+                    {
+                        "filename": "logo.png",
+                        "mimeType": "image/png",
+                        "headers": logo,
+                        "body": {"attachmentId": "logo1", "size": 10},
+                    },
                 ]
             return {
+                "id": "m-" + sender.split()[0].lower(),
                 "threadId": "t1",
                 "labelIds": labels,
                 "snippet": "Can we move it to 10:00 &amp; meet in the lab?",
@@ -572,6 +586,9 @@ def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google
     assert 'sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"' in page
     assert "img-src data:&#34;" in page or "img-src data:&quot;" in page
     assert "agenda.pdf · 245 kB" in page
+    # Images sent inside the email show without asking, and are not listed as attachments.
+    assert "data:image/png;base64,iVBORw0KGgo/+w==" in page and "cid:" not in page
+    assert "logo.png" not in page
     assert "Mark as read" in page and 'action="/email/1/t1/images"' in page
     # Back opens the email details again rather than the bare welcome screen.
     assert 'href="/#detail-gmail-inbox"' in page
