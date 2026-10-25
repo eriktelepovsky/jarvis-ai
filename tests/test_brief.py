@@ -291,6 +291,7 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     connect(client, brief_time="23:59")
     client.post("/brief/generate", headers={"HX-Request": "true"})
     assert "YESTERDAY" not in client.get("/brief/report").text
+    assert briefs(client)[0].content["timeline"] == []  # the day's calendar, kept with it
 
     async def age_brief(days: int) -> None:
         async with client.app.state.sessionmaker() as db:
@@ -298,8 +299,24 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
             brief.created_at = datetime.now(UTC) - timedelta(days=days)
             await db.commit()
 
+    client.post("/tasks", data={"text": "Not on yesterday's calendar"})
     client.portal.call(age_brief, 1)
     report = client.get("/brief/report").text
+    # The calendar of the brief's own day, as the brief saw it, not today's.
+    yesterday = (datetime.now(TZ) - timedelta(days=1)).strftime("%A")
+    assert f"{yesterday} · 0 events" in report and "● Now" not in report
+
+    async def keep_event() -> None:
+        async with client.app.state.sessionmaker() as db:
+            brief = await db.scalar(select(Brief))
+            day = brief.created_at.astimezone(TZ).replace(hour=9, minute=0)
+            event = {"start": day.isoformat(), "end": (day + timedelta(hours=1)).isoformat()}
+            brief.content = {**brief.content, "timeline": [{**event, "title": "Standup"}]}
+            await db.commit()
+
+    client.portal.call(keep_event)
+    report = client.get("/brief/report").text
+    assert f"{yesterday} · 1 event" in report and "Standup" in report
     assert "This is yesterday&#39;s brief." in report or "This is yesterday's brief." in report
     assert "Write today&#39;s now" in report or "Write today's now" in report
     headline = client.get("/brief/headline").text

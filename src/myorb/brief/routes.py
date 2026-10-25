@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -157,10 +158,29 @@ async def headline(request: Request) -> Response:
 async def report(request: Request) -> Response:
     """The brief, with the day's timeline and every source's number around it."""
     context = await _brief_context(request)
-    context["glance"], context["sources"] = await asyncio.gather(
-        _timeline(request), load_widgets(request)
-    )
-    context["now"] = widget_context(request).now
+    now = widget_context(request).now
+    brief = context["brief"]
+    if context["stale"]:
+        # Yesterday's brief shows yesterday's calendar, as it saw it, so the two agree; today's
+        # calendar comes with today's brief.
+        written = brief.created_at.astimezone(now.tzinfo)
+        items = [
+            TimelineItem(
+                datetime.fromisoformat(i["start"]).astimezone(now.tzinfo),
+                datetime.fromisoformat(i["end"]).astimezone(now.tzinfo),
+                i["title"],
+            )
+            for i in brief.content.get("timeline", [])
+        ]
+        context["glance"] = glance(items, written, day_over=True)
+        context["sources"] = await load_widgets(request)
+        context["glance_day"] = written
+        context["glance_kept"] = "timeline" in brief.content
+    else:
+        context["glance"], context["sources"] = await asyncio.gather(
+            _timeline(request), load_widgets(request)
+        )
+    context["now"] = now
     async with request.app.state.sessionmaker() as db:
         context["voice"] = await load_voice(request, db)
     context["duration"] = duration

@@ -25,7 +25,7 @@ from myorb.brief.writer import (
 )
 from myorb.connections import store
 from myorb.crypto import SecretBox
-from myorb.plugins import BriefSection, Plugin, WidgetContext
+from myorb.plugins import BriefSection, Plugin, TimelineItem, WidgetContext
 from myorb.profile import load_profile
 
 logger = logging.getLogger(__name__)
@@ -192,6 +192,23 @@ class BriefService:
         results = await asyncio.gather(*(collect(p) for p in self._plugins()))
         return [section for section in results if section and section.lines]
 
+    async def _timeline(self, context: WidgetContext) -> list[dict[str, str]]:
+        """The day's timed events as the brief saw them, kept with it for its report."""
+
+        async def collect(plugin: Plugin) -> list[TimelineItem]:
+            try:
+                return await plugin.timeline(context)
+            except Exception:
+                logger.exception("Timeline of %s failed", plugin.id)
+                return []
+
+        results = await asyncio.gather(*(collect(p) for p in self._plugins()))
+        return [
+            {"start": i.start.isoformat(), "end": i.end.isoformat(), "title": i.title}
+            for items in results
+            for i in items
+        ]
+
     async def generate(self) -> Brief:
         """Write a new brief now. Raises BriefError with a message for the user."""
         async with self._lock:
@@ -200,7 +217,9 @@ class BriefService:
             if settings is None:
                 raise BriefError("Connect Claude in Integrations first.")
             context = self._context()
-            sections = await self._sections(context)
+            sections, timeline = await asyncio.gather(
+                self._sections(context), self._timeline(context)
+            )
             try:
                 written = await write_brief(
                     self.client(settings.api_key, settings.workspace_id),
@@ -217,7 +236,7 @@ class BriefService:
             brief = Brief(
                 created_at=datetime.now(UTC),
                 kind=kind_for(context.now.hour),
-                content=written.content,
+                content={**written.content, "timeline": timeline},
                 sources=[section.title for section in sections],
                 model=written.model,
                 language=settings.language,
