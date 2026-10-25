@@ -563,7 +563,7 @@ def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google
     assert 'sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"' in page
     assert "img-src data:&#34;" in page or "img-src data:&quot;" in page
     assert "agenda.pdf · 245 kB" in page
-    assert "Mark as read" in page and 'href="?images=true"' in page
+    assert "Mark as read" in page and 'action="/email/1/t1/images"' in page
     # Back opens the email details again rather than the bare welcome screen.
     assert 'href="/#detail-gmail-inbox"' in page
     assert (
@@ -579,6 +579,25 @@ def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google
     assert client.get("/email/9/t1").status_code == 404
 
 
+def test_images_are_remembered_for_the_senders_domain(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    blocked = client.get("/email/1/t1").text
+    assert '<input type="hidden" name="domain" value="stark.example">' in blocked
+    assert "img-src data:&#34;" in blocked or "img-src data:&quot;" in blocked
+
+    response = client.post(
+        "/email/1/t1/images", data={"domain": "stark.example"}, follow_redirects=False
+    )
+    assert response.headers["location"] == "/email/1/t1"
+    shown = client.get("/email/1/t1").text
+    assert "https:" in shown.split("img-src")[1][:30]
+    assert "Images from stark.example are shown." in shown
+
+    client.post("/email/1/t1/images", data={"domain": "stark.example", "show": "false"})
+    assert "are shown." not in client.get("/email/1/t1").text
+    assert "https:" not in client.get("/email/1/t1").text.split("img-src")[1][:30]
+
+
 def test_marking_read_needs_the_permission(client: TestClient, fake_google: FakeGoogle):
     fake_google.granted_scopes = " ".join(
         s for s in fake_google.granted_scopes.split() if not s.endswith("gmail.modify")
@@ -588,3 +607,9 @@ def test_marking_read_needs_the_permission(client: TestClient, fake_google: Fake
     page = client.get("/email/1/t1").text
     assert "Mark as read" not in page and "connect this Google account again" in page
     assert client.post("/email/1/t1/read").status_code == 403
+
+
+def test_pages_ask_proxies_not_to_change_them(client: TestClient):
+    # Cloudflare would hide every email address on the page behind "[email protected]".
+    assert client.get("/").headers["cache-control"] == "no-transform"
+    assert "no-transform" not in client.get("/static/style.css").headers["cache-control"]

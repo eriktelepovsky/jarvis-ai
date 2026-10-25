@@ -2,12 +2,13 @@
 request (it costs a Claude call), and kept until the unread emails change."""
 
 import time
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from myorb.brief.writer import BriefError
+from myorb.connections import store
 from myorb.connections.google import GoogleError
 from myorb.connections.google_accounts import GoogleAccount
 from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url
@@ -84,6 +85,21 @@ async def _account(request: Request, account_id: int) -> GoogleAccount:
     return account
 
 
+# Senders whose emails show their images without asking, by the domain of their address.
+IMAGES_PROVIDER = "gmail_images"
+MAX_DOMAINS = 1000
+
+
+def domain_of(address: str) -> str:
+    return address.rpartition("@")[2].strip().lower() if "@" in address else ""
+
+
+async def _image_domains(request: Request) -> list[str]:
+    async with request.app.state.sessionmaker() as db:
+        data = await store.get_provider_settings(db, request.app.state.secret_box, IMAGES_PROVIDER)
+    return (data or {}).get("domains", [])
+
+
 @router.get("/email/{account_id}/{thread_id}", response_class=HTMLResponse)
 async def read_email(
     request: Request, account_id: int, thread_id: str, images: bool = False, read: bool = False
@@ -108,7 +124,40 @@ async def read_email(
     except GoogleError as error:
         context["error"] = str(error)
         context["messages"] = []
+    allowed = set(await _image_domains(request))
+    with_html = [m for m in context["messages"] if m["html"]]
+    for message in with_html:
+        message["domain"] = domain_of(message["address"])
+        message["images"] = images or message["domain"] in allowed
+    domains = sorted({m["domain"] for m in with_html if m["domain"]})
+    context["blocked_domains"] = [d for d in domains if d not in allowed]
+    context["allowed_domains"] = [d for d in domains if d in allowed]
+    print("RDBG", [(m["domain"], m["images"], type(m)) for m in with_html])
     return request.app.state.templates.TemplateResponse(request, "gmail/email.html", context)
+
+
+@router.post("/email/{account_id}/{thread_id}/images")
+async def remember_images(
+    request: Request,
+    account_id: int,
+    thread_id: str,
+    domain: Annotated[list[str], Form()],
+    show: Annotated[str, Form()] = "true",
+) -> Response:
+    """Show (or block again) the images of every email from these domains."""
+    await _account(request, account_id)
+    chosen = {d.strip().lower() for d in domain if "." in d and len(d) <= 253}
+    domains = set(await _image_domains(request))
+    domains = domains - chosen if show == "false" else domains | chosen
+    print("PDBG", domain, chosen, domains, show)
+    async with request.app.state.sessionmaker() as db:
+        await store.save_provider_settings(
+            db,
+            request.app.state.secret_box,
+            IMAGES_PROVIDER,
+            {"domains": sorted(domains)[:MAX_DOMAINS]},
+        )
+    return RedirectResponse(f"/email/{account_id}/{thread_id}", status_code=303)
 
 
 @router.post("/email/{account_id}/{thread_id}/read")

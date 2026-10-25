@@ -15,7 +15,10 @@ from typing import Any
 
 IMAGES_BLOCKED = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
 IMAGES_ALLOWED = "default-src 'none'; style-src 'unsafe-inline' https:; img-src data: https: http:"
+# The frame never scrolls up and down itself: the page sizes it to its content. A wide email
+# still scrolls sideways.
 FRAME_STYLE = (
+    "html{overflow-y:hidden!important;overflow-x:auto}"
     "body{margin:0;padding:18px;font:15px/1.55 -apple-system,system-ui,sans-serif;color:#1d2125;"
     "background:#fff;overflow-wrap:anywhere}img{max-width:100%;height:auto}"
     "table{max-width:100%}a{color:#0b6bcb}"
