@@ -70,6 +70,8 @@ class Row:
     """One item in a widget's details, e.g. an email or an event."""
 
     title: str
+    # A symbol before the title, e.g. "★" for a starred email.
+    mark: str = ""
     subtitle: str = ""
     badge: str = ""
     tone: Tone = "neutral"

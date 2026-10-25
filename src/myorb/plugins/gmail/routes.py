@@ -1,6 +1,7 @@
 """The AI summary of unread emails in the email details: shown when there is one, written on
 request (it costs a Claude call), and kept until the unread emails change."""
 
+import json
 import time
 from typing import Annotated, Any
 
@@ -100,6 +101,11 @@ async def _image_domains(request: Request) -> list[str]:
     return (data or {}).get("domains", [])
 
 
+def _in_view(request: Request) -> bool:
+    """Whether the email is shown over the welcome screen's details rather than as a page."""
+    return request.headers.get("HX-Target") == "page-view"
+
+
 @router.get("/email/{account_id}/{thread_id}", response_class=HTMLResponse)
 async def read_email(
     request: Request, account_id: int, thread_id: str, images: bool = False, read: bool = False
@@ -112,6 +118,7 @@ async def read_email(
         "can_mark_read": MODIFY_SCOPE in account.scopes,
         "images": images,
         "marked_read": read,
+        "in_view": _in_view(request),
         "frame_document": frame_document,
         "size_label": size_label,
     }
@@ -157,6 +164,8 @@ async def remember_images(
             IMAGES_PROVIDER,
             {"domains": sorted(domains)[:MAX_DOMAINS]},
         )
+    if _in_view(request):
+        return await read_email(request, account_id, thread_id)
     return RedirectResponse(f"/email/{account_id}/{thread_id}", status_code=303)
 
 
@@ -178,6 +187,12 @@ async def mark_read(request: Request, account_id: int, thread_id: str) -> Respon
     except GoogleError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
     request.app.state.cache.invalidate(f"google:{account.id}:gmail")
+    if _in_view(request):
+        # The list behind keeps its place; the email's row leaves it.
+        response = await read_email(request, account_id, thread_id, read=True)
+        trigger = json.dumps({"myorb:row-done": f"/email/{account_id}/{thread_id}"})
+        response.headers["HX-Trigger"] = trigger
+        return response
     # A button in the email details refreshes the screen; the email's own page shows it.
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
         return Response(status_code=204, headers={"HX-Trigger": "myorb:refresh"})

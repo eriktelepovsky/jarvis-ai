@@ -84,7 +84,7 @@
       {% for row in data.rows %}
       {% set open_row = row.url and row.open_row %}
       <div class="modal-row{% if open_row %} is-link{% endif %}" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}" data-subgroup="{{ row.subgroup }}">
-        {% if open_row %}<a class="row-link" href="{{ row.url }}"{% if row.new_tab or not row.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{% else %}<span style="min-width: 0">{% endif %}<span class="trunc" style="display: block; font-weight: 500">{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}{% if open_row %}</a>{% else %}</span>{% endif %}
+        {% if open_row %}<a class="row-link" href="{{ row.url }}"{% if row.new_tab or not row.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}>{% else %}<span style="min-width: 0">{% endif %}<span class="trunc" style="display: block; font-weight: 500">{% if row.mark %}<span class="row-mark" aria-hidden="true">{{ row.mark }}</span>{% endif %}{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}{% if open_row %}</a>{% else %}</span>{% endif %}
         {% if row.badge %}<span class="badge badge-{{ row.tone }}">{{ row.badge }}</span>{% else %}<span></span>{% endif %}
         <span class="row-actions">
           {% for action in row.actions %}<button type="button" class="row-btn" hx-post="{{ action.url }}" hx-swap="none">{{ action.label }}</button>{% endfor %}

@@ -205,6 +205,116 @@
     if (next && next !== current) openDialog(next);
   }
 
+  // A row that opens as a whole (an email) opens over its details, so Back shows the list just
+  // as it was. The view is a history entry: the phone's back gesture closes it too. A swipe (or
+  // ← →) moves to the next or previous row the list shows.
+
+  const viewDialog = () => document.getElementById("page-view-dialog");
+  let viewing = null; // the row link shown
+
+  function viewRows() {
+    const list = viewing?.closest("dialog[data-detail]");
+    return list ? [...list.querySelectorAll(".modal-row:not([hidden]) a.row-link")] : [];
+  }
+
+  function showView(link, step = 0) {
+    const dialog = viewDialog();
+    const view = document.getElementById("page-view");
+    if (!dialog || !view) return false;
+    viewing = link;
+    view.dataset.step = step;
+    view.classList.add("is-loading");
+    if (!dialog.open) {
+      view.replaceChildren();
+      dialog.showModal();
+      history.pushState({ myorbView: true }, "");
+    }
+    htmx.ajax("GET", link.getAttribute("href"), { target: "#page-view", swap: "innerHTML" }).then(() => {
+      view.classList.remove("is-loading");
+      view.scrollTop = 0;
+      link.closest(".modal-row")?.scrollIntoView({ block: "nearest" });
+    });
+    return true;
+  }
+
+  function stepView(step) {
+    const rows = viewRows();
+    const next = rows[rows.indexOf(viewing) + step];
+    if (next) {
+      showView(next, step);
+      sound("click");
+    }
+  }
+
+  function closeView() {
+    if (history.state?.myorbView) history.back();
+    else viewDialog()?.close();
+  }
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest?.("a.row-link");
+    if (!link || link.target || !link.getAttribute("href").startsWith("/")) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (showView(link)) event.preventDefault();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest?.("[data-close-view]")) closeView();
+  });
+
+  window.addEventListener("popstate", () => {
+    if (!history.state?.myorbView && viewDialog()?.open) viewDialog().close();
+  });
+
+  document.addEventListener("cancel", (event) => {
+    if (event.target !== viewDialog()) return;
+    event.preventDefault(); // Esc goes back through history, as Back does
+    closeView();
+  }, true);
+
+  // The row an email left after it was marked as read in the view.
+  document.body.addEventListener("myorb:row-done", (event) => {
+    const href = event.detail?.value ?? event.detail;
+    document.querySelectorAll(`a.row-link[href="${CSS.escape(href)}"]`).forEach((link) => {
+      const row = link.closest(".modal-row");
+      if (row) row.hidden = true;
+    });
+  });
+
+  // Swipes, also over the email itself: its frame is a document of its own.
+  function watchSwipes(target) {
+    let start = null;
+    target.addEventListener("touchstart", (event) => {
+      const touch = event.touches[0];
+      start = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY, at: Date.now() } : null;
+    }, { passive: true });
+    target.addEventListener("touchend", (event) => {
+      if (!start || !viewDialog()?.open) return;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      const quick = Date.now() - start.at < 600;
+      start = null;
+      if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) stepView(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+
+  document.addEventListener("load", (event) => {
+    const frame = event.target;
+    if (!frame.matches?.("#page-view [data-email-frame]") || !frame.contentDocument) return;
+    watchSwipes(frame.contentDocument);
+  }, true);
+
+  watchSwipes(document);
+
+  document.addEventListener("keydown", (event) => {
+    if (!viewDialog()?.open || event.target.closest("input, textarea")) return;
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.stopImmediatePropagation();
+      stepView(event.key === "ArrowLeft" ? -1 : 1);
+    }
+  }, true);
+
   // A number in the details filters the list next to it; clicking it again shows everything.
   // ...and the list can be narrowed to one group (a Jira workspace, a repository); both apply.
   // Lower case without diacritics, so "zaznam" finds "Záznam".

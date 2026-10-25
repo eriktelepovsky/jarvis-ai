@@ -84,7 +84,7 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
             message(
                 "Pepper Potts <pepper@stark.example>",
                 "Board meeting <today>",
-                ["UNREAD", "IMPORTANT"],
+                ["UNREAD", "IMPORTANT", "STARRED"],
             ),
         ]
         return httpx2.Response(200, json={"id": "t1", "messages": messages})
@@ -179,6 +179,7 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     # Each email opens in myOrb; marking it as read needs the permission, granted here.
     assert '<a class="row-link" href="/email/1/t1">' in text and ">Read<" not in text
     assert 'hx-post="/email/1/t1/read"' in text
+    assert '<span class="row-mark" aria-hidden="true">★</span>Pepper Potts' in text  # starred
     # Gmail marks it important: counted, and the number narrows the list to such emails.
     assert 'data-filter="important"' in text and ">Important<" in text
     assert 'data-tags="important' in text  # and "today" too on the day it was received
@@ -596,6 +597,19 @@ def test_images_are_remembered_for_the_senders_domain(client: TestClient, fake_g
     client.post("/email/1/t1/images", data={"domain": "stark.example", "show": "false"})
     assert "are shown." not in client.get("/email/1/t1").text
     assert "https:" not in client.get("/email/1/t1").text.split("img-src")[1][:30]
+
+
+def test_email_opens_over_the_details(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    view = {"HX-Request": "true", "HX-Target": "page-view"}
+    page = client.get("/email/1/t1", headers=view).text
+    assert "<html" not in page and "email-subject" in page
+    assert "data-close-view" in page and 'hx-post="/email/1/t1/read"' in page
+    response = client.post("/email/1/t1/read", headers=view)
+    assert "Marked as read." in response.text
+    assert response.headers["HX-Trigger"] == '{"myorb:row-done": "/email/1/t1"}'
+    shown = client.post("/email/1/t1/images", data={"domain": "stark.example"}, headers=view)
+    assert "Images from stark.example are shown." in shown.text and "<html" not in shown.text
 
 
 def test_marking_read_needs_the_permission(client: TestClient, fake_google: FakeGoogle):
