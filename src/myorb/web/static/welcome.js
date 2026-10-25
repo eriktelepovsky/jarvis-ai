@@ -713,7 +713,10 @@
     event.preventDefault();
     const question = input.value.trim();
     form.reset();
-    if (question) askQuestion(question);
+    // Dictated (see dictate()): answered aloud, as a question heard by speech recognition.
+    const aloud = dictating ? form.dataset.voiceLang || "" : "";
+    dictating = false;
+    if (question) askQuestion(question, { aloud });
   });
 
   document.addEventListener("submit", (event) => {
@@ -737,10 +740,33 @@
     listening?.abort();
   }
 
+  // Installed on an iPhone's or iPad's home screen, myOrb gets no speech recognition from iOS
+  // (only Safari does). There the button opens the keyboard for its own dictation instead,
+  // and the answer to what is dictated and sent is read aloud all the same.
+  const appleTouch =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const installed = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+  const dictateOnly = appleTouch && installed;
+  let dictating = false;
+
+  function dictate(form, input) {
+    dictating = true;
+    input.focus(); // in the tap itself, else iOS shows no keyboard
+    const result = document.getElementById("command-result");
+    result.textContent = "Dictate with the microphone on the keyboard, then send.";
+    warmAsk();
+    input.addEventListener("blur", () => {
+      result.textContent = "";
+      // A send by the keyboard's Go may blur the line first: it still counts as dictated.
+      setTimeout(() => (dictating = false), 1000);
+    }, { once: true });
+  }
+
   function listen() {
     const form = document.querySelector(".command-bar[data-voice-lang]");
     const input = form?.querySelector("#command-input");
     if (!input) return;
+    if (dictateOnly) return dictate(form, input);
     if (listening) return stopListening();
     const recognition = new Recognition();
     recognition.lang = form.dataset.voiceLang;
@@ -768,8 +794,11 @@
     };
     recognition.onerror = (event) => {
       heard = "";
+      const result = document.getElementById("command-result");
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        document.getElementById("command-result").textContent = "The microphone is not allowed for this page.";
+        result.textContent = "The microphone is not allowed for this page.";
+      } else if (event.error !== "no-speech" && event.error !== "aborted") {
+        result.textContent = `Speech recognition failed (${event.error}).`;
       }
     };
     listening = recognition;
@@ -780,7 +809,7 @@
 
   function showVoice() {
     document.querySelectorAll("[data-voice-ask], [data-voice-panel]").forEach((element) => {
-      element.hidden = !Recognition;
+      element.hidden = !Recognition && !dictateOnly;
     });
   }
   showVoice();
