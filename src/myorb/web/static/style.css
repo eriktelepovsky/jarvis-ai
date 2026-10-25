@@ -2109,6 +2109,17 @@ form.htmx-request .btn[type="submit"]::before {
   overflow-wrap: anywhere;
 }
 
+/* Back sits in the top right corner, beside the subject however long it is. */
+.email-title {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.email-title > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .email-actions {
   display: flex;
   flex-wrap: wrap;
