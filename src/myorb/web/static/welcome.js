@@ -1076,6 +1076,13 @@
     // A page restored from history is a new element, even with the same id.
     if (!page || page === welcomePage) return;
     welcomePage = page;
+    // A link back from another page (an email's Back) names the details to open again.
+    if (location.hash.startsWith("#detail-")) {
+      const dialog = document.getElementById(location.hash.slice(1));
+      if (dialog?.matches("dialog[data-detail]")) openDialog(dialog);
+      else reopen = location.hash.slice(1);
+      history.replaceState(history.state, "", location.pathname + location.search);
+    }
     tick();
     clockTimer ??= setInterval(tick, 1000);
     startOrb();

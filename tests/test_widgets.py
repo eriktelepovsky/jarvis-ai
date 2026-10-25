@@ -564,6 +564,8 @@ def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google
     assert "img-src data:&#34;" in page or "img-src data:&quot;" in page
     assert "agenda.pdf · 245 kB" in page
     assert "Mark as read" in page and 'href="?images=true"' in page
+    # Back opens the email details again rather than the bare welcome screen.
+    assert 'href="/#detail-gmail-inbox"' in page
     assert (
         "https:"
         in client.get("/email/1/t1", params={"images": "true"}).text.split("img-src")[1][:30]

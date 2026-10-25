@@ -11,7 +11,7 @@
 </div>
 
 <div class="email-actions panel-narrow">
-  <a class="btn" href="/">← Back</a>
+  <a class="btn" href="/#detail-gmail-inbox">← Back</a>
   {% if can_mark_read and messages | selectattr("unread") | list %}
   <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"><button type="submit" class="btn btn-primary">Mark as read</button></form>
   {% endif %}
