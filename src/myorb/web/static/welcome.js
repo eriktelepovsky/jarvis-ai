@@ -1205,10 +1205,33 @@
 
   // Periodic refreshes must not replace a number while its details are open...
   let reopen = null;
+  // Where the reopened details were scrolled and what their search held, to be put back:
+  // each scrolled element by its place in the dialog, which the new data keeps (one row less
+  // comes after the list's own scroller).
+  let kept = null;
+  function keep(dialog) {
+    const all = [dialog, ...dialog.querySelectorAll("*")];
+    return {
+      scrolled: all.flatMap((element, i) => (element.scrollTop > 0 ? [[i, element.scrollTop]] : [])),
+      search: dialog.querySelector("[data-list-search]")?.value || "",
+    };
+  }
+  function restore(dialog, { scrolled, search }) {
+    const input = dialog.querySelector("[data-list-search]");
+    if (input && search) {
+      input.value = search;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    const all = [dialog, ...dialog.querySelectorAll("*")];
+    scrolled.forEach(([i, top]) => {
+      if (all[i]) all[i].scrollTop = top;
+    });
+  }
   document.addEventListener("htmx:beforeSwap", (event) => {
     if (!event.detail.target.matches?.("[data-slot]")) return;
     const slot = event.detail.target;
     const open = slot.querySelector("dialog[data-detail][open]");
+    if (open && open.id === reopen) kept = keep(open);
     if (open && open.id !== reopen) {
       event.detail.shouldSwap = false;
       delete slot.dataset.due;
@@ -1235,7 +1258,9 @@
       if (dialog) {
         reopen = null;
         openDialog(dialog);
+        if (kept) restore(dialog, kept);
       }
+      kept = null;
     }
   });
 
