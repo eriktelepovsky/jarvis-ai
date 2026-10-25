@@ -173,11 +173,11 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     assert "unread · 3 emails today" in text
     assert "Board meeting &lt;today&gt;" in text
     assert "Pepper Potts" in text and "Tony" not in text
-    assert text.count('class="modal-row"') == 1  # one per unread conversation
+    assert text.count('<div class="modal-row') == 1  # one per unread conversation
     # Grouped by the user's address it was sent to, here another mailbox Gmail collects.
     assert 'data-group="tony@starkindustries.example"' in text
     # Each email opens in myOrb; marking it as read needs the permission, granted here.
-    assert 'href="/email/1/t1"' in text and ">Read<" in text
+    assert '<a class="row-link" href="/email/1/t1">' in text and ">Read<" not in text
     assert 'hx-post="/email/1/t1/read"' in text
     # Gmail marks it important: counted, and the number narrows the list to such emails.
     assert 'data-filter="important"' in text and ">Important<" in text

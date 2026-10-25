@@ -1310,6 +1310,42 @@ button.modal-stat[aria-pressed="true"] {
   border-top: 1px solid var(--line-soft);
 }
 
+/* A row that opens as a whole (an email): its title's link covers it, its buttons stay above. */
+.modal-row.is-link {
+  position: relative;
+}
+
+.row-link {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.row-link::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  border-radius: var(--r-control);
+}
+
+.modal-row.is-link:hover .row-link .trunc:first-child {
+  color: var(--accent);
+}
+
+.row-link:focus-visible {
+  outline: none;
+}
+
+.row-link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.modal-row.is-link .row-actions {
+  position: relative;
+  z-index: 1;
+}
+
 .list-head + .modal-row {
   border-top: 0;
 }
@@ -2015,6 +2051,19 @@ button.row-btn {
   display: inline-flex;
   gap: 6px;
   align-items: center;
+}
+
+.brief-stale {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.brief-stale .btn {
+  margin-left: auto;
+}
+
+.brief-writing.htmx-request ~ .brief-stale {
+  display: none;
 }
 
 .brief-generate .spinner,

@@ -272,7 +272,7 @@ class GmailPlugin(Plugin):
                     subtitle=message["subject"] + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=reading(email, message),
-                    url_label="Read",
+                    open_row=True,
                     actions=actions(email, message),
                     tags=tuple(
                         tag

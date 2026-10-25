@@ -287,6 +287,30 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
     assert "Claude Sonnet 5.5" in report
 
 
+def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
+    connect(client, brief_time="23:59")
+    client.post("/brief/generate", headers={"HX-Request": "true"})
+    assert "YESTERDAY" not in client.get("/brief/report").text
+
+    async def age_brief(days: int) -> None:
+        async with client.app.state.sessionmaker() as db:
+            brief = await db.scalar(select(Brief))
+            brief.created_at = datetime.now(UTC) - timedelta(days=days)
+            await db.commit()
+
+    client.portal.call(age_brief, 1)
+    report = client.get("/brief/report").text
+    assert "This is yesterday&#39;s brief." in report or "This is yesterday's brief." in report
+    assert "Write today&#39;s now" in report or "Write today's now" in report
+    headline = client.get("/brief/headline").text
+    assert "One thing needs you" not in headline
+    assert "Yesterday&#39;s report →" in headline or "Yesterday's report →" in headline
+
+    client.portal.call(age_brief, 3)
+    assert "OLDER" in client.get("/brief/report").text
+    assert "Last report →" in client.get("/brief/headline").text
+
+
 def test_priorities_panel_shows_todays_brief(make_client: MakeClient, claude: FakeClaude):
     client = make_client(
         transport=httpx2.MockTransport(claude),

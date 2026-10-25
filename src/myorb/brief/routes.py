@@ -117,8 +117,17 @@ async def _timeline(request: Request) -> Glance:
 async def _brief_context(request: Request) -> dict:
     service = _service(request)
     brief = await service.latest()
+    settings = await service.settings()
+    now = widget_context(request).now
+    # After midnight the latest brief is a day old until the schedule writes today's: it says
+    # "tomorrow" about today, so the report says whose day it describes.
+    written = brief.created_at.astimezone(now.tzinfo).date() if brief else None
     return {
-        "configured": await service.settings() is not None,
+        "configured": settings is not None,
+        "stale": written is not None and written < now.date(),
+        "yesterday": written is not None and (now.date() - written).days == 1,
+        "brief_time": settings.brief_time if settings else None,
+        "written_later": settings is not None and now.strftime("%H:%M") < settings.brief_time,
         "brief": brief,
         "kicker": KICKERS.get(brief.kind, "Report") if brief else None,
         "generating": service.generating,

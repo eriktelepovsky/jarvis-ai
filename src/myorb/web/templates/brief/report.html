@@ -25,6 +25,14 @@
   {# Shown while a brief is being written: by the schedule (from the server), or after a click
      (htmx adds .htmx-request to it until Claude has answered). #}
   <div class="alert alert-info report-wide brief-writing{% if generating %} is-writing{% endif %}" id="brief-writing" role="status"><span class="alert-tag"><span class="spinner" aria-hidden="true"></span> WRITING</span><span>myOrb is writing a new brief… This usually takes 20–40 seconds.</span></div>
+  {% if brief and stale and not generating %}
+  {# After midnight, until the schedule writes today's: the brief calls today "tomorrow". #}
+  <div class="alert alert-info report-wide brief-stale" role="status">
+    <span class="alert-tag">{{ "YESTERDAY" if yesterday else "OLDER" }}</span>
+    <span>This is {{ "yesterday's" if yesterday else brief.created_at | localtime("%A's") }} brief.{% if configured %} {% if written_later %}Today's is written at {{ brief_time }}.{% else %}Today's has not been written yet.{% endif %}{% endif %}</span>
+    {% if configured %}<button type="button" class="btn btn-small brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this"><span class="spinner" aria-hidden="true"></span><span class="when-idle">Write today's now</span><span class="when-busy">Writing…</span></button>{% endif %}
+  </div>
+  {% endif %}
   {% if error %}
   <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
   {% endif %}
