@@ -83,8 +83,16 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
     name, address = parseaddr(_header(message, "From"))
     return {
         "id": message.get("id", ""),
+        "thread_id": message.get("threadId", ""),
         "sender": name or address or "Unknown sender",
         "address": address,
+        # As sent, for a reply (see draft.reply_message).
+        "from": _header(message, "From"),
+        "reply_to": _header(message, "Reply-To"),
+        "to_raw": _header(message, "To"),
+        "cc_raw": _header(message, "Cc"),
+        "message_id": _header(message, "Message-ID"),
+        "references": _header(message, "References"),
         "to": _people(_header(message, "To")),
         "cc": _people(_header(message, "Cc")),
         "subject": _header(message, "Subject") or "(no subject)",

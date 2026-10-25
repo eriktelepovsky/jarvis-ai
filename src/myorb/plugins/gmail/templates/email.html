@@ -17,6 +17,9 @@
   {% if can_mark_read and messages | selectattr("unread") | list %}
   <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"{{ view_form("/email/%d/%s/read" % (account.id, thread_id)) }}><button type="submit" class="btn btn-primary">Mark as read</button></form>
   {% endif %}
+  {% if can_draft and messages %}
+  <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/draft" hx-target="#email-draft" hx-swap="outerHTML">↩ Reply</button>
+  {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
   {% if blocked_domains %}
   {# Remembered for the sender's domain: its next emails show their images too. #}
@@ -38,7 +41,8 @@
 
 {% if marked_read %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}
 {% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
-{% if not can_mark_read %}<p class="muted panel-narrow email-note">To mark emails as read from myOrb, connect this Google account again in <a href="/integrations">Integrations</a> and allow it.</p>{% endif %}
+<div id="email-draft"></div>
+{% if not can_mark_read %}<p class="muted panel-narrow email-note">To mark emails as read or draft replies from myOrb, connect this Google account again in <a href="/integrations">Integrations</a> and allow it.</p>{% endif %}
 
 {% for message in messages %}
 {# The newest message is open; earlier ones of the conversation are folded, as in Gmail. #}

@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs
@@ -28,6 +29,8 @@ def query(request: httpx2.Request) -> dict[str, list[str]]:
 
 # What was sent to mark threads as read.
 modified: list[str] = []
+# Drafts saved in Gmail.
+drafts: list[dict] = []
 
 
 def b64(text: str) -> str:
@@ -50,6 +53,10 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
         assert request.method == "POST"
         modified.append(request.content.decode())
         return httpx2.Response(200, json={"id": "t1"})
+    if path == "/drafts":
+        assert request.method == "POST"
+        drafts.append(json.loads(request.content))
+        return httpx2.Response(200, json={"id": "d1"})
     if path == "/threads/t1":
         # A conversation with a read email and, newest, an unread reply: listed once, by it.
         def message(sender: str, subject: str, labels: list[str]) -> dict:
@@ -58,6 +65,7 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
                 {"name": "Subject", "value": subject},
                 # Sent to another of the user's mailboxes, which Gmail collects.
                 {"name": "Delivered-To", "value": "tony@stark.example"},
+                {"name": "Message-ID", "value": f"<m{len(subject)}@mail.example>"},
                 {
                     "name": "To",
                     "value": "Pepper <pepper@x.example>, Tony <Tony@StarkIndustries.example>",

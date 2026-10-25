@@ -90,7 +90,9 @@ class FakeClaude:
                 )
             if self.requests[-1].get("stream"):
                 return self.stream(self.requests[-1]["model"])
-            text = "" if self.stop_reason == "refusal" else json.dumps(self.reply)
+            text = "" if self.stop_reason == "refusal" else self.reply
+            # A plain-text answer (an email reply) as it is, else the JSON asked for.
+            text = text if isinstance(text, str) else json.dumps(text)
             if "Translate" in str(self.requests[-1].get("system", "")):
                 text = "Pokojný deň.\n\nZalej rastliny."
             return httpx2.Response(

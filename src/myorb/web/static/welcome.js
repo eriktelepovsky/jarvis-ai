@@ -1224,4 +1224,15 @@
   // button loads no new page. (htmx:afterSettle would fire on the replaced, detached #app.)
   document.addEventListener("htmx:load", initWelcome);
   document.addEventListener("htmx:historyRestore", initWelcome);
+
+  // htmx keeps a page left with open details as it was, open attribute and all; restored, such
+  // a dialog would be part of the page rather than over it (under the orb). It opens again as
+  // a dialog; an email over the details is left closed.
+  document.addEventListener("htmx:historyRestore", () => {
+    document.querySelectorAll("dialog[open]").forEach((dialog) => {
+      if (dialog.matches(":modal")) return;
+      dialog.removeAttribute("open");
+      if (dialog.matches("[data-detail]")) openDialog(dialog);
+    });
+  });
 })();

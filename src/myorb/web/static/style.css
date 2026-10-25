@@ -2124,6 +2124,68 @@ form.htmx-request .btn[type="submit"]::before {
   color: var(--warn);
 }
 
+/* The reply panel, between the email's notes and its messages */
+
+#email-draft:empty {
+  display: none;
+}
+
+.email-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.email-draft-head,
+.email-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.email-draft-head {
+  justify-content: space-between;
+}
+
+.email-draft-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.email-draft-body {
+  height: auto;
+  min-height: 14rem;
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.email-draft-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+/* While Claude writes or Gmail saves: the buttons wait. */
+.email-draft-busy {
+  display: none;
+}
+
+.email-draft-form:is(.htmx-request, :has(.htmx-request)) .email-draft-busy {
+  display: inline;
+}
+
+.email-draft-form:is(.htmx-request, :has(.htmx-request)) .btn {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
 .email-note {
   margin: 0 auto 16px;
   font-size: 13px;
