@@ -279,14 +279,22 @@
     closeView();
   }, true);
 
-  // The row an email left after it was marked as read in the view.
+  // The row an email left after it was marked as read in the view. The numbers above the list
+  // reload once the view closes, so the details behind it keep their place until then.
+  let rowsDone = false;
   document.body.addEventListener("myorb:row-done", (event) => {
     const href = event.detail?.value ?? event.detail;
     document.querySelectorAll(`a.row-link[href="${CSS.escape(href)}"]`).forEach((link) => {
       const row = link.closest(".modal-row");
       if (row) row.hidden = true;
     });
+    rowsDone = true;
   });
+  document.addEventListener("close", (event) => {
+    if (event.target !== viewDialog() || !rowsDone) return;
+    rowsDone = false;
+    htmx.trigger(document.body, "myorb:refresh");
+  }, true);
 
   // Swipes: the view sits between its neighbours in a sideways scroller that snaps to each.
   // Scrolling is native, so it also works over the email's frame (which runs no scripts, and
