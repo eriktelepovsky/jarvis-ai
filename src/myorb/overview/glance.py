@@ -47,7 +47,8 @@ def free_minutes(items: list[TimelineItem], now: datetime) -> int:
     return int(free // 60)
 
 
-def glance(items: list[TimelineItem], now: datetime) -> Glance:
+def glance(items: list[TimelineItem], now: datetime, day_over: bool = False) -> Glance:
+    """The day of `now`; with `day_over`, a past day as it ended (no "now", nothing free)."""
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today = [i for i in items if i.end > midnight and i.start < midnight + timedelta(days=1)]
     first = min([DAY_START] + [i.start.hour for i in today])
@@ -63,7 +64,7 @@ def glance(items: list[TimelineItem], now: datetime) -> Glance:
             position(item.start),
             max(0.8, position(item.end) - position(item.start)),
             above=index % 2 == 0,
-            past=item.end <= now,
+            past=day_over or item.end <= now,
         )
         for index, item in enumerate(sorted(today, key=lambda i: i.start))
     ]
@@ -74,8 +75,8 @@ def glance(items: list[TimelineItem], now: datetime) -> Glance:
     return Glance(
         items=placed,
         hours=hours,
-        now=position(now) if inside else None,
-        free_minutes=free_minutes(today, now),
+        now=position(now) if inside and not day_over else None,
+        free_minutes=0 if day_over else free_minutes(today, now),
         count=len(today),
     )
 

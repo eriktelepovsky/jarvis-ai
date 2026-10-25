@@ -68,3 +68,9 @@ def test_report_shows_sources_with_change_since_yesterday(make_client: MakeClien
 
     [snapshot] = client.portal.call(today)
     assert (snapshot.key, snapshot.value) == ("tasks-open", 1)
+
+
+def test_a_past_day_has_no_now_and_nothing_free():
+    day = datetime(2026, 10, 24, 6, 30, tzinfo=ZoneInfo("Europe/Bratislava"))
+    shown = glance([TimelineItem(day.replace(hour=9), day.replace(hour=10), "Standup")], day, True)
+    assert shown.now is None and shown.free_minutes == 0 and shown.items[0].past

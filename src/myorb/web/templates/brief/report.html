@@ -40,7 +40,11 @@
   <section class="report-section report-wide report-glance" aria-labelledby="glance-title">
     <div class="report-head">
       <span class="label strong" id="glance-title">Day at a glance</span>
+      {% if glance_day %}
+      <span class="label">{{ glance_day.strftime("%A") }} · {% if glance_kept %}{{ glance.count }} {{ "event" if glance.count == 1 else "events" }}{% else %}not kept with this brief{% endif %}</span>
+      {% else %}
       <span class="label"><span class="glance-now-label">● Now {{ now.strftime("%H:%M") }}</span> · {{ glance.count }} {{ "event" if glance.count == 1 else "events" }} · {{ duration(glance.free_minutes) }} free until 18:00</span>
+      {% endif %}
     </div>
     <ul class="visually-hidden">{% for placed in glance.items %}<li>{{ placed.item.start.strftime("%H:%M") }}–{{ placed.item.end.strftime("%H:%M") }} {{ placed.item.title }}</li>{% endfor %}</ul>
     <div class="glance" aria-hidden="true">
