@@ -251,12 +251,16 @@
     else viewDialog()?.close();
   }
 
+  // Caught on the way down, before hx-boost's own handler on the link takes the whole page there.
   document.addEventListener("click", (event) => {
     const link = event.target.closest?.("a.row-link");
     if (!link || link.target || !link.getAttribute("href").startsWith("/")) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    if (showView(link)) event.preventDefault();
-  });
+    if (showView(link)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
 
   document.addEventListener("click", (event) => {
     if (event.target.closest?.("[data-close-view]")) closeView();
