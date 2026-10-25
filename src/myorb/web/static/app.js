@@ -128,6 +128,10 @@ const emailFrameWatch = new WeakMap();
 function sizeEmailFrame(frame) {
   const page = frame.contentDocument?.documentElement;
   if (!page || !frame.offsetWidth) return;
+  // What scrolls around the frame (the view over the details, else the page) keeps its place:
+  // the frame at no height for a moment would take it back to the top.
+  const scroller = frame.closest(".page-view") || document.scrollingElement;
+  const top = scroller.scrollTop;
   // Measured at no height, else a frame made wider could not get shorter. The extra pixel
   // covers a fractional height, which would leave the frame a pixel to scroll on its own.
   frame.style.height = "0px";
@@ -144,6 +148,7 @@ function sizeEmailFrame(frame) {
     height = Math.ceil((height * page.scrollHeight) / page.clientHeight) + 1;
     frame.style.height = `${height}px`;
   }
+  scroller.scrollTop = top;
   const body = frame.contentDocument.body;
   if (body && emailFrameWatch.get(frame)?.body !== body && "ResizeObserver" in window) {
     emailFrameWatch.get(frame)?.observer.disconnect();
