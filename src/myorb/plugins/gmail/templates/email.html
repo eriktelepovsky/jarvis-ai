@@ -21,23 +21,7 @@
   <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/draft" hx-target="#email-draft" hx-swap="outerHTML">↩&#xFE0E; Reply</button>
   {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
-  {% if blocked_domains %}
-  {# Remembered for the sender's domain: its next emails show their images too. #}
-  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
-    {% for domain in blocked_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
-    <button type="submit" class="btn btn-ghost" title="Images from {{ blocked_domains | join(', ') }} will show from now on">Show images</button>
-  </form>
-  {% elif not images and messages | selectattr("html") | rejectattr("images") | list %}
-  <a class="btn btn-ghost" href="/email/{{ account.id }}/{{ thread_id }}?images=true"{% if in_view %} hx-get="/email/{{ account.id }}/{{ thread_id }}?images=true" hx-target="#page-view"{% endif %}>Show images</a>
-  {% endif %}
 </div>
-{% if allowed_domains and not images %}
-<form class="email-note panel-narrow muted" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
-  {% for domain in allowed_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
-  <input type="hidden" name="show" value="false">
-  Images from {{ allowed_domains | join(", ") }} are shown. <button type="submit" class="btn btn-ghost btn-small">Block them again</button>
-</form>
-{% endif %}
 
 {% if marked_read %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}
 {% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
@@ -67,4 +51,21 @@
   {% endif %}
 </details>
 {% endfor %}
+{# Images are the last thing to decide on, after reading: below the conversation. #}
+{% if blocked_domains %}
+{# Remembered for the sender's domain: its next emails show their images too. #}
+<form class="email-images panel-narrow muted" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
+  {% for domain in blocked_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
+  <button type="submit" class="btn btn-ghost" title="Images from {{ blocked_domains | join(', ') }} will show from now on">Show images</button>
+</form>
+{% elif not images and messages | selectattr("html") | rejectattr("images") | list %}
+<div class="email-images panel-narrow"><a class="btn btn-ghost" href="/email/{{ account.id }}/{{ thread_id }}?images=true"{% if in_view %} hx-get="/email/{{ account.id }}/{{ thread_id }}?images=true" hx-target="#page-view"{% endif %}>Show images</a></div>
+{% endif %}
+{% if allowed_domains and not images %}
+<form class="email-images panel-narrow muted" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
+  {% for domain in allowed_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
+  <input type="hidden" name="show" value="false">
+  <span>Images from {{ allowed_domains | join(", ") }} are shown.</span> <button type="submit" class="btn btn-ghost btn-small">Block them again</button>
+</form>
+{% endif %}
 {% endblock %}
