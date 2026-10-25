@@ -1,5 +1,7 @@
 import base64
 import json
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx2
 import pytest
@@ -38,10 +40,12 @@ def test_the_command_line_offers_ask_only_with_claude(client: TestClient):
     page = client.get("/").text
     assert "data-ask" not in page and 'id="ask"' not in page
     assert "Quick actions" not in page and "data-voice-ask" not in page
+    assert "data-ask-open" not in page
     connect(client)
     page = client.get("/").text
     assert 'class="command-bar"' in page and "data-ask" in page
     assert 'id="ask"' in page and "Ask Orb anything" in page
+    assert "data-ask-open>Chat</button>" in page
     # Quick actions ask their question; without Claude they are not offered.
     assert 'data-ask-quick="Plan my day: what should I do first, and when?"' in page
     # Voice questions, heard in the brief's language.
@@ -442,3 +446,195 @@ def test_drafts_from_the_chat_need_the_permission(make_client: MakeClient, claud
     replies = claude.requests[-1]["messages"][-1]["content"]
     assert "Connect the account again" in replies[0]["content"]
     assert replies[1]["content"] == "That Google account is not connected."
+
+
+def calendar_app(make_client: MakeClient, claude: FakeClaude, scopes: str | None = None):
+    """myOrb with the calendar plugin and a Google Calendar that keeps what is sent to it."""
+    from fakegoogle import FakeGoogle
+    from test_widgets import CALENDAR, connect_google
+
+    from myorb.plugins.calendar import CalendarPlugin
+
+    google = FakeGoogle()
+    if scopes is not None:
+        google.granted_scopes = scopes
+    sent: list[tuple[str, str, dict, dict]] = []
+    # Tomorrow, so the dashboard lists it.
+    at = tomorrow_at(10)
+    meeting = {
+        "id": "ev1",
+        "summary": "Board meeting",
+        "start": {"dateTime": at.isoformat()},
+        "end": {"dateTime": (at + timedelta(minutes=90)).isoformat()},
+        "htmlLink": "https://calendar.google.com/event?eid=1",
+        "organizer": {"email": "pepper@stark.example"},
+        "attendees": [
+            {"email": "pepper@stark.example", "organizer": True, "responseStatus": "accepted"},
+            {"email": "tony@stark.example", "self": True, "responseStatus": "needsAction"},
+        ],
+    }
+
+    def calendar_api(request: httpx2.Request) -> httpx2.Response:
+        path = request.url.path.removeprefix("/calendar/v3")
+        body = json.loads(request.content) if request.content else {}
+        sent.append((request.method, path, dict(query(request)), body))
+        if path == "/users/me/calendarList":
+            items = [{"id": "tony@stark.example", "primary": True, "summary": "Tony"}]
+            return httpx2.Response(200, json={"items": items})
+        if path.endswith("/events") and request.method == "GET":
+            return httpx2.Response(200, json={"items": [meeting]})
+        if path == "/calendars/primary/events" and request.method == "POST":
+            return httpx2.Response(200, json={"id": "new1", **body})
+        if path.endswith("/events/ev1") and request.method == "GET":
+            return httpx2.Response(200, json=meeting)
+        if request.method == "PATCH":
+            return httpx2.Response(200, json={**meeting, **body})
+        if request.method == "DELETE":
+            return httpx2.Response(204)
+        return httpx2.Response(404)
+
+    google.routes[CALENDAR] = calendar_api
+
+    def transport(request: httpx2.Request) -> httpx2.Response:
+        return claude(request) if request.url.host == "api.anthropic.com" else google(request)
+
+    app = make_client(
+        transport=httpx2.MockTransport(transport), plugins={"calendar": CalendarPlugin()}
+    )
+    complete_setup(app)
+    connect_google(app, google)
+    connect(app)
+    return app, sent
+
+
+def tomorrow_at(hour: int) -> datetime:
+    zone = ZoneInfo("Europe/Bratislava")
+    day = datetime.now(zone).date() + timedelta(days=1)
+    return datetime.combine(day, time(hour), zone)
+
+
+def query(request: httpx2.Request) -> dict[str, str]:
+    from urllib.parse import parse_qsl
+
+    return dict(parse_qsl(request.url.query.decode()))
+
+
+def proposed(app: TestClient, claude: FakeClaude, name: str, data: dict) -> tuple[str, dict]:
+    claude.answer = []
+    claude.tool_calls = [(f"calendar__{name}", data)]
+    lines = ask(app, [{"role": "user", "content": "Do it"}])
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    return lines[0]["conversation"], proposal
+
+
+def run(app: TestClient, conversation: str, proposal: dict) -> dict:
+    response = app.post(
+        "/ask/decide", json={"conversation": conversation, "approved": [proposal["id"]]}
+    )
+    [done] = [line["done"] for line in lines_of(response) if "done" in line]
+    return done
+
+
+def test_an_event_is_added_from_the_chat_and_undone(make_client: MakeClient, claude: FakeClaude):
+    app, sent = calendar_app(make_client, claude)
+    data = {
+        "title": "Lunch with Peter",
+        "start": "2099-01-05T12:00",
+        "end": "",
+        "location": "Lab",
+        "description": "",
+        "guests": [],
+        "account": "",
+    }
+    conversation, proposal = proposed(app, claude, "create_event", data)
+    assert proposal["summary"] == "Add “Lunch with Peter”: Mon 5 Jan 12:00–13:00 · Lab."
+    assert not [s for s in sent if s[0] == "POST"]  # nothing before the user confirms
+    done = run(app, conversation, proposal)
+    assert done["message"] == "Added “Lunch with Peter” (Mon 5 Jan 12:00–13:00)."
+    [(_, path, params, body)] = [s for s in sent if s[0] == "POST"]
+    assert path == "/calendars/primary/events" and params == {"sendUpdates": "none"}
+    zone = str(app.app.state.timezone)
+    assert body["start"] == {"dateTime": "2099-01-05T12:00:00", "timeZone": zone}
+    assert body["end"]["dateTime"] == "2099-01-05T13:00:00" and body["location"] == "Lab"
+    assert "attendees" not in body
+
+    undone = app.post("/ask/undo", json={"conversation": conversation, "id": done["undo"]})
+    assert undone.json() == {"message": "Removed “Lunch with Peter” from the calendar."}
+    assert sent[-1][:2] == ("DELETE", "/calendars/primary/events/new1")
+
+
+def test_guests_and_all_day_events(make_client: MakeClient, claude: FakeClaude):
+    app, sent = calendar_app(make_client, claude)
+    data = {
+        "title": "Offsite",
+        "start": "2099-01-05",
+        "end": "2099-01-06",
+        "location": "",
+        "description": "Agenda later",
+        "guests": ["happy@stark.example", "not an address"],
+        "account": "",
+    }
+    conversation, proposal = proposed(app, claude, "create_event", data)
+    assert proposal["summary"] == (
+        "Add “Offsite”: Mon 5 Jan – Tue 6 Jan, all day. "
+        "Google emails an invitation to happy@stark.example."
+    )
+    run(app, conversation, proposal)
+    [(_, _, params, body)] = [s for s in sent if s[0] == "POST"]
+    assert params == {"sendUpdates": "all"}
+    assert body["start"] == {"date": "2099-01-05"} and body["end"] == {"date": "2099-01-07"}
+    assert body["attendees"] == [{"email": "happy@stark.example"}]
+
+
+def test_events_are_moved_deleted_and_answered(make_client: MakeClient, claude: FakeClaude):
+    app, sent = calendar_app(make_client, claude)
+    board = app.get("/welcome/widget/calendar/today")
+    assert board.status_code == 200
+    claude.answer = ["Ok."]
+    ask(app, [{"role": "user", "content": "What is on?"}])
+    dashboard = claude.requests[-1]["system"][1]["text"]
+    ref = "event 1 tony@stark.example ev1"
+    assert f"(ref: {ref})" in dashboard
+
+    move = {"event": ref, "start": "", "end": "", "title": "", "location": ""}
+    day = f"{tomorrow_at(10):%a %-d %b}"
+    move["start"] = f"{tomorrow_at(14):%Y-%m-%dT%H:%M}"
+    conversation, proposal = proposed(app, claude, "update_event", move)
+    assert proposal["summary"] == (
+        f"Change “Board meeting”: to {day} 14:00–15:30. Google tells its guests."
+    )
+    done = run(app, conversation, proposal)
+    method, path, params, body = sent[-1]
+    assert (method, path) == ("PATCH", "/calendars/tony@stark.example/events/ev1")
+    # It keeps its length.
+    assert body["end"]["dateTime"] == f"{tomorrow_at(15) + timedelta(minutes=30):%Y-%m-%dT%H:%M:%S}"
+    app.post("/ask/undo", json={"conversation": conversation, "id": done["undo"]})
+    assert sent[-1][3]["start"] == {"dateTime": tomorrow_at(10).isoformat()}
+
+    conversation, proposal = proposed(
+        app, claude, "respond_to_event", {"event": ref, "response": "accepted"}
+    )
+    assert proposal["summary"] == "Accept “Board meeting”. Google tells pepper@stark.example."
+    assert run(app, conversation, proposal)["message"] == "Accepted “Board meeting”."
+    me = [a for a in sent[-1][3]["attendees"] if a.get("self")]
+    assert me == [{"email": "tony@stark.example", "self": True, "responseStatus": "accepted"}]
+
+    conversation, proposal = proposed(app, claude, "delete_event", {"event": ref})
+    assert proposal["summary"].startswith(f"Delete “Board meeting” ({day} 10:00–11:30).")
+    done = run(app, conversation, proposal)
+    assert sent[-1][:2] == ("DELETE", "/calendars/tony@stark.example/events/ev1")
+    app.post("/ask/undo", json={"conversation": conversation, "id": done["undo"]})
+    assert sent[-1][0] == "PATCH" and sent[-1][3] == {"status": "confirmed"}
+
+
+def test_calendar_changes_need_the_permission(make_client: MakeClient, claude: FakeClaude):
+    from fakegoogle import ALL_SCOPES
+
+    scopes = " ".join(s for s in ALL_SCOPES.split() if not s.endswith("calendar.events"))
+    app, _ = calendar_app(make_client, claude, scopes)
+    claude.answer = []
+    claude.tool_calls = [("calendar__delete_event", {"event": "event 1 tony@stark.example ev1"})]
+    lines = ask(app, [{"role": "user", "content": "Delete the board meeting"}])
+    assert not [line for line in lines if "proposal" in line]
+    reply = claude.requests[-1]["messages"][-1]["content"][0]["content"]
+    assert "Connect the account again in Integrations" in reply
