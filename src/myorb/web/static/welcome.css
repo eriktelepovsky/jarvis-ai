@@ -414,6 +414,28 @@ a.ti:hover .t1 {
   }
 }
 
+/* Beside the orb, the columns can be taller than the window (a long schedule, many
+   priorities): the screen keeps to the window, with its footer and corners, and such a
+   column scrolls on its own. */
+@media (min-width: 1280px) and (min-height: 561px) {
+  .welcome {
+    height: 100vh;
+  }
+
+  .welcome-main {
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .side {
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+}
+
 .welcome-footer {
   padding: 0 0 8px;
   font-size: 9.5px;
