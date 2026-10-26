@@ -161,7 +161,8 @@ def test_answers_link_items_by_their_id(client: TestClient, claude: FakeClaude):
     # Rows that open somewhere carry a short id for their address, not the address itself.
     [link] = re.findall(r"Water the plants.*\(link: (L[0-9a-f]{6})\)", board)
     assert "http" not in board.split("## Tasks")[1]
-    assert "Link only with these ids" in claude.requests[-1]["system"][0]["text"]
+    instructions = claude.requests[-1]["system"][0]["text"]
+    assert "Link only with these ids" in instructions and "A key alone says little" in instructions
     claude.answer = [f"Start with [watering]({link}), ", "then [lunch](L000000)."]
     lines = ask(client, [{"role": "user", "content": "What first?"}])
     # Where the links in the answer lead, at its end; unknown ids lead nowhere.
