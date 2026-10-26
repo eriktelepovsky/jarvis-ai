@@ -341,6 +341,8 @@ class GmailPlugin(Plugin):
                     ref=ref(email, message),
                     open_row=True,
                     link=message.get("link", ""),
+                    # As in Gmail, the search looks into the text too, e.g. a forward's sender.
+                    search=message.get("snippet", ""),
                     actions=actions(email, message),
                     tags=tuple(
                         tag
