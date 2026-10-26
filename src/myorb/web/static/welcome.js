@@ -1218,13 +1218,15 @@
   });
 
   // Pull to refresh: on a touch screen, where the details have no Refresh button, pulling their
-  // body down from the top loads new data, as the button does.
+  // body down from the top loads new data, as the button does. In the daily brief's report it
+  // writes a new brief, as its button does.
   const PULL = 70; // px to pull before letting go refreshes
   let pull = null;
   document.addEventListener("touchstart", (event) => {
-    const body = event.target.closest?.("dialog[data-detail] .modal-body");
+    const body = event.target.closest?.("dialog[data-detail] .modal-body, #report .report-body");
     const dialog = body?.closest("dialog");
-    if (!body || body.scrollTop > 0 || event.touches.length > 1 || dialog.classList.contains("is-refreshing")) return;
+    if (!body || body.scrollTop > 0 || event.touches.length > 1) return;
+    if (dialog.classList.contains("is-refreshing") || dialog.querySelector(".brief-writing.is-writing, .brief-writing.htmx-request")) return;
     pull = { body, dialog, y: event.touches[0].clientY, dy: 0, hint: null };
   }, { passive: true });
   document.addEventListener("touchmove", (event) => {
@@ -1256,7 +1258,7 @@
     body.style.transform = "";
     setTimeout(() => (body.style.transition = ""), 200);
     hint?.remove();
-    if (dy >= PULL) dialog.querySelector(".refresh-btn")?.click();
+    if (dy >= PULL) dialog.querySelector(".modal-head .refresh-btn, .modal-head .brief-generate")?.click();
   }
   document.addEventListener("touchend", endPull);
   document.addEventListener("touchcancel", endPull);

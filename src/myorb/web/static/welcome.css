@@ -1228,8 +1228,9 @@ a.ti:hover .t1 {
 
   /* Only the close button on a phone: refreshing and stepping through the details with the
      arrows are for a desktop, and without them the title keeps a line of its own width. The
-     keyboard hint in the footer goes too. */
+     keyboard hint in the footer goes too. A new brief is pulled for, as are the details. */
   .modal-head .refresh-btn,
+  .modal-head .brief-generate,
   .modal-head [data-counter],
   .modal-head [data-step],
   .modal-keys {
