@@ -8,6 +8,8 @@
 {% block content %}
 {# Over the details, forms answer with the email again rather than taking the page away. #}
 {% macro view_form(path) %}{% if in_view %} hx-post="{{ path }}" hx-target="#page-view"{% endif %}{% endmacro %}
+{# The subject and what to do with the email stay at the top while it scrolls. #}
+<div class="email-top">
 <div class="page-title email-title">
   <div><div class="label">Email · {{ account.email }}</div><h1 class="email-subject">{{ subject }}</h1></div>
   {% if in_view %}<button type="button" class="icon-btn" data-close-view aria-label="Back to the emails"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>{% else %}<a class="icon-btn" href="/#detail-gmail-inbox" aria-label="Back to the emails"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>{% endif %}
@@ -21,6 +23,7 @@
   <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/draft" hx-target="#email-draft" hx-swap="outerHTML">↩&#xFE0E; Reply</button>
   {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
+</div>
 </div>
 
 {% if marked_read %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}

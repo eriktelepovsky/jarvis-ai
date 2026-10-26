@@ -2124,7 +2124,18 @@ form.htmx-request .btn[type="submit"]::before {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
+}
+
+.email-top {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding-bottom: 14px;
+  background: var(--bg);
+}
+
+.email-top .email-actions {
+  margin-top: 14px;
 }
 
 .email-actions form {
