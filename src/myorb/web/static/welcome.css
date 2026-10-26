@@ -1073,7 +1073,8 @@ a.ti:hover .t1 {
      enough that most lists need no scrolling. */
   --modal-height: min(1040px, calc(100vh - 64px));
 
-  width: min(1040px, calc(100% - 48px));
+  /* Wide enough for four numbers side by side, e.g. "3 h 30 m" of focus time, on one line. */
+  width: min(1180px, calc(100% - 48px));
   height: var(--modal-height);
   max-height: none;
   padding: 0;
@@ -1264,6 +1265,13 @@ a.ti:hover .t1 {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+/* A number on one line where there is room; on a phone a long one ("3 h 30 m") may wrap. */
+@media (min-width: 761px) {
+  .modal-stat .num {
+    white-space: nowrap;
+  }
 }
 
 button.modal-stat {
