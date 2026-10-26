@@ -1,6 +1,6 @@
 """What Claude may do with emails from Ask: read a conversation (to answer about it or to
-reply), and save a reply as a draft in Gmail once the user confirms it. myOrb never sends an
-email: the draft waits in the conversation in Gmail, and can be undone from Ask."""
+reply), and save a reply as a draft in Gmail once the user confirms it. myOrb never sends a
+reply: the draft waits in the conversation in Gmail, and can be undone from Ask."""
 
 import asyncio
 import re

@@ -1,0 +1,42 @@
+{# The newest email forwarded to other addresses: where to and a note, the addresses to
+   confirm, then sent. Each step answers with this panel again, in the reply's place. #}
+{% set base = "/email/%d/%s/forward" % (account.id, thread_id) %}
+<section class="panel-narrow email-draft" id="email-draft" aria-label="Forward">
+  <div class="email-draft-head">
+    <span class="label">Forward{% if message %} · {{ message.sender }}, {{ message.received.strftime("%-d %b %H:%M") }}{% if message.attachments %} · {{ message.attachments | length }} attachment{{ "s" if message.attachments | length > 1 }}{% endif %}{% endif %}</span>
+    <button type="button" class="icon-btn" data-draft-close aria-label="Close the forward"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  {% if sent %}
+  <div class="alert alert-success" role="status"><span class="alert-tag">✓ SENT</span><span>Forwarded to {{ sent | join(", ") }}.</span></div>
+  {% else %}
+  {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+  {% if message %}
+  <form class="email-draft-form" method="post" action="{{ base }}" hx-post="{{ base }}" hx-target="#email-draft" hx-swap="outerHTML">
+    {% if confirm %}
+    <input type="hidden" name="to" value="{{ to }}">
+    <input type="hidden" name="note" value="{{ note }}">
+    <input type="hidden" name="confirmed" value="true">
+    <div class="alert alert-warn" role="status"><span class="alert-tag">! SEND</span><span>The email{% if message.attachments %} with its attachments{% endif %} goes to <strong>{{ recipients | join(", ") }}</strong> now, from {{ account.email }}.</span></div>
+    {% if note.strip() %}<div class="email-text email-forward-note">{{ note.strip() }}</div>{% endif %}
+    <div class="email-draft-actions">
+      <button type="submit" class="btn btn-primary">Send</button>
+      <button type="submit" class="btn" name="change" value="true">Change</button>
+      <span class="email-draft-busy label" aria-live="polite">Sending…</span>
+    </div>
+    {% else %}
+    <label class="field">
+      <span class="label">To</span>
+      <input class="input" name="to" value="{{ to }}" required autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="name@example.com, another@example.com" autofocus>
+    </label>
+    <label class="field">
+      <span class="label">Note (optional)</span>
+      <textarea class="input email-draft-body email-forward-body" name="note" rows="4" maxlength="5000">{{ note }}</textarea>
+    </label>
+    <div class="email-draft-actions">
+      <button type="submit" class="btn btn-primary">Forward…</button>
+    </div>
+    {% endif %}
+  </form>
+  {% endif %}
+  {% endif %}
+</section>

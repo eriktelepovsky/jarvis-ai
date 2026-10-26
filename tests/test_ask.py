@@ -468,6 +468,83 @@ def test_a_reply_is_written_and_saved_as_a_gmail_draft(make_client: MakeClient, 
     assert "SAVED" not in app.post("/email/1/t1/draft", data={"body": " "}).text
 
 
+def test_an_email_is_forwarded_once_the_addresses_are_confirmed(make_client: MakeClient):
+    from email import message_from_bytes, policy
+    from email.message import EmailMessage
+
+    from fakegoogle import FakeGoogle
+    from test_widgets import GMAIL, connect_google, gmail_api
+
+    from myorb.plugins.gmail import GmailPlugin
+
+    original = EmailMessage()
+    original["From"] = "Pepper Potts <pepper@stark.example>"
+    original["To"] = "Tony@StarkIndustries.example"
+    original["Subject"] = "Board meeting <today>"
+    original["Date"] = "Tue, 20 Oct 2026 10:00:00 +0200"
+    original.set_content("Can we move it?")
+    original.add_alternative(
+        '<html><body><p>Can we move it?</p><img src="cid:logo1@stark"></body></html>',
+        subtype="html",
+    )
+    original.get_payload()[1].add_related(b"PNG", "image", "png", cid="<logo1@stark>")
+    original.add_attachment(b"%PDF-1.4", "application", "pdf", filename="agenda.pdf")
+    raw = base64.urlsafe_b64encode(original.as_bytes()).decode()
+    uploads: list[httpx2.Request] = []
+
+    def api(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.endswith("/messages/m-pepper"):
+            assert request.url.params["format"] == "raw"
+            return httpx2.Response(200, json={"id": "m-pepper", "raw": raw})
+        return gmail_api(request)
+
+    def upload(request: httpx2.Request) -> httpx2.Response:
+        uploads.append(request)
+        return httpx2.Response(200, json={"id": "s1", "threadId": "t1"})
+
+    google = FakeGoogle()
+    google.routes[GMAIL] = api
+    google.routes["https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send"] = upload
+    app = make_client(transport=httpx2.MockTransport(google), plugins={"gmail": GmailPlugin()})
+    complete_setup(app)
+    connect_google(app, google)
+    assert 'hx-get="/email/1/t1/forward"' in app.get("/email/1/t1").text
+    form = app.get("/email/1/t1/forward").text
+    assert "Forward · Pepper Potts" in form and 'name="to"' in form
+
+    assert "is not an email address" in app.post("/email/1/t1/forward", data={"to": "x"}).text
+    data = {"to": "bruce@wayne.example, Bruce@Wayne.example", "note": "FYI"}
+    confirm = app.post("/email/1/t1/forward", data=data).text
+    # Nothing is sent before the addresses are confirmed.
+    assert "<strong>bruce@wayne.example</strong>" in confirm and 'name="confirmed"' in confirm
+    changed = app.post("/email/1/t1/forward", data=data | {"change": "true"}).text
+    assert 'value="bruce@wayne.example, Bruce@Wayne.example"' in changed and "FYI" in changed
+    assert uploads == []
+
+    done = app.post("/email/1/t1/forward", data=data | {"confirmed": "true"}).text
+    assert "SENT" in done and "Forwarded to bruce@wayne.example." in done
+    [request] = uploads
+    assert request.url.params["uploadType"] == "multipart"
+    assert request.headers["content-type"].startswith("multipart/related; boundary=")
+    metadata, message = request.content.split(b"Content-Type: message/rfc822\r\n\r\n")
+    assert b'{"threadId": "t1"}' in metadata
+    sent = message_from_bytes(message.rsplit(b"\r\n--", 1)[0], policy=policy.default)
+    assert sent["To"] == "bruce@wayne.example"
+    assert sent["From"] == "Tony@StarkIndustries.example"  # the address it came to
+    assert sent["Subject"] == "Fwd: Board meeting <today>"
+    text = sent.get_body(preferencelist=("plain",)).get_content()
+    assert text.startswith("FYI\n\n---------- Forwarded message ---------\nFrom: Pepper Potts")
+    assert "Subject: Board meeting <today>" in text and "Can we move it?" in text
+    html = sent.get_body(preferencelist=("html",))
+    assert (
+        "Board meeting &lt;today&gt;" in html.get_content() and "<body>" not in html.get_content()
+    )
+    [image] = [p for p in sent.walk() if p["Content-ID"] == "<logo1@stark>"]
+    assert image.get_payload(decode=True) == b"PNG"
+    [pdf] = sent.iter_attachments()
+    assert pdf.get_filename() == "agenda.pdf" and pdf.get_payload(decode=True) == b"%PDF-1.4"
+
+
 def test_a_reply_is_drafted_from_the_chat(make_client: MakeClient, claude: FakeClaude):
     from fakegoogle import FakeGoogle
     from test_widgets import GMAIL, connect_google, drafts, gmail_api
