@@ -587,13 +587,41 @@
                 ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`
                 : label;
             });
-        if (lines.length && lines.every((line) => /^\s*[-•]\s/.test(line))) {
-          return `<ul>${lines.map((line) => `<li>${inline(line.replace(/^\s*[-•]\s/, ""))}</li>`).join("")}</ul>`;
+        const prose = (run) => {
+          if (run.every((line) => /^\s*[-•]\s/.test(line))) {
+            return `<ul>${run.map((line) => `<li>${inline(line.replace(/^\s*[-•]\s/, ""))}</li>`).join("")}</ul>`;
+          }
+          return `<p>${run.map(inline).join("<br>")}</p>`;
+        };
+        // "> " lines are a text to copy, e.g. a draft reply: shown without the marks, with
+        // a Copy button for all of it.
+        const quote = (run) =>
+          `<div class="ask-quote"><div class="ask-quote-text">${run
+            .map((line) => inline(line.replace(/^\s*>\s?/, "")))
+            .join("<br>")}</div><button type="button" class="btn btn-small ask-copy" data-ask-copy>Copy</button></div>`;
+        const runs = [];
+        for (const line of lines) {
+          const quoted = /^\s*>/.test(line);
+          if (runs.at(-1)?.quoted === quoted) runs.at(-1).lines.push(line);
+          else runs.push({ quoted, lines: [line] });
         }
-        return `<p>${lines.map(inline).join("<br>")}</p>`;
+        return runs.map((run) => (run.quoted ? quote(run.lines) : prose(run.lines))).join("");
       })
       .join("");
   }
+
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-ask-copy]");
+    if (!button) return;
+    const text = button.closest(".ask-quote").querySelector(".ask-quote-text").innerText;
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = "Copied";
+    } catch {
+      button.textContent = "Copy failed";
+    }
+    setTimeout(() => (button.textContent = "Copy"), 1500);
+  });
 
   function askBubble(role, text, state = "") {
     const bubble = document.createElement("div");
@@ -794,7 +822,7 @@
       messages: ask.messages,
     });
     // A spoken question gets a spoken answer, without the list markers, bold and links.
-    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- /gm, "").replace(LINK, "$1"), aloud);
+    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- |^\s*>\s?/gm, "").replace(LINK, "$1"), aloud);
     // Nothing answered: the question is taken back, so asking again does not repeat it.
     if (error && !text) {
       ask.messages = ask.messages.filter((m, i) => !(i === ask.messages.length - 1 && m.role === "user"));
