@@ -17,6 +17,7 @@ Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anythin
 - **Daily brief:** Claude writes what awaits you today at a time you choose, in English or Slovak, with what needs you first. Read it aloud with your browser's voices or Microsoft Azure Speech, in several languages.
 - **Ask:** ask about your dashboard in the command line, by voice, or with one of the quick actions. Claude can also act for you once you confirm: add tasks, draft email replies in Gmail, add and change calendar events, mark videos as seen, add uptime monitors, change Jira issues, complete Asana tasks, approve or comment on pull requests. Most actions can be undone. Asked to, it loads new data from every source. Issues, tasks, pull requests and emails it names link to them, and notifications from Sentry and Bitbucket Pipelines straight to the issue or pipeline.
 - **Focus time:** the free blocks of an hour or more between today's meetings, in the schedule, the calendar's details and the brief. Ask can block one in your calendar.
+- **Commute:** when to leave for today's events that happen somewhere, with the traffic expected then (Google Routes API): in the header, the schedule and the brief.
 - **Tasks:** due dates written in plain language, e.g. “call Anna tomorrow 10:00”.
 - **Side columns:** today's schedule, tasks, priorities from the brief and the weather on the left; quick actions and what happened lately on the right.
 - **Music and sounds:** generated ambient music or any YouTube video or playlist while you work, and quiet interface sounds.

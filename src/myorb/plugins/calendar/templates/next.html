@@ -1,1 +1,1 @@
-{% if event %}<span class="label header-item"><span class="dim">Next ·</span> {{ event.title }} · {{ when }}</span>{% endif %}
+{% if event %}<span class="label header-item"><span class="dim">Next ·</span> {{ event.title }} · {{ when }}{% if leave %} · <span class="{{ 'next-leave-soon' if leave_soon else 'next-leave' }}">leave {{ leave | localtime("%H:%M") }}</span>{% endif %}</span>{% endif %}

@@ -17,6 +17,9 @@
   {% for event in day.today %}
   {% if event.kind == "now" %}
   <div class="ti now"><span class="tt">{{ event.time | localtime("%H:%M") }}</span><span class="tx" aria-label="Now"></span></div>
+  {% elif event.kind == "travel" %}
+  {# The way to the event after it (Commute): when to leave and how long it takes. #}
+  <div class="ti travel"><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">Leave for {{ event.event.title }}</span><span class="t2">{{ event.length }} {{ event.by }} from {{ event.origin }}</span></span></div>
   {% elif event.kind == "focus" %}
   {# A free block of an hour or more between events, for deep work. #}
   <div class="ti focus"><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">Free for focus</span><span class="t2">Until {{ event.end | localtime("%H:%M") }} · {{ event.length }}</span></span></div>

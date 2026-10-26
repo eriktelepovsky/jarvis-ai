@@ -369,6 +369,15 @@ a.ti:hover .t1 {
   opacity: 0.5;
 }
 
+.ti.travel .tx {
+  border-left: 2px dotted var(--warn);
+}
+
+.ti.travel .t1,
+.next-leave-soon {
+  color: var(--warn);
+}
+
 .ti.focus .tx {
   border-left: 2px dashed var(--ok);
 }
