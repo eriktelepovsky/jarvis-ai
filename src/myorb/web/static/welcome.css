@@ -2679,3 +2679,9 @@ dialog.is-refreshing .modal-head::after {
   border-left-color: var(--line-strong);
   opacity: 0.7;
 }
+
+/* Ask: stopping an answer read aloud */
+
+.ask-stop {
+  margin-right: 6px;
+}
