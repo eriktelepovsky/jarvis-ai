@@ -369,6 +369,14 @@ a.ti:hover .t1 {
   opacity: 0.5;
 }
 
+.ti.focus .tx {
+  border-left: 2px dashed var(--ok);
+}
+
+.ti.focus .t1 {
+  color: var(--ok);
+}
+
 .ti.now .tt {
   color: var(--fail);
 }

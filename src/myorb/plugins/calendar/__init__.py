@@ -5,6 +5,7 @@ from typing import Any
 from urllib.parse import quote
 
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
+from myorb.overview.glance import duration, focus_blocks
 from myorb.plugins.base import (
     AskAction,
     BriefSection,
@@ -71,6 +72,8 @@ def parse_event(
         "video_url": video,
         "url": event.get("htmlLink"),
         "calendar": None if calendar.get("primary") else calendar.get("summary"),
+        # Shown as "Free" in Google Calendar: it leaves the time open for focus.
+        "free": event.get("transparency") == "transparent",
         # What Ask needs to change the event (see actions.py).
         "id": event.get("id", ""),
         "calendar_id": calendar.get("id", ""),
@@ -134,6 +137,45 @@ def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
             seen.add(key)
             day.append({**event, "kind": "event", "sub": describe(event)})
     return day
+
+
+def focus_time(events: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
+    """The rest of today's free blocks for deep work, between the events that take the time."""
+    busy = [
+        TimelineItem(e["start"], e["end"], e["title"])
+        for e in events
+        if e.get("kind") != "now" and not e["all_day"] and not e.get("free")
+    ]
+    return [
+        {"start": start, "end": end, "length": duration(int((end - start).total_seconds() // 60))}
+        for start, end in focus_blocks(busy, now)
+    ]
+
+
+def with_focus(events: list[dict[str, Any]], blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Today's events with the free blocks among them (kind "focus"), in time order. Only
+    among meetings: a day without any is all free, and says so."""
+    day = list(events)
+    if not any(e["kind"] != "now" and not e["all_day"] for e in day):
+        return day
+    for block in blocks:
+        index = next(
+            (
+                i
+                for i, e in enumerate(day)
+                if e["kind"] != "now" and not e["all_day"] and e["start"] >= block["start"]
+            ),
+            len(day),
+        )
+        day.insert(index, {**block, "kind": "focus", "all_day": False})
+    return day
+
+
+def focus_line(blocks: list[dict[str, Any]]) -> str:
+    if not blocks:
+        return "No free block of an hour or more left in today's working hours."
+    spans = ", ".join(f"{b['start']:%H:%M}–{b['end']:%H:%M} ({b['length']})" for b in blocks)
+    return f"Free for focus today (an hour or more, until 18:00): {spans}"
 
 
 def until(start: datetime, now: datetime) -> str:
@@ -276,6 +318,7 @@ class CalendarPlugin(Plugin):
             lines.append(f"Today {when}: {event['title']}{details}{done}")
         if not day["today"]:
             lines.append("Nothing on the calendar today.")
+        lines.append(focus_line(focus_time(day["today"], now)))
         # All of tomorrow, with times and places: a flight or an early start needs preparing
         # today. Then a few events of the rest of the week.
         tomorrow = (now + timedelta(days=1)).date()
@@ -306,10 +349,24 @@ class CalendarPlugin(Plugin):
         # The next timed event: later today, or else the first of the week ahead.
         timed = [e for e in [*today, *week] if not e["all_day"] and e["start"] > now]
         nxt = timed[0] if timed else None
+        focus = focus_time(today, now)
         rows = []
-        # All of today (what is over is dimmed) and the week ahead, by calendar; the numbers
-        # above filter them: today, the next event, the next seven days.
-        for event in [*today, *week]:
+        # All of today (what is over is dimmed) with its free blocks for focus, then the week
+        # ahead, by calendar; the numbers above filter them: today, the next event, focus
+        # time, the next seven days.
+        listed = with_focus(today, focus)
+        for event in [*listed, *week]:
+            if event.get("kind") == "focus":
+                rows.append(
+                    Row(
+                        title="Free for focus",
+                        subtitle=f"{event['start']:%H:%M}–{event['end']:%H:%M} · {event['length']}",
+                        badge=f"{event['start']:%H:%M}",
+                        tone="ok",
+                        tags=("focus",),
+                    )
+                )
+                continue
             tags = ["today" if event in today else "week"]
             if event is nxt:
                 tags.append("next")
@@ -325,12 +382,18 @@ class CalendarPlugin(Plugin):
                     group=event["calendar"] or event.get("account") or "Primary",
                 )
             )
+        focus_minutes = sum(int((b["end"] - b["start"]).total_seconds() // 60) for b in focus)
         return WidgetData(
             value=day["today_count"],
             summary="events today" + (f" · next {event_badge(nxt, now)}" if nxt else ""),
             stats=[
                 Stat(day["today_count"], "Today", filter="today"),
                 Stat(event_badge(nxt, now) if nxt else "—", "Next", filter="next" if nxt else None),
+                Stat(
+                    duration(focus_minutes) if focus else "—",
+                    "Focus",
+                    filter="focus" if len(listed) > len(today) else None,
+                ),
                 Stat(len(week), "Next 7 days", filter="week"),
             ],
             list_title="Schedule",
@@ -352,6 +415,8 @@ class CalendarPlugin(Plugin):
         date = (now + timedelta(days=offset)).date()
         if offset == 0:
             day = self._merged(loaded, now) if loaded else None
+            if day:
+                day = {**day, "today": with_focus(day["today"], focus_time(day["today"], now))}
         else:
             day = {"today": events_on([e for a in loaded for e in a.data["events"]], date)}
         label = "Today" if offset == 0 else "Tomorrow" if offset == 1 else f"{date:%a %-d %b}"
