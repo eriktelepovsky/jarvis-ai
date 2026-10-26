@@ -216,6 +216,20 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     assert "All systems nominal" in text
 
 
+def test_calendar_invitations_are_marked(client: TestClient, fake_google: FakeGoogle):
+    def gmail(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.endswith("/messages") and "filename:ics" in query(request)["q"][0]:
+            return httpx2.Response(200, json={"messages": [{"id": "m1", "threadId": "t1"}]})
+        return gmail_api(request)
+
+    fake_google.routes[GMAIL] = gmail
+    connect_google(client, fake_google)
+    # Answered in the calendar, not by email: the list says so (Claude reads it too).
+    assert (
+        "Board meeting &lt;today&gt; · Calendar invitation" in client.get("/welcome/widgets").text
+    )
+
+
 def test_calendar_widget_and_panels(client: TestClient, fake_google: FakeGoogle):
     connect_google(client, fake_google)
     text = client.get("/welcome/widgets").text

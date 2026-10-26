@@ -24,7 +24,8 @@ the start of its text. Work only with that; never invent content.
 user's reply or decision, a deadline, a payment or something broken; "medium" for things \
 worth reading soon; "low" for newsletters, notifications, receipts and marketing. reason is \
 one short clause (at most 12 words) on why; action is at most two words, e.g. "Reply", \
-"Pay", "Approve", "Read", "Archive"."""
+"Pay", "Approve", "Read", "Archive". A calendar invitation, its change or cancellation \
+(marked so) is answered in the calendar, never by email: its action is "Calendar"."""
 
 SCHEMA = {
     "type": "object",
@@ -60,7 +61,9 @@ def emails_prompt(emails: list[dict[str, Any]], now: datetime, language: str) ->
         received = email["received"].astimezone(now.tzinfo)
         lines.append(
             f"[{index}] From: {email['sender']} | To: {email.get('to', '')} | "
-            f"{received:%d %b %H:%M} | Subject: {email['subject']}\n"
+            f"{received:%d %b %H:%M} | Subject: {email['subject']}"
+            + (" | Calendar invitation" if email.get("invitation") else "")
+            + "\n"
             f"    {email.get('snippet', '')[:300]}"
         )
     if len(emails) > MAX_EMAILS:

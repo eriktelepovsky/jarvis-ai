@@ -45,6 +45,10 @@ TODAY_LIMIT = 500
 ICON = "M3 6h18v12H3zM3 7l9 6 9-6"
 
 
+# How the brief and Ask learn that an email is an invitation, which needs no written reply.
+INVITATION_NOTE = " (a calendar invitation: answered in the calendar, not by email)"
+
+
 def inbox_url(email: str, thread_id: str | None = None) -> str:
     base = f"https://mail.google.com/mail/u/?authuser={quote(email)}#inbox"
     return f"{base}/{thread_id}" if thread_id else base
@@ -95,6 +99,8 @@ def summarize_message(
         "starred": "STARRED" in message.get("labelIds", []),
         # What a notification is about, e.g. a Sentry issue (see fetch_inbox).
         "link": message.get("item_link", ""),
+        # A calendar invitation (or its change): answered in the calendar, not by email.
+        "invitation": bool(message.get("invitation")),
     }
 
 
@@ -110,7 +116,7 @@ async def own_addresses(google: GoogleAccounts, account: GoogleAccount) -> set[s
 async def fetch_inbox(
     google: GoogleAccounts, account: GoogleAccount, day_start: datetime
 ) -> dict[str, Any]:
-    own, inbox, today, unread = await asyncio.gather(
+    own, inbox, today, unread, invites = await asyncio.gather(
         own_addresses(google, account),
         google.get_json(account, f"{API}/labels/INBOX", API_NAME),
         google.get_json(
@@ -125,7 +131,15 @@ async def fetch_inbox(
             API_NAME,
             {"q": "in:inbox is:unread", "maxResults": UNREAD_SHOWN},
         ),
+        # Calendar invitations, their changes and cancellations: they come with an .ics file.
+        google.get_json(
+            account,
+            f"{API}/messages",
+            API_NAME,
+            {"q": "in:inbox is:unread filename:ics", "maxResults": UNREAD_SHOWN},
+        ),
     )
+    invitations = {m.get("threadId") for m in invites.get("messages", []) if m.get("threadId")}
     limit = asyncio.Semaphore(PARALLEL)
 
     async def newest_unread(thread_id: str) -> dict[str, Any] | None:
@@ -153,6 +167,8 @@ async def fetch_inbox(
 
     found = await asyncio.gather(*(newest_unread(t["id"]) for t in unread.get("threads", [])))
     messages = [message for message in found if message]
+    for message in messages:
+        message["invitation"] = message.get("threadId") in invitations
     return {
         "unread": inbox.get("threadsUnread", 0),
         # More unread conversations than were read: counts from them are a lower bound.
@@ -242,7 +258,11 @@ class GmailPlugin(Plugin):
         for account in loaded:
             for message in self.unread_of(account.email, account.data)[:BRIEF_UNREAD]:
                 received = received_badge(message["received"], context.now)
-                lines.append(f"Unread from {message['sender']}: {message['subject']} ({received})")
+                invitation = INVITATION_NOTE if message.get("invitation") else ""
+                lines.append(
+                    f"Unread from {message['sender']}: {message['subject']} ({received})"
+                    + invitation
+                )
         return BriefSection("Email (Gmail)", lines)
 
     async def _load(self, context: WidgetContext) -> WidgetData:
@@ -312,7 +332,9 @@ class GmailPlugin(Plugin):
                 Row(
                     title=message["sender"],
                     mark="★" if message.get("starred") else "",
-                    subtitle=message["subject"] + (f" · {email}" if several else ""),
+                    subtitle=message["subject"]
+                    + (" · Calendar invitation" if message.get("invitation") else "")
+                    + (f" · {email}" if several else ""),
                     badge=received_badge(message["received"], context.now),
                     url=reading(email, message),
                     # Ask reads the conversation and drafts a reply by it (see actions.py).
