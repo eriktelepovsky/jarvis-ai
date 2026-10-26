@@ -555,6 +555,61 @@ def test_brief_includes_all_of_tomorrow(monkeypatch):
     assert any(line.startswith("Later this week, Monday 09:00: Dentist") for line in section.lines)
 
 
+def test_free_blocks_for_focus_today(monkeypatch):
+    import asyncio
+    from datetime import datetime
+    from types import SimpleNamespace
+    from zoneinfo import ZoneInfo
+
+    from myorb.plugins.calendar import CalendarPlugin
+    from myorb.plugins.google_data import AccountData
+
+    now = datetime(2026, 10, 22, 10, 0, tzinfo=ZoneInfo("Europe/Bratislava"))
+    base = {"location": None, "video_url": None, "url": None, "calendar": None, "all_day": False}
+
+    def at(hour: int, minute: int = 0) -> datetime:
+        return now.replace(hour=hour, minute=minute)
+
+    events = [
+        {**base, "title": "Standup", "start": at(9), "end": at(9, 15)},
+        {**base, "title": "Planning", "start": at(11), "end": at(12)},
+        # Shown as free in Google Calendar: it does not break the afternoon up.
+        {**base, "title": "Lunch", "start": at(12, 30), "end": at(13), "free": True},
+        {**base, "title": "Review", "start": at(15), "end": at(16)},
+    ]
+    plugin = CalendarPlugin()
+
+    async def accounts(context):
+        return [AccountData("me@example.com", {"events": events})]
+
+    monkeypatch.setattr(plugin, "_accounts", accounts)
+    context = SimpleNamespace(now=now, params={})
+    section = asyncio.run(plugin.brief(context))
+    assert (
+        "Free for focus today (an hour or more, until 18:00): "
+        "10:00–11:00 (1 h), 12:00–15:00 (3 h), 16:00–18:00 (2 h)" in section.lines
+    )
+    data = asyncio.run(plugin._widget(context))
+    assert [(s.value, s.filter) for s in data.stats if s.label == "Focus"] == [("6 h", "focus")]
+    rows = [(r.title, r.badge) for r in data.rows]
+    assert rows == [
+        ("Standup", "Over"),
+        ("Free for focus", "10:00"),
+        ("Planning", "11:00"),
+        ("Free for focus", "12:00"),
+        ("Lunch", "12:30"),
+        ("Review", "15:00"),
+        ("Free for focus", "16:00"),
+    ]
+    assert data.rows[1].tags == ("focus",) and data.rows[1].subtitle == "10:00–11:00 · 1 h"
+    panel = asyncio.run(plugin._today(context))
+    kinds = [e["kind"] for e in panel["day"]["today"]]
+    assert kinds == ["past", "now", "focus", "event", "focus", "event", "event", "focus"]
+    # Nothing left once the working day is over.
+    late = SimpleNamespace(now=at(17, 30), params={})
+    assert any(line.startswith("No free block") for line in asyncio.run(plugin.brief(late)).lines)
+
+
 def test_node_size_follows_attention():
     from myorb.plugins import WidgetData
     from myorb.web.routes import node_size

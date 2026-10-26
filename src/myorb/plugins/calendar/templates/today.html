@@ -17,6 +17,9 @@
   {% for event in day.today %}
   {% if event.kind == "now" %}
   <div class="ti now"><span class="tt">{{ event.time | localtime("%H:%M") }}</span><span class="tx" aria-label="Now"></span></div>
+  {% elif event.kind == "focus" %}
+  {# A free block of an hour or more between events, for deep work. #}
+  <div class="ti focus"><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">Free for focus</span><span class="t2">Until {{ event.end | localtime("%H:%M") }} · {{ event.length }}</span></span></div>
   {% else %}
   <a class="ti{% if event.kind == 'past' %} past{% endif %}" href="{{ event.url }}" target="_blank" rel="noopener">
     {# All-day events come first; the label is shown only on the first of them. #}

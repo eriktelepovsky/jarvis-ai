@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from conftest import MakeClient, complete_setup
 from sqlalchemy import select
 
-from myorb.overview.glance import duration, free_minutes, glance
+from myorb.overview.glance import duration, focus_blocks, free_minutes, glance
 from myorb.overview.models import WidgetSnapshot
 from myorb.overview.snapshots import change_label, numeric
 from myorb.plugins import TimelineItem
@@ -14,8 +14,8 @@ TZ = ZoneInfo("Europe/Bratislava")
 NOW = datetime(2026, 10, 22, 15, 30, tzinfo=TZ)
 
 
-def at(hour: int, minute: int = 0) -> datetime:
-    return NOW.replace(hour=hour, minute=minute)
+def at(hour: int, minute: int = 0, second: int = 0) -> datetime:
+    return NOW.replace(hour=hour, minute=minute, second=second)
 
 
 def test_free_minutes_until_the_end_of_the_working_day():
@@ -28,6 +28,21 @@ def test_free_minutes_until_the_end_of_the_working_day():
     assert free_minutes(items, NOW) == 90
     assert free_minutes([], at(19)) == 0
     assert duration(90) == "1 h 30 m" and duration(45) == "45 m" and duration(120) == "2 h"
+
+
+def test_focus_blocks_are_an_hour_or_more_of_the_working_day():
+    items = [
+        TimelineItem(at(8), at(9, 30), "Early call"),
+        TimelineItem(at(10, 15), at(11), "1:1"),  # 09:30–10:15 is too short for focus
+        TimelineItem(at(14), at(15), "Review"),
+        TimelineItem(at(17, 30), at(19), "Dinner"),  # 15:00–17:30 is free
+    ]
+    early = at(7)
+    assert focus_blocks(items, early) == [(at(11), at(14)), (at(15), at(17, 30))]
+    # From now on, starting on a five-minute mark.
+    assert focus_blocks(items, at(11, 47, 12)) == [(at(11, 50), at(14)), (at(15), at(17, 30))]
+    assert focus_blocks([], at(17, 10)) == []  # less than an hour left
+    assert focus_blocks([], at(18)) == []
 
 
 def test_glance_lays_out_the_day():
