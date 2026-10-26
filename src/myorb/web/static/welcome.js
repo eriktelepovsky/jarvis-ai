@@ -374,6 +374,9 @@
   document.addEventListener("keydown", (event) => {
     if (!viewDialog()?.open || event.target.closest("input, textarea")) return;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      // Not also the browser's own: it would scroll the sideways scroller a little, and the
+      // next email would sit off its place.
+      event.preventDefault();
       event.stopImmediatePropagation();
       stepView(event.key === "ArrowLeft" ? -1 : 1);
     }
