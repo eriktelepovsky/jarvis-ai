@@ -105,8 +105,8 @@
           <span class="command-prompt" aria-hidden="true">›</span>
           <label class="visually-hidden" for="command-input">{{ "Ask " ~ assistant if can_ask else "Add a task" }}</label>
           <input id="command-input" name="text" placeholder="{% if can_ask %}Ask {{ assistant }} anything{% else %}Add a task, e.g. “call Anna tomorrow 10:00”{% endif %}" autocomplete="off" required>
-          {% if can_ask %}<button type="button" class="icon-btn command-voice" data-voice-ask aria-label="Ask {{ assistant }} by voice" title="Ask {{ assistant }} by voice" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>{% endif %}
           <kbd class="command-key" title="Press / to type here">/</kbd>
+          {% if can_ask %}<button type="button" class="icon-btn command-voice" data-voice-ask aria-label="Ask {{ assistant }} by voice" title="Ask {{ assistant }} by voice" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>{% endif %}
         </form>
         <div class="label command-result" id="command-result" role="status" aria-live="polite"></div>
       </div>

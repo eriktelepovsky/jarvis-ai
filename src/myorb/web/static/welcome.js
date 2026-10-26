@@ -507,6 +507,11 @@
     input.focus();
   });
 
+  // Esc leaves the command line, keeping what is typed (while listening, it cancels that).
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && event.target.id === "command-input" && !listening) event.target.blur();
+  });
+
   // Ask: a question in the command line (ending or starting with "?") opens the Ask dialog,
   // where Claude answers from the dashboard as it writes. The conversation is kept for the tab.
   const ASK_KEY = "myorb.ask";

@@ -501,7 +501,8 @@ a.ti:hover .t1 {
   gap: 12px;
   align-items: center;
   height: 46px;
-  padding: 0 10px 0 18px;
+  /* The microphone's circle sits as far from the edge as from the top and bottom. */
+  padding: 0 5px 0 18px;
   background: rgb(10 18 24 / 80%);
   border: 1px solid var(--line-accent);
   border-radius: 23px;
@@ -560,6 +561,17 @@ a.ti:hover .t1 {
 .command-voice {
   flex: none;
   color: var(--accent);
+}
+
+/* A circle, in the round end of the bar (over .icon-btn's corners, defined later). */
+.command-bar .command-voice {
+  border-radius: 50%;
+}
+
+/* Without the microphone (no Claude, or no speech recognition), "/" keeps off the edge. */
+.command-key:last-child,
+.command-key:has(+ .command-voice[hidden]) {
+  margin-right: 8px;
 }
 
 .command-voice.is-listening,
