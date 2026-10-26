@@ -8,6 +8,7 @@ prompt and see the same data.
 
 import asyncio
 import hashlib
+import itertools
 import logging
 
 from myorb.plugins import BriefSection, Plugin, Widget, WidgetContext, WidgetData
@@ -93,7 +94,13 @@ async def dashboard(
         if not widgets:
             section = await _brief(context, plugin)
             if section and section.lines:
-                texts.append(f"## {section.title}\n" + "\n".join(f"- {x}" for x in section.lines))
+                lines = []
+                for line, url in itertools.zip_longest(section.lines, section.urls, fillvalue=""):
+                    if links is not None and url:
+                        links[link_id(url)] = url
+                        line += f" (link: {link_id(url)})"
+                    lines.append(f"- {line}")
+                texts.append(f"## {section.title}\n" + "\n".join(lines))
         return texts
 
     parts = await asyncio.gather(*(plugin_text(p) for p in plugins))

@@ -229,6 +229,9 @@ class BriefSection:
 
     title: str
     lines: list[str]
+    # Where each line's facts can be looked at (or ""), e.g. the page of the user's own app
+    # that sent them: Ask links to it when it names them.
+    urls: list[str] = field(default_factory=list)
 
 
 class Plugin(ABC):  # noqa: B024 (plugins override whichever of the hooks they need)

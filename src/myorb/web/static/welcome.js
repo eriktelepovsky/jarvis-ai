@@ -822,7 +822,11 @@
     if (!input.value.trim()) return;
     const question = input.value.trim();
     form.reset();
-    askQuestion(question);
+    // Dictated (see dictate()): answered aloud.
+    const lang = document.querySelector(".command-bar[data-voice-lang]")?.dataset.voiceLang;
+    const aloud = dictating ? lang || "" : "";
+    dictating = false;
+    askQuestion(question, { aloud });
   });
 
   // Voice: the browser's speech recognition hears a question, shown as it is heard in the
@@ -857,15 +861,18 @@
     }, { once: true });
   }
 
+  // In the chat, the question is heard into its own line; elsewhere into the command line.
   function listen() {
-    const form = document.querySelector(".command-bar[data-voice-lang]");
-    const input = form?.querySelector("#command-input");
-    if (!input) return;
+    const bar = document.querySelector(".command-bar[data-voice-lang]");
+    const chat = document.getElementById("ask");
+    const form = chat?.open ? chat.querySelector("[data-ask-form]") : bar;
+    const input = chat?.open ? chat.querySelector("#ask-input") : bar?.querySelector("#command-input");
+    if (!bar || !input) return;
     stopSpeaking(); // a new question interrupts the answer being read
     if (dictateOnly) return dictate(form, input);
     if (listening) return stopListening();
     const recognition = new Recognition();
-    recognition.lang = form.dataset.voiceLang;
+    recognition.lang = bar.dataset.voiceLang;
     recognition.interimResults = true;
     const placeholder = input.placeholder;
     let heard = "";
@@ -913,6 +920,16 @@
 
   document.addEventListener("click", (event) => {
     if (event.target.closest("[data-voice-ask]")) listen();
+  });
+
+  // V asks by voice, as the microphone does, unless typing somewhere.
+  document.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() !== "v" || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.repeat || event.target.closest?.("input, textarea, select, [contenteditable]")) return;
+    const button = document.querySelector("[data-voice-ask]:not([hidden])");
+    if (!button) return;
+    event.preventDefault();
+    listen();
   });
 
   document.addEventListener("keydown", (event) => {

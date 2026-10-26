@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -263,6 +264,9 @@ def test_custom_sources_give_ask_only_their_brief_lines(make_client: MakeClient)
     board = fake.requests[-1]["system"][1]["text"]
     assert "7 unpaid invoices, 2 overdue." in board
     assert "Acme" not in board and "1 250,00" not in board
+    # The sentence links to the source's page in the app, by its id.
+    line = next(x for x in board.splitlines() if "7 unpaid invoices" in x)
+    assert re.search(r"\(link: L[0-9a-f]{6}\)$", line) and "http" not in line
     assert API_KEY not in board
 
 

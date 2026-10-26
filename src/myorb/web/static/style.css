@@ -2303,9 +2303,16 @@ form.htmx-request .btn[type="submit"]::before {
 }
 
 
-/* "Music on" and "Music off" take the same room, so the dock keeps still when it changes. */
+/* "Music on" and "Music off" take the same room, so the dock keeps still when it changes:
+   the longer one, unseen and flat, under the text sets the width. */
 .music-label {
-  display: inline-block;
-  min-width: 8.2ch;
-  text-align: left;
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.music-label::after {
+  content: "Music off";
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
 }
