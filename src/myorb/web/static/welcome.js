@@ -729,7 +729,31 @@
     }
   }
 
+  // An answer read aloud, with a Stop button in Ask's head while it lasts. Closing Ask, a new
+  // question and the microphone stop it too.
+  let speaking = 0; // the reading going on, so an earlier one ending does not hide the button
+  async function speakAnswer(text, tag) {
+    if (!window.myorbSpeech) return;
+    const turn = ++speaking;
+    const stop = document.querySelector("[data-ask-stop]");
+    if (stop) stop.hidden = false;
+    await window.myorbSpeech.speak(text, tag);
+    if (turn !== speaking) return;
+    speaking = 0;
+    if (stop) stop.hidden = true;
+  }
+
+  function stopSpeaking() {
+    if (speaking && "speechSynthesis" in window) speechSynthesis.cancel();
+  }
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-ask-stop]")) stopSpeaking();
+  });
+  document.getElementById("ask")?.addEventListener("close", stopSpeaking);
+
   async function askQuestion(question, { aloud = "" } = {}) {
+    stopSpeaking();
     const dialog = showAsk();
     if (!dialog || dialog.dataset.busy) return;
     const log = dialog.querySelector("[data-ask-log]");
@@ -743,7 +767,7 @@
       messages: ask.messages,
     });
     // A spoken question gets a spoken answer, without the list markers and bold.
-    if (aloud && text) window.myorbSpeech?.speak(text.replace(/\*\*|^\s*- /gm, ""), aloud);
+    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- /gm, ""), aloud);
     // Nothing answered: the question is taken back, so asking again does not repeat it.
     if (error && !text) {
       ask.messages = ask.messages.filter((m, i) => !(i === ask.messages.length - 1 && m.role === "user"));
@@ -813,6 +837,7 @@
     const form = document.querySelector(".command-bar[data-voice-lang]");
     const input = form?.querySelector("#command-input");
     if (!input) return;
+    stopSpeaking(); // a new question interrupts the answer being read
     if (dictateOnly) return dictate(form, input);
     if (listening) return stopListening();
     const recognition = new Recognition();
