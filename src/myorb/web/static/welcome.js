@@ -256,7 +256,7 @@
 
   // Caught on the way down, before hx-boost's own handler on the link takes the whole page there.
   document.addEventListener("click", (event) => {
-    const link = event.target.closest?.("a.row-link[data-view]");
+    const link = event.target.closest?.("a.row-link[data-view], a.ask-link[data-view]");
     if (!link || link.target || !link.getAttribute("href").startsWith("/")) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if (showView(link)) {
@@ -576,6 +576,10 @@
             .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
             .replace(LINK, (match, label, id) => {
               const url = ask.links?.[id];
+              // An email opens over the chat, as from its list; the rest in a new tab.
+              if (/^\/email\//.test(url || "")) {
+                return `<a class="ask-link" href="${escapeHtml(url)}" data-view>${label}</a>`;
+              }
               return /^(https?:\/\/|\/(?!\/))/.test(url || "")
                 ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`
                 : label;
