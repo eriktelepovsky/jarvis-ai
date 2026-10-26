@@ -316,10 +316,15 @@ class CustomPlugin(Plugin):
         )
 
     async def brief(self, context: WidgetContext) -> BriefSection | None:
-        lines = [
-            line
+        # Each sentence links to the source's page in the app (its "link"), for Ask.
+        found = [
+            (line, result.data.link.url if result.data.link else "")
             for result in await self._load(context)
             if result.data is not None
             for line in result.data.brief
         ]
-        return BriefSection("Your own sources", lines) if lines else None
+        if not found:
+            return None
+        return BriefSection(
+            "Your own sources", [line for line, _ in found], [url for _, url in found]
+        )

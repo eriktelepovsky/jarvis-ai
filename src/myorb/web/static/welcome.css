@@ -107,21 +107,30 @@ body:has(#welcome) {
 }
 
 .header-nav {
+  --nav-space: 14px;
+
   display: flex;
-  gap: 14px;
+  gap: calc(2 * var(--nav-space) + 3px);
   align-items: center;
 }
 
-/* A faint dot between items, so the uppercase, widely spaced words do not run together. */
+/* A faint dot between items, so the uppercase, widely spaced words do not run together. It
+   sits in the gap, outside the item, so only the word itself is a link. */
+.header-nav > * + * {
+  position: relative;
+}
+
 .header-nav > * + *::before {
   content: "";
-  display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: calc(-1 * var(--nav-space) - 3px);
   width: 3px;
   height: 3px;
-  margin-right: 14px;
-  vertical-align: middle;
+  margin-top: -1.5px;
   background: var(--line-accent);
   border-radius: 50%;
+  pointer-events: none;
 }
 
 .header-nav form {
@@ -846,6 +855,7 @@ a.ti:hover .t1 {
   }
 
   .header-nav > * + *::before {
+    position: static;
     margin: 0 auto;
   }
 
@@ -933,12 +943,9 @@ a.ti:hover .t1 {
 
   /* Narrower than the screen, so the links stay on one line each. */
   .header-nav {
-    gap: 10px;
-    white-space: nowrap;
-  }
+    --nav-space: 10px;
 
-  .header-nav > * + *::before {
-    margin-right: 10px;
+    white-space: nowrap;
   }
 
   .greeting {
@@ -2598,6 +2605,17 @@ dialog.is-refreshing .modal-head::after {
 
 .ask-form .btn {
   height: 44px;
+}
+
+.ask-form .ask-voice {
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+  border-radius: 50%;
+}
+
+.ask-voice.is-listening {
+  animation: listening 1.4s ease-in-out infinite;
 }
 
 /* The AI summary of unread emails, in the email details under the numbers */
