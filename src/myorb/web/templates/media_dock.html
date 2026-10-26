@@ -22,12 +22,15 @@
     </button>
     <div class="music">
       <button type="button" class="btn btn-small" data-toggle="music" aria-pressed="false">
-        <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span data-music-label>Music off</span>
+        <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="music-label" data-music-label>Music off</span>
       </button>
-      <button type="button" class="btn btn-small" data-toggle="volume" aria-expanded="false" aria-controls="dock-volume" aria-label="Music volume" title="Music volume" hidden>
+      <button type="button" class="btn btn-small" data-toggle="volume" aria-expanded="false" aria-controls="dock-volume" aria-label="Volume" title="Volume">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
       </button>
-      <label class="label volume" id="dock-volume" hidden>Vol <input type="range" min="0" max="100" value="45" data-volume aria-label="Music volume"></label>
+      <div class="volume" id="dock-volume" hidden>
+        <label class="label">Music <input type="range" min="0" max="100" value="45" data-volume aria-label="Music volume"></label>
+        <label class="label">Buttons <input type="range" min="0" max="100" value="50" data-sound-volume aria-label="Volume of the interface sounds"></label>
+      </div>
     </div>
     <button type="button" class="btn btn-small" data-toggle="sounds" aria-pressed="false" aria-label="Interface sounds" title="Interface sounds">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="sound-on" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="sound-off" d="M16 9l5 6M21 9l-5 6"/></svg>

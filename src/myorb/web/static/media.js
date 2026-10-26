@@ -24,7 +24,7 @@
     }
   }
 
-  const prefs = { sounds: false, volume: 0.45, ...loadPrefs() };
+  const prefs = { sounds: false, volume: 0.45, soundVolume: 0.5, ...loadPrefs() };
 
   // Where the music comes from is set on Integrations → Music; read it when the music starts,
   // so a change applies without reloading the page.
@@ -45,13 +45,16 @@
 
   const ui = { ctx: null, out: null };
 
+  // The buttons' volume, set in the dock: half way is how they always sounded.
+  const soundGain = () => 11 * prefs.soundVolume;
+
   function uiContext() {
     if (!ui.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return null;
       ui.ctx = new AudioContext();
       ui.out = ui.ctx.createGain();
-      ui.out.gain.value = 5.5;
+      ui.out.gain.value = soundGain();
       ui.out.connect(ui.ctx.destination);
     }
     if (ui.ctx.state === "suspended") ui.ctx.resume().catch(() => {});
@@ -315,12 +318,12 @@
     toggle("music")?.setAttribute("aria-pressed", String(Boolean(music)));
     dock.querySelector("[data-music-label]").textContent = `Music ${music ? "on" : "off"}`;
     dock.querySelector(".eq").classList.toggle("on", Boolean(music));
-    // The slider opens from its own button, above the dock.
-    if (!music) volumeOpen = false;
-    dock.querySelector("[data-toggle='volume']").hidden = !music;
+    // The slider opens from its own button, above the dock. The button stays while the music
+    // is off too (the volume can be set beforehand), so the dock does not shift.
     dock.querySelector("[data-toggle='volume']").setAttribute("aria-expanded", String(volumeOpen));
     dock.querySelector(".volume").hidden = !volumeOpen;
     dock.querySelector("[data-volume]").value = Math.round(prefs.volume * 100);
+    dock.querySelector("[data-sound-volume]").value = Math.round(prefs.soundVolume * 100);
     // Only ✕ on the player hides it (visibility, so the music keeps playing) and the dock's
     // video button brings it back; Music on and off leave it be. There is a player once
     // YouTube music has played since the page loaded (or is starting: the player comes once
@@ -508,7 +511,17 @@
     render();
   });
 
+  // The buttons' volume, with a click to hear it (when the sounds are on).
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-sound-volume]")) sound("click");
+  });
   document.addEventListener("input", (event) => {
+    if (event.target.matches("[data-sound-volume]")) {
+      prefs.soundVolume = Number(event.target.value) / 100;
+      savePrefs();
+      if (ui.out) ui.out.gain.value = soundGain();
+      return;
+    }
     if (!event.target.matches("[data-volume]")) return;
     prefs.volume = Number(event.target.value) / 100;
     savePrefs();
