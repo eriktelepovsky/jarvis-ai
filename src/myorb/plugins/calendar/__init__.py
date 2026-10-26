@@ -1,10 +1,12 @@
 import asyncio
+import logging
 from datetime import date, datetime, timedelta, tzinfo
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
+from myorb.connections.providers import Provider, ProviderError
 from myorb.overview.glance import duration, focus_blocks
 from myorb.plugins.base import (
     AskAction,
@@ -19,7 +21,10 @@ from myorb.plugins.base import (
     WidgetData,
     open_buttons,
 )
+from myorb.plugins.calendar.commute import Commute, plan, route_minutes
 from myorb.plugins.google_data import AccountData, account_status, load_accounts
+
+logger = logging.getLogger(__name__)
 
 API = "https://www.googleapis.com/calendar/v3"
 API_NAME = "Google Calendar API"
@@ -139,26 +144,31 @@ def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
     return day
 
 
-def focus_time(events: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
-    """The rest of today's free blocks for deep work, between the events that take the time."""
+def focus_time(
+    events: list[dict[str, Any]], now: datetime, trips: list[dict[str, Any]] = ()
+) -> list[dict[str, Any]]:
+    """The rest of today's free blocks for deep work, between the events that take the time
+    and the ways to them (see commute.plan)."""
     busy = [
         TimelineItem(e["start"], e["end"], e["title"])
         for e in events
         if e.get("kind") != "now" and not e["all_day"] and not e.get("free")
-    ]
+    ] + [TimelineItem(t["start"], t["end"], "Travel") for t in trips]
     return [
         {"start": start, "end": end, "length": duration(int((end - start).total_seconds() // 60))}
         for start, end in focus_blocks(busy, now)
     ]
 
 
-def with_focus(events: list[dict[str, Any]], blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Today's events with the free blocks among them (kind "focus"), in time order. Only
-    among meetings: a day without any is all free, and says so."""
+def among_events(
+    events: list[dict[str, Any]], extras: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Today's events with free blocks (kind "focus") and ways to them (kind "travel") among
+    them, in time order. Only among meetings: a day without any is all free, and says so."""
     day = list(events)
     if not any(e["kind"] != "now" and not e["all_day"] for e in day):
         return day
-    for block in blocks:
+    for block in extras:
         index = next(
             (
                 i
@@ -167,8 +177,18 @@ def with_focus(events: list[dict[str, Any]], blocks: list[dict[str, Any]]) -> li
             ),
             len(day),
         )
-        day.insert(index, {**block, "kind": "focus", "all_day": False})
+        day.insert(index, {"kind": "focus", **block, "all_day": False})
     return day
+
+
+def trip_line(trip: dict[str, Any]) -> str:
+    event = trip["event"]
+    traffic = " in the traffic expected then" if trip["by"] == "by car" else ""
+    return (
+        f"Leave at {trip['start']:%H:%M} for {event['title']} ({event['start']:%H:%M}, "
+        f"{event['location']}): {trip['length']} {trip['by']} from {trip['origin']}{traffic}"
+        + (", arriving 90 minutes before the flight" if trip["flight"] else "")
+    )
 
 
 def focus_line(blocks: list[dict[str, Any]]) -> str:
@@ -242,6 +262,43 @@ class CalendarPlugin(Plugin):
     name = "Calendar"
     templates_dir = Path(__file__).parent / "templates"
     position = 20
+
+    def __init__(self) -> None:
+        self.commute = Commute()
+
+    def connections(self) -> list[Provider]:
+        return [self.commute]
+
+    async def _trips(
+        self, context: WidgetContext, events: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Today's ways to the events ahead, when Commute is set up (see commute.plan)."""
+        accounts = await context.connections.list(self.commute.id)
+        if not accounts:
+            return []
+        account = accounts[0]
+
+        async def route(origin: str, destination: str, departure: datetime) -> int | None:
+            # The same way asked again within a quarter of an hour comes from the cache.
+            slot = departure.replace(minute=departure.minute // 15 * 15, second=0, microsecond=0)
+            key = f"commute:{account.id}:{origin}|{destination}|{slot:%Y-%m-%d %H:%M}"
+
+            async def fetch() -> int | None:
+                return await route_minutes(
+                    context.http, account.credentials, origin, destination, departure
+                )
+
+            try:
+                cached = await context.cache.get(key, fetch, fresh=15 * 60, max_age=60 * 60)
+            except ProviderError:
+                return None
+            return cached.value
+
+        try:
+            return await plan(events, context.now, account.credentials, route)
+        except Exception:
+            logger.exception("Commute failed")
+            return []
 
     def ask_actions(self) -> list[AskAction]:
         from myorb.plugins.calendar.actions import ask_actions
@@ -318,7 +375,9 @@ class CalendarPlugin(Plugin):
             lines.append(f"Today {when}: {event['title']}{details}{done}")
         if not day["today"]:
             lines.append("Nothing on the calendar today.")
-        lines.append(focus_line(focus_time(day["today"], now)))
+        trips = await self._trips(context, day["today"])
+        lines += [trip_line(trip) for trip in trips]
+        lines.append(focus_line(focus_time(day["today"], now, trips)))
         # All of tomorrow, with times and places: a flight or an early start needs preparing
         # today. Then a few events of the rest of the week.
         tomorrow = (now + timedelta(days=1)).date()
@@ -349,13 +408,26 @@ class CalendarPlugin(Plugin):
         # The next timed event: later today, or else the first of the week ahead.
         timed = [e for e in [*today, *week] if not e["all_day"] and e["start"] > now]
         nxt = timed[0] if timed else None
-        focus = focus_time(today, now)
+        trips = await self._trips(context, today)
+        focus = focus_time(today, now, trips)
         rows = []
         # All of today (what is over is dimmed) with its free blocks for focus, then the week
         # ahead, by calendar; the numbers above filter them: today, the next event, focus
         # time, the next seven days.
-        listed = with_focus(today, focus)
+        listed = among_events(today, [*focus, *({**t, "kind": "travel"} for t in trips)])
         for event in [*listed, *week]:
+            if event.get("kind") == "travel":
+                soon = event["start"] - now <= timedelta(minutes=15)
+                rows.append(
+                    Row(
+                        title=f"Leave for {event['event']['title']}",
+                        subtitle=f"{event['length']} {event['by']} from {event['origin']}",
+                        badge=f"{event['start']:%H:%M}",
+                        tone="warn" if soon else "info",
+                        tags=("travel",),
+                    )
+                )
+                continue
             if event.get("kind") == "focus":
                 rows.append(
                     Row(
@@ -392,7 +464,7 @@ class CalendarPlugin(Plugin):
                 Stat(
                     duration(focus_minutes) if focus else "—",
                     "Focus",
-                    filter="focus" if len(listed) > len(today) else None,
+                    filter="focus" if any(e.get("kind") == "focus" for e in listed) else None,
                 ),
                 Stat(len(week), "Next 7 days", filter="week"),
             ],
@@ -416,7 +488,10 @@ class CalendarPlugin(Plugin):
         if offset == 0:
             day = self._merged(loaded, now) if loaded else None
             if day:
-                day = {**day, "today": with_focus(day["today"], focus_time(day["today"], now))}
+                trips = await self._trips(context, day["today"])
+                extras = [*focus_time(day["today"], now, trips)]
+                extras += [{**t, "kind": "travel"} for t in trips]
+                day = {**day, "today": among_events(day["today"], extras)}
         else:
             day = {"today": events_on([e for a in loaded for e in a.data["events"]], date)}
         label = "Today" if offset == 0 else "Tomorrow" if offset == 1 else f"{date:%a %-d %b}"
@@ -441,8 +516,13 @@ class CalendarPlugin(Plugin):
             if e.get("kind") != "now" and not e["all_day"] and e["start"] > context.now
         ]
         event = upcoming[0] if upcoming else None
+        # When to leave for it, with Commute set up and the event somewhere today.
+        trips = await self._trips(context, day["today"]) if event else []
+        trip = next((t for t in trips if t["event"]["start"] == event["start"]), None)
         return {
             "event": event,
+            "leave": trip["start"] if trip else None,
+            "leave_soon": bool(trip) and trip["start"] - context.now <= timedelta(minutes=15),
             "when": (
                 until(event["start"], context.now)
                 if event["start"].date() == context.now.date()

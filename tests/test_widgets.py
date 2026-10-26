@@ -505,6 +505,13 @@ def test_events_on_another_day():
     assert titles == ["Trip", "Standup"]  # all-day first, the duplicate (two accounts) once
 
 
+class NoConnections:
+    """Nothing connected through a form, e.g. no Commute."""
+
+    async def list(self, provider: str) -> list:
+        return []
+
+
 def test_brief_includes_all_of_tomorrow(monkeypatch):
     import asyncio
     from datetime import datetime, timedelta
@@ -549,7 +556,7 @@ def test_brief_includes_all_of_tomorrow(monkeypatch):
         return [AccountData("me@example.com", {"events": events})]
 
     monkeypatch.setattr(plugin, "_accounts", accounts)
-    section = asyncio.run(plugin.brief(SimpleNamespace(now=now)))
+    section = asyncio.run(plugin.brief(SimpleNamespace(now=now, connections=NoConnections())))
     assert "Tomorrow 19:00–21:00: Flight to Bratislava (2 h · VIE)" in section.lines
     assert sum(line.startswith("Tomorrow all day") for line in section.lines) == 6
     assert any(line.startswith("Later this week, Monday 09:00: Dentist") for line in section.lines)
@@ -583,7 +590,7 @@ def test_free_blocks_for_focus_today(monkeypatch):
         return [AccountData("me@example.com", {"events": events})]
 
     monkeypatch.setattr(plugin, "_accounts", accounts)
-    context = SimpleNamespace(now=now, params={})
+    context = SimpleNamespace(now=now, params={}, connections=NoConnections())
     section = asyncio.run(plugin.brief(context))
     assert (
         "Free for focus today (an hour or more, until 18:00): "
@@ -606,7 +613,7 @@ def test_free_blocks_for_focus_today(monkeypatch):
     kinds = [e["kind"] for e in panel["day"]["today"]]
     assert kinds == ["past", "now", "focus", "event", "focus", "event", "event", "focus"]
     # Nothing left once the working day is over.
-    late = SimpleNamespace(now=at(17, 30), params={})
+    late = SimpleNamespace(now=at(17, 30), params={}, connections=NoConnections())
     assert any(line.startswith("No free block") for line in asyncio.run(plugin.brief(late)).lines)
 
 
@@ -727,3 +734,166 @@ def test_rows_keep_their_fields_by_position():
         "https://jira.example/AR-16",
         "",
     )
+
+
+# Commute
+
+
+def test_commute_plans_when_to_leave():
+    import asyncio
+    from datetime import datetime
+
+    from myorb.plugins.calendar.commute import plan
+
+    now = datetime(2026, 10, 26, 7, 0, tzinfo=TZ)  # a Monday
+
+    def event(hour: int, title: str, location: str | None, minutes: int = 60) -> dict:
+        start = now.replace(hour=hour)
+        return {
+            "title": title,
+            "start": start,
+            "end": start + timedelta(minutes=minutes),
+            "all_day": False,
+            "location": location,
+            "kind": "event",
+        }
+
+    events = [
+        {**event(0, "Name day", None), "all_day": True},
+        event(8, "Quarterly meeting", "Hlavná 1, Košice"),
+        event(9, "Refinement", "Online, link in the invitation"),  # nowhere to go
+        event(10, "Workshop", "Mlynská 5, Košice"),  # an hour after the meeting: from there
+        event(15, "1:1", "Office, Košice"),  # from work on a weekday afternoon
+        event(20, "Flight to Prague", "Košice Airport"),  # from home, long after the 1:1
+    ]
+    asked = []
+
+    async def route(origin: str, destination: str, departure: datetime) -> int | None:
+        asked.append((origin, destination, departure))
+        return 25
+
+    credentials = {"home": "Home St 1", "work": "Work St 2", "mode": "drive", "api_key": "k"}
+    trips = asyncio.run(plan(events, now, credentials, route))
+    assert [(t["event"]["title"], t["origin"], f"{t['start']:%H:%M}") for t in trips] == [
+        ("Quarterly meeting", "home", "07:30"),  # 25 min plus 5 min to spare before 08:00
+        ("Workshop", "Quarterly meeting", "09:30"),
+        ("1:1", "work", "14:30"),
+        ("Flight to Prague", "home", "18:05"),  # at the airport 90 minutes before
+    ]
+    assert asked[1][0] == "Hlavná 1, Košice" and trips[0]["length"] == "25 min"
+    # The traffic of when the user leaves, never in the past.
+    assert asked[0][2] == now.replace(hour=7, minute=25)
+    late = asyncio.run(plan(events, now.replace(hour=10, minute=5), credentials, route))
+    assert [t["event"]["title"] for t in late] == ["1:1", "Flight to Prague"]
+    assert late[0]["origin"] == "work"
+
+
+def test_commute_asks_google_routes():
+    import asyncio
+    import json as jsonlib
+
+    import httpx2
+
+    from myorb.connections.providers import ProviderError
+    from myorb.plugins.calendar.commute import Commute, route_minutes
+
+    sent = []
+
+    def routes(request: httpx2.Request) -> httpx2.Response:
+        sent.append((request.headers, jsonlib.loads(request.content)))
+        if request.headers["X-Goog-Api-Key"] == "bad":
+            return httpx2.Response(403, json={"error": {"status": "PERMISSION_DENIED"}})
+        if "Nowhere" in request.content.decode():
+            return httpx2.Response(200, json={})
+        return httpx2.Response(200, json={"routes": [{"duration": "1530s"}]})
+
+    async def run():
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(routes)) as http:
+            credentials = {"api_key": "key", "mode": "drive"}
+            when = datetime(2026, 10, 26, 7, 25, tzinfo=TZ)
+            assert await route_minutes(http, credentials, "A", "B", when) == 26
+            headers, body = sent[-1]
+            assert headers["X-Goog-FieldMask"] == "routes.duration"
+            assert body["travelMode"] == "DRIVE" and body["routingPreference"] == "TRAFFIC_AWARE"
+            assert body["departureTime"] == "2026-10-26T06:25:00Z"  # CET
+            transit = {"api_key": "key", "mode": "transit"}
+            await route_minutes(http, transit, "A", "B")
+            assert sent[-1][1]["travelMode"] == "TRANSIT" and "routingPreference" not in sent[-1][1]
+            assert await route_minutes(http, credentials, "A", "Nowhere") is None
+            provider = Commute()
+            values = {"api_key": "key", "home": "Home", "work": "", "mode": ""}
+            verified = await provider.verify(http, values)
+            assert verified.credentials["mode"] == "drive" and verified.account == "From Home"
+            with pytest.raises(ProviderError, match="no way from home to work"):
+                await provider.verify(http, {**values, "work": "Nowhere"})
+            with pytest.raises(ProviderError, match="rejected"):
+                await provider.verify(http, {**values, "api_key": "bad"})
+            with pytest.raises(ProviderError, match="drive, transit"):
+                await provider.verify(http, {**values, "mode": "boat"})
+
+    asyncio.run(run())
+
+
+def test_commute_shows_when_to_leave(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from myorb.plugins.calendar import CalendarPlugin
+    from myorb.plugins.google_data import AccountData
+
+    now = datetime(2026, 10, 26, 7, 0, tzinfo=TZ)
+    base = {"video_url": None, "url": None, "calendar": None, "all_day": False}
+    meeting = {
+        **base,
+        "title": "Quarterly meeting",
+        "location": "Hlavná 1",
+        "start": now.replace(hour=8),
+        "end": now.replace(hour=10),
+    }
+    plugin = CalendarPlugin()
+
+    async def accounts(context):
+        return [AccountData("me@example.com", {"events": [meeting]})]
+
+    async def trips(context, events):
+        [event] = [e for e in events if e.get("kind") not in ("now", None)]
+        start = now.replace(hour=7, minute=10)
+        return [
+            {
+                "event": event,
+                "start": start,
+                "end": now.replace(hour=7, minute=55),
+                "minutes": 45,
+                "length": "45 min",
+                "origin": "home",
+                "by": "by car",
+                "flight": False,
+            }
+        ]
+
+    monkeypatch.setattr(plugin, "_accounts", accounts)
+    monkeypatch.setattr(plugin, "_trips", trips)
+    context = SimpleNamespace(now=now, params={})
+    data = asyncio.run(plugin._widget(context))
+    assert [(r.title, r.badge, r.tone) for r in data.rows][:2] == [
+        ("Leave for Quarterly meeting", "07:10", "warn"),  # in a quarter of an hour
+        ("Quarterly meeting", "08:00", "info"),
+    ]
+    assert data.rows[0].subtitle == "45 min by car from home"
+    section = asyncio.run(plugin.brief(context))
+    assert (
+        "Leave at 07:10 for Quarterly meeting (08:00, Hlavná 1): 45 min by car from home "
+        "in the traffic expected then" in section.lines
+    )
+    # The way is no time for focus: free from 10:00, not from 07:00.
+    assert any("10:00–18:00" in line for line in section.lines)
+    nxt = asyncio.run(plugin._next(context))
+    assert nxt["leave"] == now.replace(hour=7, minute=10) and nxt["leave_soon"]
+    panel = asyncio.run(plugin._today(context))
+    assert [e["kind"] for e in panel["day"]["today"]][:3] == ["now", "travel", "event"]
+
+
+def test_commute_is_set_up_on_integrations(client: TestClient):
+    assert "<strong>Commute</strong>" in client.get("/integrations").text
+    form = client.get("/integrations/commute/connect").text
+    assert 'name="home"' in form and 'name="api_key"' in form and "Routes API" in form

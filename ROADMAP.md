@@ -72,7 +72,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 ## Phase 5: Lifestyle
 
 - [x] **Weather:** today's forecast and rain by the hour (Open-Meteo)
-- [ ] **Commute:** travel time to the first meeting
+- [x] **Commute:** travel time to the first meeting
 - [ ] **News:** AI-picked important stories from RSS feeds, Hacker News and similar sources
 - [x] **YouTube:** new videos from channels you are subscribed to (YouTube Data API)
 - [x] **Health:** sleep and steps from Apple Health (iPhone Shortcut and webhook), activities from Strava
