@@ -315,9 +315,8 @@
     toggle("music")?.setAttribute("aria-pressed", String(Boolean(music)));
     dock.querySelector("[data-music-label]").textContent = `Music ${music ? "on" : "off"}`;
     dock.querySelector(".eq").classList.toggle("on", Boolean(music));
-    // The slider opens from its own button, above the dock.
-    if (!music) volumeOpen = false;
-    dock.querySelector("[data-toggle='volume']").hidden = !music;
+    // The slider opens from its own button, above the dock. The button stays while the music
+    // is off too (the volume can be set beforehand), so the dock does not shift.
     dock.querySelector("[data-toggle='volume']").setAttribute("aria-expanded", String(volumeOpen));
     dock.querySelector(".volume").hidden = !volumeOpen;
     dock.querySelector("[data-volume]").value = Math.round(prefs.volume * 100);
