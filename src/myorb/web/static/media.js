@@ -287,10 +287,10 @@
   setInterval(saveYouTubePosition, 5000);
   window.addEventListener("pagehide", saveYouTubePosition);
 
+  // Music off pauses the video; the player stays as the user left it, shown or hidden.
   function stopYouTube() {
     saveYouTubePosition();
     youtube.player?.pauseVideo();
-    document.querySelector(".music-player").hidden = true;
     music = null;
   }
 
@@ -312,12 +312,14 @@
     dock.querySelector("[data-toggle='volume']").setAttribute("aria-expanded", String(volumeOpen));
     dock.querySelector(".volume").hidden = !volumeOpen;
     dock.querySelector("[data-volume]").value = Math.round(prefs.volume * 100);
-    // ✕ on the player only hides it (visibility, so the music keeps playing); the dock's
-    // video button brings it back.
-    const youtubeOn = Boolean(music?.youtube);
-    dock.querySelector(".music-player").hidden = !youtubeOn;
+    // Only ✕ on the player hides it (visibility, so the music keeps playing) and the dock's
+    // video button brings it back; Music on and off leave it be. There is a player once
+    // YouTube music has played since the page loaded (or is starting: the player comes once
+    // YouTube's script has loaded).
+    const player = Boolean(youtube.player || music?.youtube);
+    dock.querySelector(".music-player").hidden = !player;
     dock.querySelector(".music-player").classList.toggle("is-hidden", Boolean(prefs.videoHidden));
-    dock.querySelector(".dock-controls [data-toggle='video']").hidden = !(youtubeOn && prefs.videoHidden);
+    dock.querySelector(".dock-controls [data-toggle='video']").hidden = !(player && prefs.videoHidden);
   }
 
   let volumeOpen = false;
