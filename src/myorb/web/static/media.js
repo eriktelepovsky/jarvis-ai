@@ -208,7 +208,10 @@
     return youtube.api;
   }
 
-  async function startYouTube(source) {
+  // `resume`: again after a reload, paused if the user paused it in the player.
+  async function startYouTube(source, { resume = false } = {}) {
+    const paused = resume && Boolean(prefs.youtubePaused);
+    if (!resume) prefs.youtubePaused = false;
     document.querySelector(".music-player").hidden = false;
     document.getElementById("media-dock")?.classList.add("is-playing");
     music = { youtube: true };
@@ -227,7 +230,7 @@
     }
     youtube.key = key;
     const YT = await loadYouTubeApi();
-    const playerVars = { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 };
+    const playerVars = { autoplay: paused ? 0 : 1, playsinline: 1, rel: 0, modestbranding: 1 };
     // After a reload, continue with the same video where it stopped. The video itself is
     // remembered, not only its place in the playlist: mixes change their order every time.
     const at = prefs.youtubeAt?.key === key ? prefs.youtubeAt : null;
@@ -244,7 +247,17 @@
       events: {
         onReady: (event) => {
           event.target.setVolume(Math.round(prefs.volume * 100));
-          event.target.playVideo();
+          if (!paused) event.target.playVideo();
+        },
+        // Paused or played in the player itself: a reload keeps it so. (Music off pauses it
+        // too, but then the music is already off.) Playing counts from buffering: a player
+        // made paused after a reload reports no "playing" when it is played.
+        onStateChange: (event) => {
+          if (!music?.youtube || ![1, 2, 3].includes(event.data)) return;
+          const pausedNow = event.data === 2;
+          if (Boolean(prefs.youtubePaused) === pausedNow) return;
+          prefs.youtubePaused = pausedNow;
+          savePrefs();
         },
       },
     });
@@ -500,12 +513,18 @@
     if (!document.getElementById("media-dock")) return;
     const config = await loadMusicConfig();
     if (!prefs.musicOn || music) return;
-    if (config.source === "youtube" && (config.video || config.playlist)) startYouTube(config);
+    const youtubeSet = config.source === "youtube" && (config.video || config.playlist);
+    if (youtubeSet) startYouTube(config, { resume: true });
     else startMusic();
     render();
+    // Only a player that never started: one paused in the player itself stays paused (a click
+    // there does not reach the page, so the first click on the page may come after it).
     const unblock = () => {
-      if (music?.youtube) youtube.player?.playVideo?.();
-      else music?.ctx?.resume();
+      if (!music?.youtube) return music?.ctx?.resume();
+      const state = youtube.player?.getPlayerState?.();
+      if (!prefs.youtubePaused && (state === undefined || state === -1 || state === 5)) {
+        youtube.player?.playVideo?.();
+      }
     };
     document.addEventListener("pointerdown", unblock, { once: true, capture: true });
     document.addEventListener("keydown", unblock, { once: true, capture: true });
