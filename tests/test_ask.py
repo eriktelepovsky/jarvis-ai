@@ -150,6 +150,50 @@ def test_claude_loads_new_data_when_asked(client: TestClient, claude: FakeClaude
     assert "loaded again" in result["content"] and "Call mom" in result["content"]
 
 
+def test_answers_link_items_by_their_id(client: TestClient, claude: FakeClaude):
+    import re
+
+    connect(client)
+    client.post("/command", data={"text": "Water the plants today"})
+    ask(client, [{"role": "user", "content": "Hi"}])
+    board = claude.requests[-1]["system"][1]["text"]
+    # Rows that open somewhere carry a short id for their address, not the address itself.
+    [link] = re.findall(r"Water the plants.*\(link: (L[0-9a-f]{6})\)", board)
+    assert "http" not in board.split("## Tasks")[1]
+    assert "Link only with these ids" in claude.requests[-1]["system"][0]["text"]
+    claude.answer = [f"Start with [watering]({link}), ", "then [lunch](L000000)."]
+    lines = ask(client, [{"role": "user", "content": "What first?"}])
+    # Where the links in the answer lead, at its end; unknown ids lead nowhere.
+    [links] = [line["links"] for line in lines if "links" in line]
+    assert list(links) == [link] and links[link].startswith("/")
+
+
+def test_notification_emails_link_what_they_are_about():
+    from myorb.ask.context import widget_text
+    from myorb.plugins import Row, Widget, WidgetData
+    from myorb.plugins.gmail.message import is_notifier, item_link
+
+    def message(text: str) -> dict:
+        data = base64.urlsafe_b64encode(text.encode()).decode()
+        return {"payload": {"mimeType": "text/plain", "body": {"data": data}}}
+
+    sentry = "https://acme.sentry.io/issues/7705526910/?referrer=alert_email&amp;x=1"
+    assert (
+        item_link(message(f"Details\n\n{sentry}\n")) == "https://acme.sentry.io/issues/7705526910/"
+    )
+    pipeline = "https://bitbucket.org/acme/web/addon/pipelines/home#!/results/{e27ae264-af57}"
+    assert item_link(message(f"View this pipeline: {pipeline}/from-email")) == pipeline
+    assert item_link(message("https://acme.sentry.io/settings/billing/")) == ""
+    assert is_notifier("noreply@md.getsentry.com") and is_notifier("x@bitbucket.org")
+    assert not is_notifier("pepper@example.com")
+    # Ask links the issue rather than the email in myOrb.
+    links: dict[str, str] = {}
+    row = Row("Sentry", "WEB-91 - Error", url="/email/1/t1", link=pipeline)
+    widget = Widget(id="inbox", label="Unread", title="Email", icon="", load=None)
+    widget_text(widget, WidgetData(value=1, rows=[row]), links)
+    assert list(links.values()) == [pipeline]
+
+
 def test_streamed_answers_are_counted(client: TestClient, claude: FakeClaude):
     # Streamed, so the client's response hook leaves them to Ask.
     from test_brief import usage_rows

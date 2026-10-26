@@ -8,6 +8,7 @@ POST /ask/undo    undoes a done action
 
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -28,6 +29,9 @@ from myorb.web.routes import ordered_plugins, widget_context
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# A link in an answer: [AR-16](L3fa2c1); see context.link_id.
+LINK = re.compile(r"\]\((L[0-9a-f]{6})\)")
 
 
 def _line(**data: Any) -> bytes:
@@ -51,13 +55,14 @@ async def _client(request: Request) -> tuple[anthropic.AsyncAnthropic, str]:
     return service.client(settings.api_key, settings.workspace_id), settings.model
 
 
-def _refresh_action(plugins: list[Plugin]) -> AskAction:
-    """Loading every source again, for "refresh the data": Claude reads the new dashboard."""
+def _refresh_action(plugins: list[Plugin], links: dict[str, str]) -> AskAction:
+    """Loading every source again, for "refresh the data": Claude reads the new dashboard,
+    its links added to the conversation's."""
 
     async def run(context: WidgetContext, data: dict[str, Any]) -> ActionResult:
         token = refreshing.set(True)
         try:
-            text, _ = await dashboard(context, plugins)
+            text, _ = await dashboard(context, plugins, links)
         finally:
             refreshing.reset(token)
         return ActionResult(f"Every source was loaded again. The dashboard now:\n\n{text}")
@@ -85,11 +90,14 @@ async def _start(request: Request, earlier: list[dict[str, str]]) -> Conversatio
     """A new conversation: the dashboard now, the actions of the services set up (and loading
     new data), and the earlier turns the browser kept (e.g. after a restart) as plain text."""
     plugins = ordered_plugins(request)
-    text, set_up = await dashboard(widget_context(request), plugins)
-    actions, tools = offered(set_up, [_refresh_action(plugins)])
+    links: dict[str, str] = {}
+    text, set_up = await dashboard(widget_context(request), plugins, links)
+    actions, tools = offered(set_up, [_refresh_action(plugins, links)])
     async with request.app.state.sessionmaker() as db:
         assistant = (await load_profile(db, request.app.state.secret_box))["assistant"]
-    conversation = Conversation(dashboard=text, actions=actions, tools=tools, assistant=assistant)
+    conversation = Conversation(
+        dashboard=text, actions=actions, tools=tools, assistant=assistant, links=links
+    )
     conversation.messages = [{"role": m["role"], "content": m["content"]} for m in earlier]
     request.app.state.ask_conversations.add(conversation)
     return conversation
@@ -97,6 +105,19 @@ async def _start(request: Request, earlier: list[dict[str, str]]) -> Conversatio
 
 def _stream(lines: AsyncIterator[bytes]) -> StreamingResponse:
     return StreamingResponse(lines, media_type="application/x-ndjson")
+
+
+async def _linked(
+    conversation: Conversation, events: AsyncIterator[dict[str, Any]]
+) -> AsyncIterator[dict[str, Any]]:
+    """A turn's events, then where the links in its answer lead: {"links": {id: URL}}."""
+    text = []
+    async for event in events:
+        text.append(str(event.get("text") or ""))
+        yield event
+    used = set(LINK.findall("".join(text)))
+    if found := {i: url for i, url in conversation.links.items() if i in used}:
+        yield {"links": found}
 
 
 async def _guarded(events: AsyncIterator[dict[str, Any]]) -> AsyncIterator[bytes]:
@@ -126,12 +147,15 @@ async def ask(request: Request) -> StreamingResponse:
             conversation = await _start(request, history[:-1])
         yield {"conversation": conversation.id}
         ask_question(conversation, question)
-        async for event in turn(
-            client,
-            model,
+        async for event in _linked(
             conversation,
-            widget_context(request),
-            on_usage=request.app.state.brief.record_usage,
+            turn(
+                client,
+                model,
+                conversation,
+                widget_context(request),
+                on_usage=request.app.state.brief.record_usage,
+            ),
         ):
             yield event
 
@@ -179,12 +203,15 @@ async def decide_actions(request: Request) -> StreamingResponse:
         async for event in decide(widget_context(request), conversation, approved):
             yield event
         yield {"refresh": True}
-        async for event in turn(
-            client,
-            model,
+        async for event in _linked(
             conversation,
-            widget_context(request),
-            on_usage=request.app.state.brief.record_usage,
+            turn(
+                client,
+                model,
+                conversation,
+                widget_context(request),
+                on_usage=request.app.state.brief.record_usage,
+            ),
         ):
             yield event
 

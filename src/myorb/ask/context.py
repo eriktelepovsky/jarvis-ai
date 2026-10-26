@@ -7,6 +7,7 @@ prompt and see the same data.
 """
 
 import asyncio
+import hashlib
 import logging
 
 from myorb.plugins import BriefSection, Plugin, Widget, WidgetContext, WidgetData
@@ -33,7 +34,14 @@ async def _brief(context: WidgetContext, plugin: Plugin) -> BriefSection | None:
         return None
 
 
-def widget_text(widget: Widget, data: WidgetData) -> str:
+def link_id(url: str) -> str:
+    """A short id for a row's link, e.g. "L3fa2c1", which Claude writes instead of the address.
+    The same in every conversation, so earlier answers keep pointing at the same items."""
+    return "L" + hashlib.sha1(url.encode()).hexdigest()[:6]
+
+
+def widget_text(widget: Widget, data: WidgetData, links: dict[str, str] | None = None) -> str:
+    """With `links`, rows that open somewhere carry a link id, collected there (id -> URL)."""
     lines = [f"## {widget.title}"]
     number = " ".join(str(p) for p in (data.value, data.label or widget.label) if p is not None)
     lines.append(f"Number: {number}" + (f" ({data.summary})" if data.summary else ""))
@@ -45,12 +53,18 @@ def widget_text(widget: Widget, data: WidgetData) -> str:
         lines.append(data.list_title or "Items:")
     for row in data.rows[:MAX_ROWS]:
         where = " / ".join(p for p in (row.group, row.subgroup) if p)
+        url = row.link or row.url
+        link = ""
+        if links is not None and url:
+            link = link_id(url)
+            links[link] = url
         parts = [
             row.title,
             row.subtitle,
             row.badge,
             f"[{where}]" if where else "",
             f"(ref: {row.ref})" if row.ref else "",
+            f"(link: {link})" if link else "",
         ]
         lines.append("- " + " · ".join(p for p in parts if p))
     if len(data.rows) > MAX_ROWS:
@@ -58,16 +72,19 @@ def widget_text(widget: Widget, data: WidgetData) -> str:
     return "\n".join(lines)
 
 
-async def dashboard(context: WidgetContext, plugins: list[Plugin]) -> tuple[str, list[Plugin]]:
+async def dashboard(
+    context: WidgetContext, plugins: list[Plugin], links: dict[str, str] | None = None
+) -> tuple[str, list[Plugin]]:
     """The dashboard as Markdown-like text, sources in the order of the welcome screen; and
-    the plugins whose widgets are set up (their Ask actions are offered)."""
+    the plugins whose widgets are set up (their Ask actions are offered). With `links`, the
+    rows' link ids, collected there (see widget_text)."""
     set_up: list[Plugin] = []
 
     async def plugin_text(plugin: Plugin) -> list[str]:
         widgets = plugin.widgets() if plugin.ask_rows else []
         loaded = await asyncio.gather(*(_widget(context, w) for w in widgets))
         texts = [
-            widget_text(widget, data)
+            widget_text(widget, data, links)
             for widget, data in zip(widgets, loaded, strict=True)
             if data is not None and data.connected
         ]

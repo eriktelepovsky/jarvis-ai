@@ -21,6 +21,7 @@ from myorb.plugins.base import (
     WidgetData,
     open_buttons,
 )
+from myorb.plugins.gmail.message import is_notifier, item_link
 from myorb.plugins.google_data import account_status, load_accounts
 
 if TYPE_CHECKING:
@@ -92,6 +93,8 @@ def summarize_message(
         # Gmail's own "important" marker, which it learns from what the user reads and answers.
         "important": "IMPORTANT" in message.get("labelIds", []),
         "starred": "STARRED" in message.get("labelIds", []),
+        # What a notification is about, e.g. a Sentry issue (see fetch_inbox).
+        "link": message.get("item_link", ""),
     }
 
 
@@ -135,7 +138,18 @@ async def fetch_inbox(
             )
         messages = thread.get("messages") or []
         unread_ones = [m for m in messages if "UNREAD" in m.get("labelIds", [])]
-        return (unread_ones or messages or [None])[-1]
+        newest = (unread_ones or messages or [None])[-1]
+        if newest and is_notifier(parseaddr(_header(newest, "From"))[1]):
+            # A notification (Sentry, Bitbucket): the link to what it is about, from its text.
+            try:
+                async with limit:
+                    full = await google.get_json(
+                        account, f"{API}/messages/{newest['id']}", API_NAME, {"format": "full"}
+                    )
+                newest["item_link"] = item_link(full)
+            except google_oauth.GoogleError:
+                pass
+        return newest
 
     found = await asyncio.gather(*(newest_unread(t["id"]) for t in unread.get("threads", [])))
     messages = [message for message in found if message]
@@ -304,6 +318,7 @@ class GmailPlugin(Plugin):
                     # Ask reads the conversation and drafts a reply by it (see actions.py).
                     ref=ref(email, message),
                     open_row=True,
+                    link=message.get("link", ""),
                     actions=actions(email, message),
                     tags=tuple(
                         tag
