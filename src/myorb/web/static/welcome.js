@@ -212,9 +212,14 @@
   const viewDialog = () => document.getElementById("page-view-dialog");
   let viewing = null; // the row link shown
 
+  // The rows the list shows, and the one viewed even if it left the list meanwhile (marked as
+  // read): the neighbours are counted from it.
   function viewRows() {
     const list = viewing?.closest("dialog[data-detail]");
-    return list ? [...list.querySelectorAll(".modal-row:not([hidden]) a.row-link[data-view]")] : [];
+    if (!list) return [];
+    return [...list.querySelectorAll(".modal-row a.row-link[data-view]")].filter(
+      (link) => link === viewing || !link.closest(".modal-row").hidden,
+    );
   }
 
   function showView(link, step = 0) {
