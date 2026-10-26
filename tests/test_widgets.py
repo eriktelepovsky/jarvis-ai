@@ -911,3 +911,81 @@ def test_commute_is_set_up_on_integrations(client: TestClient):
     assert "<strong>Commute</strong>" in client.get("/integrations").text
     form = client.get("/integrations/commute/connect").text
     assert 'name="home"' in form and 'name="api_key"' in form and "Routes API" in form
+
+
+def test_attachments_open_with_a_preview(client: TestClient, fake_google: FakeGoogle):
+    import io
+
+    import pypdfium2
+    from PIL import Image
+
+    pdf = pypdfium2.PdfDocument.new()
+    pdf.new_page(200, 300)
+    pdf_bytes = io.BytesIO()
+    pdf.save(pdf_bytes)
+    png = io.BytesIO()
+    Image.new("RGB", (800, 600), "red").save(png, "PNG")
+
+    def encoded(content: bytes) -> str:
+        return base64.urlsafe_b64encode(content).decode()
+
+    def part(part_id: str, name: str, kind: str, attachment: str) -> dict:
+        return {
+            "partId": part_id,
+            "filename": name,
+            "mimeType": kind,
+            "body": {"attachmentId": attachment, "size": 1000},
+        }
+
+    message = {
+        "id": "m9",
+        "threadId": "t9",
+        "payload": {
+            "mimeType": "multipart/mixed",
+            "headers": [{"name": "From", "value": "UpCloud <billing@upcloud.example>"}],
+            "parts": [
+                {"partId": "0", "mimeType": "text/plain", "body": {"data": encoded(b"Paid.")}},
+                part("1", "invoice.pdf", "application/octet-stream", "a-pdf"),
+                part("2", "photo.png", "image/png", "a-png"),
+                part("3", "page.html", "text/html", "a-html"),
+            ],
+        },
+    }
+    contents = {"a-pdf": pdf_bytes.getvalue(), "a-png": png.getvalue(), "a-html": b"<script>"}
+
+    def gmail(request: httpx2.Request) -> httpx2.Response:
+        path = request.url.path.removeprefix("/gmail/v1/users/me")
+        if path == "/threads/t9":
+            return httpx2.Response(200, json={"messages": [message]})
+        if path == "/messages/m9":
+            return httpx2.Response(200, json=message)
+        if path.startswith("/messages/m9/attachments/"):
+            attachment = path.rsplit("/", 1)[1]
+            return httpx2.Response(200, json={"data": encoded(contents[attachment])})
+        return gmail_api(request)
+
+    fake_google.routes[GMAIL] = gmail
+    connect_google(client, fake_google)
+    page = client.get("/email/1/t9").text
+    # Cards, as in Gmail: a picture of the PDF's first page and of the image.
+    assert (
+        'href="/email/1/attachment/m9/1"' in page
+        and 'src="/email/1/attachment/m9/1/thumbnail"' in page
+    )
+    assert 'src="/email/1/attachment/m9/2/thumbnail"' in page
+    assert "/m9/3/thumbnail" not in page and ">HTML<" in page
+    # A PDF (its type from its name) and an image show in the browser.
+    shown = client.get("/email/1/attachment/m9/1")
+    assert shown.headers["content-type"] == "application/pdf"
+    assert shown.headers["content-disposition"].startswith("inline")
+    assert shown.content == pdf_bytes.getvalue()
+    # HTML never runs from myOrb's address: it is downloaded.
+    html = client.get("/email/1/attachment/m9/3")
+    assert html.headers["content-type"] == "application/octet-stream"
+    assert html.headers["content-disposition"].startswith("attachment")
+    for part_id in ("1", "2"):
+        picture = client.get(f"/email/1/attachment/m9/{part_id}/thumbnail")
+        assert picture.headers["content-type"] == "image/png"
+        assert Image.open(io.BytesIO(picture.content)).width == 360
+    assert client.get("/email/1/attachment/m9/3/thumbnail").status_code == 404
+    assert client.get("/email/1/attachment/m9/7").status_code == 404

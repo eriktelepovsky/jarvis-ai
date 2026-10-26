@@ -2,9 +2,12 @@
 request (it costs a Claude call), and kept until the unread emails change."""
 
 import asyncio
+import base64
+import binascii
 import json
 import time
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -18,10 +21,14 @@ from myorb.plugins.gmail.actions import fetch_conversation
 from myorb.plugins.gmail.draft import reply_message, write_reply
 from myorb.plugins.gmail.message import (
     MAX_INLINE,
+    SHOWN_TYPES,
+    attachment_type,
     embed_inline,
     frame_document,
+    message_parts,
     read_message,
     size_label,
+    thumbnail,
 )
 from myorb.profile import load_profile
 from myorb.web.routes import widget_context
@@ -131,6 +138,74 @@ async def _fetch_inline(request: Request, account: GoogleAccount, messages: list
     )
     for message in messages:
         message["html"] = embed_inline(message["html"], message["inline"])
+
+
+async def _attachment(
+    request: Request, account_id: int, message_id: str, part_id: str
+) -> tuple[str, str, bytes]:
+    """An email's attachment, by its part of the message: its name, type and content."""
+    account = await _account(request, account_id)
+    google = request.app.state.google
+    try:
+        message = await google.get_json(
+            account, f"{API}/messages/{message_id}", API_NAME, {"format": "full"}
+        )
+        part = next(
+            (
+                p
+                for p in message_parts(message.get("payload", {}))
+                if p.get("partId") == part_id and p.get("filename")
+            ),
+            None,
+        )
+        if part is None:
+            raise HTTPException(status_code=404, detail="This attachment was not found.")
+        body = part.get("body", {})
+        data = body.get("data")
+        if not data and body.get("attachmentId"):
+            url = f"{API}/messages/{message_id}/attachments/{body['attachmentId']}"
+            data = (await google.get_json(account, url, API_NAME)).get("data")
+    except GoogleError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    try:
+        content = base64.urlsafe_b64decode((data or "") + "=" * (-len(data or "") % 4))
+    except (binascii.Error, ValueError) as error:
+        raise HTTPException(status_code=502, detail="The attachment could not be read.") from error
+    return part["filename"], attachment_type(part), content
+
+
+@router.get("/email/{account_id}/attachment/{message_id}/{part_id}")
+async def attachment(request: Request, account_id: int, message_id: str, part_id: str) -> Response:
+    """Shown in the browser when it can be (a PDF, an image, a text), otherwise downloaded."""
+    name, kind, content = await _attachment(request, account_id, message_id, part_id)
+    shown = kind in SHOWN_TYPES
+    headers = {
+        "Content-Disposition": f"{'inline' if shown else 'attachment'}; "
+        f"filename*=UTF-8''{quote(name)}",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, max-age=3600",
+    }
+    media_type = "text/plain; charset=utf-8" if kind == "text/plain" else kind
+    return Response(
+        content, media_type=media_type if shown else "application/octet-stream", headers=headers
+    )
+
+
+@router.get("/email/{account_id}/attachment/{message_id}/{part_id}/thumbnail")
+async def attachment_thumbnail(
+    request: Request, account_id: int, message_id: str, part_id: str
+) -> Response:
+    """A small picture of a PDF's first page or of an image, for its card under the email."""
+    _, kind, content = await _attachment(request, account_id, message_id, part_id)
+    try:
+        picture = await asyncio.to_thread(thumbnail, kind, content)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="No preview for this attachment.") from error
+    return Response(
+        picture,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 def _in_view(request: Request) -> bool:

@@ -1,6 +1,6 @@
 [project]
 name = "myorb"
-version = "0.29.1"
+version = "0.30.0"
 description = "Personal AI-powered daily briefing dashboard that summarizes your email, calendar, tasks, finances and more."
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -24,7 +24,9 @@ dependencies = [
     "granian[reload,uvloop]>=2.8.5",
     "httpx2>=2.16.0",
     "jinja2>=3.1.6",
+    "pillow>=13.0.0",
     "pydantic-settings>=2.16.1",
+    "pypdfium2>=5.14.0",
     "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]>=2.1.5",
     "tzdata>=2026.5",

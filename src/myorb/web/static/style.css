@@ -2283,11 +2283,82 @@ form.htmx-request .btn[type="submit"]::before {
 .email-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 10px;
   margin: 0;
-  padding: 12px 18px;
+  padding: 14px 18px;
   list-style: none;
   border-top: 1px solid var(--line);
+}
+
+/* An attachment as a card, as in Gmail: its picture (or type) above its name. */
+.attachment-card {
+  display: flex;
+  flex-direction: column;
+  width: 180px;
+  overflow: hidden;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.attachment-card:hover {
+  border-color: var(--accent);
+}
+
+.attachment-thumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.attachment-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* Without a picture, the type in large letters. */
+.attachment-type {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: #9aa4ad;
+}
+
+.attachment-name {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+.attachment-label {
+  flex: none;
+  padding: 2px 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #fff;
+  background: #6b7680;
+  border-radius: 3px;
+}
+
+.attachment-label.kind-pdf {
+  background: #e5483b;
+}
+
+.attachment-label.kind-img {
+  background: #2f8ae0;
 }
 
 @media (max-width: 720px) {

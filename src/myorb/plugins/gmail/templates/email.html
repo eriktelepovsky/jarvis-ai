@@ -49,7 +49,17 @@
   {% endif %}
   {% if message.attachments %}
   <ul class="email-attachments" aria-label="Attachments">
-    {% for attachment in message.attachments %}<li class="label">📎 {{ attachment.name }} · {{ size_label(attachment.size) }}</li>{% endfor %}
+    {# Cards as in Gmail: a picture of a PDF's first page or of an image, else the file type.
+       Opened in a new tab: a PDF, an image or a text in the browser, anything else downloaded. #}
+    {% for attachment in message.attachments %}
+    {% set href = "/email/%d/attachment/%s/%s" % (account.id, message.id, attachment.part) %}
+    <li>
+      <a class="attachment-card" href="{{ href }}" target="_blank" rel="noopener" title="{{ attachment.name }} · {{ size_label(attachment.size) }}">
+        <span class="attachment-thumb">{% if attachment.preview %}<img src="{{ href }}/thumbnail" alt="" loading="lazy" onerror="this.remove()">{% endif %}<span class="attachment-type">{{ attachment.label }}</span></span>
+        <span class="attachment-name"><span class="attachment-label kind-{{ attachment.label | lower }}">{{ attachment.label }}</span><span class="trunc">{{ attachment.name }}</span></span>
+      </a>
+    </li>
+    {% endfor %}
   </ul>
   {% endif %}
 </details>

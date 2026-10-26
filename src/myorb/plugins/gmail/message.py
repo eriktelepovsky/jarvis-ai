@@ -9,6 +9,8 @@ anything and are always shown, embedded as data: addresses.
 import base64
 import binascii
 import html
+import io
+import mimetypes
 import re
 from datetime import datetime, tzinfo
 from email.utils import getaddresses, parseaddr
@@ -46,7 +48,7 @@ def is_notifier(address: str) -> bool:
 
 def item_link(message: dict[str, Any]) -> str:
     """The link to what a notification is about, from a message fetched with format=full."""
-    for part in _parts(message.get("payload", {})):
+    for part in message_parts(message.get("payload", {})):
         data = part.get("body", {}).get("data")
         if part.get("mimeType") in ("text/plain", "text/html") and data:
             if found := ITEM_LINK.search(_decode(data)):
@@ -54,10 +56,69 @@ def item_link(message: dict[str, Any]) -> str:
     return ""
 
 
-def _parts(part: dict[str, Any]):
+# Attachments the browser shows itself; anything else is downloaded. Never HTML or SVG: from
+# myOrb's address, their scripts would run as myOrb.
+SHOWN_TYPES = {
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "text/plain",
+}
+# The width of an attachment's picture on its card, in pixels (twice what the card shows).
+THUMBNAIL_WIDTH = 360
+
+
+def attachment_type(part: dict[str, Any]) -> str:
+    """An attachment's media type, from its name when the email does not say."""
+    kind = (part.get("mimeType") or "").lower()
+    if kind in ("", "application/octet-stream"):
+        kind = (mimetypes.guess_type(part.get("filename", ""))[0] or kind or "").lower()
+    return kind or "application/octet-stream"
+
+
+def attachment_label(name: str, kind: str) -> str:
+    """The short type on an attachment's card, e.g. "PDF" or "XLSX"."""
+    if kind == "application/pdf":
+        return "PDF"
+    if kind.startswith("image/"):
+        return "IMG"
+    extension = name.rpartition(".")[2] if "." in name else ""
+    return extension[:4].upper() or "FILE"
+
+
+def thumbnail(kind: str, content: bytes) -> bytes:
+    """A PNG of a PDF's first page or of an image, THUMBNAIL_WIDTH wide; ValueError for any
+    other attachment or one that cannot be read."""
+    from PIL import Image, UnidentifiedImageError
+
+    if kind == "application/pdf":
+        import pypdfium2
+
+        try:
+            pdf = pypdfium2.PdfDocument(content)
+            page = pdf[0]
+            picture = page.render(scale=THUMBNAIL_WIDTH / page.get_width()).to_pil()
+        except (pypdfium2.PdfiumError, IndexError) as error:
+            raise ValueError("The PDF could not be read.") from error
+    elif kind.startswith("image/") and kind != "image/svg+xml":
+        try:
+            picture = Image.open(io.BytesIO(content))
+            picture.thumbnail((THUMBNAIL_WIDTH, THUMBNAIL_WIDTH * 2))
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+            raise ValueError("The image could not be read.") from error
+    else:
+        raise ValueError("No preview for this kind of attachment.")
+    out = io.BytesIO()
+    picture.convert("RGB").save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
+def message_parts(part: dict[str, Any]):
     yield part
     for child in part.get("parts", []) or []:
-        yield from _parts(child)
+        yield from message_parts(child)
 
 
 def _decode(data: str) -> str:
@@ -135,7 +196,7 @@ def frame_document(body_html: str, images: bool) -> str:
 def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
     """One message of a thread fetched with format=full."""
     payload = message.get("payload", {})
-    parts = list(_parts(payload))
+    parts = list(message_parts(payload))
     body_html = next(
         (
             _decode(p["body"]["data"])
@@ -177,8 +238,16 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         "text": text or html.unescape(message.get("snippet", "")),
         "inline": inline,
         # Images shown in the email are not listed again, as in Gmail.
+        # Each by its part of the message, which stays the same (Gmail's attachment ids do not).
         "attachments": [
-            {"name": p["filename"], "size": p.get("body", {}).get("size", 0)}
+            {
+                "name": p["filename"],
+                "size": p.get("body", {}).get("size", 0),
+                "part": p.get("partId", ""),
+                "label": attachment_label(p["filename"], attachment_type(p)),
+                "preview": attachment_type(p) == "application/pdf"
+                or (attachment_type(p) in SHOWN_TYPES and attachment_type(p).startswith("image/")),
+            }
             for p in parts
             if p.get("filename")
             and p.get("body", {}).get("attachmentId")
