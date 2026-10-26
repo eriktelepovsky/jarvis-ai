@@ -29,6 +29,31 @@ FRAME_STYLE = (
 MAX_INLINE = 5_000_000
 
 
+# Notification emails about something that lives elsewhere, by the sender's domain, and the
+# link to it in their text: a Sentry issue, a Bitbucket pipeline. Ask links to it directly.
+NOTIFIERS = ("sentry.io", "getsentry.com", "bitbucket.org")
+ITEM_LINK = re.compile(
+    r"https://(?:[\w-]+\.)?sentry\.io/(?:organizations/[\w-]+/)?issues/\d+/?"
+    r"|https://bitbucket\.org/[\w.-]+/[\w.-]+/"
+    r"(?:addon/pipelines/home#!/results/|pipelines/results/)[^\s\"'<>/]+"
+)
+
+
+def is_notifier(address: str) -> bool:
+    domain = address.rsplit("@", 1)[-1].lower()
+    return any(domain == d or domain.endswith("." + d) for d in NOTIFIERS)
+
+
+def item_link(message: dict[str, Any]) -> str:
+    """The link to what a notification is about, from a message fetched with format=full."""
+    for part in _parts(message.get("payload", {})):
+        data = part.get("body", {}).get("data")
+        if part.get("mimeType") in ("text/plain", "text/html") and data:
+            if found := ITEM_LINK.search(_decode(data)):
+                return html.unescape(found.group(0))
+    return ""
+
+
 def _parts(part: dict[str, Any]):
     yield part
     for child in part.get("parts", []) or []:

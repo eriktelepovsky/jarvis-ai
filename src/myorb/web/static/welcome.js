@@ -557,13 +557,24 @@
   const escapeHtml = (text) =>
     text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-  // Plain text with "- " lists and **bold**, as the prompt asks; everything else is escaped.
+  // Plain text with "- " lists, **bold** and links to the dashboard's items, as the prompt
+  // asks; everything else is escaped. A link is [AR-16](L3fa2c1): the id of the item's address,
+  // which the answer's stream sends at its end ({"links": …}) and the conversation keeps.
+  const LINK = /\[([^\]\n]+)\]\((L[0-9a-f]{6})\)/g;
   function renderAnswer(text) {
     return text
       .split(/\n{2,}/)
       .map((block) => {
         const lines = block.split("\n").filter((line) => line.trim());
-        const inline = (line) => escapeHtml(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        const inline = (line) =>
+          escapeHtml(line)
+            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(LINK, (match, label, id) => {
+              const url = ask.links?.[id];
+              return /^(https?:\/\/|\/(?!\/))/.test(url || "")
+                ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`
+                : label;
+            });
         if (lines.length && lines.every((line) => /^\s*[-•]\s/.test(line))) {
           return `<ul>${lines.map((line) => `<li>${inline(line.replace(/^\s*[-•]\s/, ""))}</li>`).join("")}</ul>`;
         }
@@ -630,6 +641,10 @@
           if (data.refresh) htmx.trigger(document.body, "myorb:refresh");
           if (data.done) showDone(dialog, data.done);
           if (data.proposal) proposals.push(data.proposal);
+          if (data.links) {
+            ask.links = { ...ask.links, ...data.links };
+            if (text && bubble.isConnected) bubble.innerHTML = renderAnswer(text);
+          }
           if (data.status) {
             if (!bubble.isConnected) {
               bubble = askBubble("assistant", "");
@@ -766,8 +781,8 @@
       conversation: ask.conversation,
       messages: ask.messages,
     });
-    // A spoken question gets a spoken answer, without the list markers and bold.
-    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- /gm, ""), aloud);
+    // A spoken question gets a spoken answer, without the list markers, bold and links.
+    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- /gm, "").replace(LINK, "$1"), aloud);
     // Nothing answered: the question is taken back, so asking again does not repeat it.
     if (error && !text) {
       ask.messages = ask.messages.filter((m, i) => !(i === ask.messages.length - 1 && m.role === "user"));

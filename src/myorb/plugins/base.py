@@ -89,9 +89,12 @@ class Row:
     subgroup: str = ""
     # What the plugin's Ask actions take to find it again, e.g. a task's id: Claude sees it.
     ref: str = ""
-    # A symbol before the title, e.g. "★" for a starred email. Last, as plugins pass the
-    # fields before it by position.
+    # A symbol before the title, e.g. "★" for a starred email. This and the fields after it
+    # are last, as plugins pass the fields before them by position.
     mark: str = ""
+    # Where the item itself lives when the row opens something else, e.g. the Sentry issue an
+    # email is about: Ask links to it rather than to `url`.
+    link: str = ""
 
 
 @dataclass(frozen=True)

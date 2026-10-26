@@ -28,6 +28,8 @@ class Conversation:
     pending: dict[str, tuple[str, dict[str, Any]]] = field(default_factory=dict)
     # Answers for tool calls that need no confirmation (e.g. an unknown action), sent along.
     replies: list[dict[str, Any]] = field(default_factory=list)
+    # The rows' links Claude can write by their id (see context.link_id): id -> URL.
+    links: dict[str, str] = field(default_factory=dict)
     # Done actions that can be undone: id -> undo.
     undo: dict[str, Callable[[WidgetContext], Awaitable[str]]] = field(default_factory=dict)
 
