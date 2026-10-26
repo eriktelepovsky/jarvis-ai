@@ -79,9 +79,11 @@ class GoogleAccounts:
         api_name: str,
         params: dict | None = None,
         json: Any = None,
+        content: bytes | None = None,
+        content_type: str = "",
     ) -> Any:
-        """Call a Google API endpoint as the account. Raises GoogleError with a readable
-        message."""
+        """Call a Google API endpoint as the account, with a JSON body or `content` (of
+        `content_type`). Raises GoogleError with a readable message."""
         for attempt in range(2):
             token = await self._access_token(account)
             try:
@@ -90,7 +92,9 @@ class GoogleAccounts:
                     url,
                     params=params,
                     json=json,
-                    headers={"Authorization": f"Bearer {token}"},
+                    content=content,
+                    headers={"Authorization": f"Bearer {token}"}
+                    | ({"Content-Type": content_type} if content_type else {}),
                 )
             except httpx2.HTTPError as error:
                 raise google.GoogleError("Google could not be reached.") from error

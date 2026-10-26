@@ -19,6 +19,7 @@ from myorb.connections.google_accounts import GoogleAccount
 from myorb.plugins.gmail import API, API_NAME, MODIFY_SCOPE, inbox_url
 from myorb.plugins.gmail.actions import fetch_conversation
 from myorb.plugins.gmail.draft import reply_message, write_reply
+from myorb.plugins.gmail.forward import forward_message, recipients, upload
 from myorb.plugins.gmail.message import (
     MAX_INLINE,
     SHOWN_TYPES,
@@ -223,7 +224,7 @@ async def read_email(
         "thread_id": thread_id,
         "gmail_url": inbox_url(account.email, thread_id),
         "can_mark_read": MODIFY_SCOPE in account.scopes,
-        # The same permission saves drafts (a reply), never sends.
+        # The same permission saves drafts (a reply) and forwards an email.
         "can_draft": MODIFY_SCOPE in account.scopes,
         "images": images,
         "marked_read": read,
@@ -308,7 +309,7 @@ async def mark_read(request: Request, account_id: int, thread_id: str) -> Respon
     return RedirectResponse(f"/email/{account_id}/{thread_id}?read=true", status_code=303)
 
 
-# A reply, written by Claude or the user, saved as a Gmail draft (myOrb never sends it)
+# A reply, written by Claude or the user, saved as a Gmail draft (myOrb never sends a reply)
 
 
 async def _draft_account(request: Request, account_id: int) -> GoogleAccount:
@@ -419,3 +420,100 @@ async def save_draft(
     except GoogleError as error:
         return _render_draft(request, account, thread_id, body=body, error=str(error), **context)
     return _render_draft(request, account, thread_id, saved=True, **context)
+
+
+# The newest email of the conversation forwarded to other addresses: the one email myOrb
+# sends, once the user has confirmed the addresses.
+
+UPLOAD = "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send"
+
+
+def _render_forward(
+    request: Request,
+    account: GoogleAccount,
+    thread_id: str,
+    message: dict[str, Any] | None,
+    **context: Any,
+):
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "gmail/forward.html",
+        {
+            "account": account,
+            "thread_id": thread_id,
+            "message": message,
+            "to": "",
+            "note": "",
+            "recipients": [],
+            **context,
+        },
+    )
+
+
+@router.get("/email/{account_id}/{thread_id}/forward", response_class=HTMLResponse)
+async def start_forward(request: Request, account_id: int, thread_id: str) -> Response:
+    account = await _draft_account(request, account_id)
+    try:
+        messages, _ = await _conversation(request, account, thread_id)
+    except GoogleError as error:
+        return _render_forward(request, account, thread_id, None, error=str(error))
+    return _render_forward(request, account, thread_id, messages[-1])
+
+
+@router.post("/email/{account_id}/{thread_id}/forward", response_class=HTMLResponse)
+async def forward(
+    request: Request,
+    account_id: int,
+    thread_id: str,
+    to: Annotated[str, Form()] = "",
+    note: Annotated[str, Form()] = "",
+    confirmed: Annotated[bool, Form()] = False,
+    change: Annotated[bool, Form()] = False,
+) -> Response:
+    """First the addresses to confirm, then (confirmed) the email sent to them."""
+    account = await _draft_account(request, account_id)
+    context: dict[str, Any] = {"to": to, "note": note}
+    try:
+        messages, own = await _conversation(request, account, thread_id)
+    except GoogleError as error:
+        return _render_forward(request, account, thread_id, None, error=str(error), **context)
+    message = messages[-1]
+    if change:
+        return _render_forward(request, account, thread_id, message, **context)
+    try:
+        addresses = recipients(to)
+    except ValueError as error:
+        return _render_forward(request, account, thread_id, message, error=str(error), **context)
+    if not confirmed:
+        return _render_forward(
+            request, account, thread_id, message, recipients=addresses, confirm=True, **context
+        )
+    google = request.app.state.google
+    try:
+        found = await google.get_json(
+            account, f"{API}/messages/{message['id']}", API_NAME, {"format": "raw"}
+        )
+        raw = base64.urlsafe_b64decode(found["raw"] + "=" * (-len(found["raw"]) % 4))
+        content, content_type = upload(
+            forward_message(raw, message, addresses, note, own), thread_id
+        )
+        await google.request_json(
+            account,
+            "POST",
+            UPLOAD,
+            API_NAME,
+            params={"uploadType": "multipart"},
+            content=content,
+            content_type=content_type,
+        )
+    except (GoogleError, ValueError, KeyError, binascii.Error) as error:
+        failed = str(error) if isinstance(error, (GoogleError, ValueError)) else ""
+        return _render_forward(
+            request,
+            account,
+            thread_id,
+            message,
+            error=failed or "The email could not be read from Gmail.",
+            **context,
+        )
+    return _render_forward(request, account, thread_id, message, sent=addresses, **context)
