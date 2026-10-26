@@ -202,6 +202,8 @@ def test_gmail_widget(client: TestClient, fake_google: FakeGoogle):
     assert text.count('<div class="modal-row') == 1  # one per unread conversation
     # Grouped by the user's address it was sent to, here another mailbox Gmail collects.
     assert 'data-group="tony@starkindustries.example"' in text
+    # The search finds an email by the start of its text too, as Gmail does.
+    assert 'data-search="Can we move it to 10:00 &amp; meet in the lab?"' in text
     # Each email opens in myOrb; marking it as read needs the permission, granted here.
     assert '<a class="row-link" href="/email/1/t1" data-view>' in text and ">Read<" not in text
     assert 'hx-post="/email/1/t1/read"' in text

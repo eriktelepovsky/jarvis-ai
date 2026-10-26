@@ -95,6 +95,8 @@ class Row:
     # Where the item itself lives when the row opens something else, e.g. the Sentry issue an
     # email is about: Ask links to it rather than to `url`.
     link: str = ""
+    # More the list's search finds the row by, not shown, e.g. the start of an email's text.
+    search: str = ""
 
 
 @dataclass(frozen=True)

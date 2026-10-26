@@ -406,7 +406,7 @@
     dialog.querySelectorAll(".modal-row").forEach((row) => {
       const tags = row.dataset.tags.split(" ");
       const tagged = !pressed || tags.includes(pressed.dataset.filter);
-      row.dataset.text ??= fold(row.textContent);
+      row.dataset.text ??= fold(`${row.textContent} ${row.dataset.search || ""}`);
       const found = words.every((word) => row.dataset.text.includes(word));
       const inGroup = (!group || row.dataset.group === group) && (!subgroup || row.dataset.subgroup === subgroup);
       row.hidden = !tagged || !inGroup || !found;
