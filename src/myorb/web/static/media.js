@@ -213,8 +213,8 @@
     const paused = resume && Boolean(prefs.youtubePaused);
     if (!resume) prefs.youtubePaused = false;
     document.querySelector(".music-player").hidden = false;
-    document.getElementById("media-dock")?.classList.add("is-playing");
-    music = { youtube: true };
+    // Paused after a reload, the music is off on the dock until the player plays.
+    music = paused ? null : { youtube: true };
     const key = `${source.video || ""}/${source.playlist || ""}`;
     if (youtube.player && youtube.key === key) {
       youtube.player.playVideo();
@@ -248,16 +248,25 @@
         onReady: (event) => {
           event.target.setVolume(Math.round(prefs.volume * 100));
           if (!paused) event.target.playVideo();
+          render();
         },
-        // Paused or played in the player itself: a reload keeps it so. (Music off pauses it
-        // too, but then the music is already off.) Playing counts from buffering: a player
-        // made paused after a reload reports no "playing" when it is played.
+        // Paused or played in the player itself: the dock's Music follows, and a reload keeps
+        // it so (the player comes back paused). Playing counts from buffering: a player made
+        // paused after a reload reports no "playing" when it is played.
         onStateChange: (event) => {
-          if (!music?.youtube || ![1, 2, 3].includes(event.data)) return;
-          const pausedNow = event.data === 2;
-          if (Boolean(prefs.youtubePaused) === pausedNow) return;
-          prefs.youtubePaused = pausedNow;
+          if (![1, 2, 3].includes(event.data)) return;
+          const playing = event.data !== 2;
+          if (playing && !music?.youtube) {
+            if (music) stopMusic(); // the generated music gives way
+            music = { youtube: true };
+            prefs.musicOn = true;
+          } else if (!playing && music?.youtube) {
+            saveYouTubePosition();
+            music = null; // musicOn stays: after a reload the player is there, paused
+          }
+          prefs.youtubePaused = !playing;
           savePrefs();
+          render();
         },
       },
     });
@@ -316,7 +325,7 @@
     // video button brings it back; Music on and off leave it be. There is a player once
     // YouTube music has played since the page loaded (or is starting: the player comes once
     // YouTube's script has loaded).
-    const player = Boolean(youtube.player || music?.youtube);
+    const player = Boolean(youtube.player || youtube.key);
     dock.querySelector(".music-player").hidden = !player;
     dock.querySelector(".music-player").classList.toggle("is-hidden", Boolean(prefs.videoHidden));
     dock.querySelector(".dock-controls [data-toggle='video']").hidden = !(player && prefs.videoHidden);
