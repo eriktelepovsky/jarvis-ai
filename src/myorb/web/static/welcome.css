@@ -2765,3 +2765,30 @@ dialog.is-refreshing .modal-head::after {
 .ask-stop {
   margin-right: 6px;
 }
+
+/* Ask: a text to copy, e.g. a draft reply ("> " lines in the answer) */
+
+.ask-quote {
+  position: relative;
+  margin: 0 0 10px;
+  padding: 10px 12px 10px 14px;
+  background: var(--surface);
+  border-left: 2px solid var(--accent);
+  border-radius: 6px;
+}
+
+.ask-quote .ask-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0.7;
+}
+
+.ask-quote .ask-copy:hover,
+.ask-quote .ask-copy:focus-visible {
+  opacity: 1;
+}
+
+.ask-quote-text {
+  padding-right: 64px;
+}
