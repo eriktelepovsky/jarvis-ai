@@ -312,7 +312,8 @@ body:has(#welcome) {
 }
 
 .side-right {
-  padding-left: 24px;
+  /* Room for the mic's glow, which the column (clipping its events) would cut. */
+  padding-left: 28px;
   border-left: 1px solid rgb(79 209 232 / 12%);
 }
 
@@ -462,7 +463,8 @@ a.ti:hover .t1 {
   .side-right {
     box-sizing: border-box;
     padding-block: 8px;
-    padding-inline: max(20px, calc((100% - 520px) / 2));
+    /* At least the mic's glow wide: the screen scrolls, and cuts what passes its edge. */
+    padding-inline: max(28px, calc((100% - 520px) / 2));
     border: 0;
   }
 
@@ -1085,7 +1087,7 @@ a.ti:hover .t1 {
     /* As wide as the orb with its circles, so the left column keeps its width (see .orb). */
     width: calc(var(--orb-d) * 1.12);
     max-height: var(--screen);
-    padding: max(26px, var(--safe-top)) 26px max(20px, var(--safe-bottom)) 0;
+    padding: max(26px, var(--safe-top)) 26px max(20px, var(--safe-bottom)) 28px;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-width: none;
