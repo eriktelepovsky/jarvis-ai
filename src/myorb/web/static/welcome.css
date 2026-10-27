@@ -1056,11 +1056,9 @@ a.ti:hover .t1 {
     display: contents;
   }
 
-  /* The bar of screens under the command line; the day or the activity chosen there takes
-     the orb's place on the right. */
-  .side {
-    display: none;
-  }
+  /* The bar of screens under the command line. On the right, the day, the orb and the
+     activity are one strip, as upright: side by side in the same place, moved together
+     (welcome.js), each cut to the right half so none passes over the clock. */
 
   .panes-nav {
     position: static;
@@ -1070,14 +1068,7 @@ a.ti:hover .t1 {
     transform: none;
   }
 
-  .welcome[data-pane="0"] .orb,
-  .welcome[data-pane="2"] .orb {
-    display: none;
-  }
-
-  .welcome[data-pane="0"] .side-left,
-  .welcome[data-pane="2"] .side-right,
-  .welcome .side.is-peek {
+  .side {
     /* Above the background's glow and vignette, as the orb is: not dimmed by them. */
     position: relative;
     z-index: 1;
@@ -1091,25 +1082,25 @@ a.ti:hover .t1 {
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-width: none;
+    /* Scrolled, its content fades out under the top and bottom edges, clear of the corners. */
+    mask-image: linear-gradient(
+      transparent 0,
+      transparent calc(max(26px, var(--safe-top)) - 14px),
+      #000 max(26px, var(--safe-top)),
+      #000 calc(100% - max(20px, var(--safe-bottom))),
+      transparent calc(100% - max(20px, var(--safe-bottom)) + 14px)
+    );
+  }
+
+  .orb,
+  .side {
+    will-change: transform;
   }
 
   .welcome[data-pane] .welcome-version {
     opacity: 1;
   }
 
-  /* The screen beside the one dragged, coming in after it (welcome.js). */
-  .welcome .orb.is-peek {
-    display: block;
-  }
-
-  /* Changing screen, the one shown slides in from its side (welcome.js). */
-  .welcome[data-slide="next"] :is(.orb, .side) {
-    animation: pane-in-next 0.28s ease-out;
-  }
-
-  .welcome[data-slide="back"] :is(.orb, .side) {
-    animation: pane-in-back 0.28s ease-out;
-  }
 
   /* The circles reach about 5% past the orb (a large one with its badge a little more). The
      day and the activity in its place take its size too. */
@@ -3312,21 +3303,6 @@ dialog.is-refreshing .modal-head::after {
   color: var(--text-3);
 }
 
-@keyframes pane-in-next {
-  from { opacity: 0; transform: translateX(18%); }
-  to { opacity: 1; transform: none; }
-}
-
-@keyframes pane-in-back {
-  from { opacity: 0; transform: translateX(-18%); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .welcome[data-slide] :is(.orb, .side) {
-    animation: none;
-  }
-}
 
 /* The version under the welcome screen opens what changed in each version. */
 button.welcome-version {
