@@ -1296,6 +1296,11 @@
     sound("click");
   });
 
+  // A task done a moment ago, faded out (welcome.css), leaves the panel.
+  document.addEventListener("animationend", (event) => {
+    if (event.animationName === "done-fade") event.target.remove();
+  });
+
   // Hide past / Hide completed in a side panel's head: hides those items (welcome.css), and
   // this browser remembers it.
   const HIDE_KEY = "myorb.hide";

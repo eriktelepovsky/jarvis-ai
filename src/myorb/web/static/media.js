@@ -214,12 +214,14 @@
   }
 
   // `resume`: again after a reload, paused if the user paused it in the player.
-  async function startYouTube(source, { resume = false } = {}) {
-    const paused = resume && Boolean(prefs.youtubePaused);
-    if (!resume) prefs.youtubePaused = false;
+  // Shown only (`still`), the player comes paused: the music stays as it was.
+  async function startYouTube(source, { resume = false, still = false } = {}) {
+    const paused = still || (resume && Boolean(prefs.youtubePaused));
+    if (!resume) prefs.youtubePaused = still;
     document.querySelector(".music-player").hidden = false;
     // Paused after a reload, the music is off on the dock until the player plays.
-    music = paused ? null : { youtube: true };
+    // Shown only, whatever music plays now goes on.
+    if (!still) music = paused ? null : { youtube: true };
     const key = `${source.video || ""}/${source.playlist || ""}`;
     if (youtube.player && youtube.key === key) {
       youtube.player.playVideo();
@@ -334,7 +336,7 @@
     dock.querySelector(".music-player").hidden = !player;
     dock.querySelector(".music-player").classList.toggle("is-hidden", Boolean(prefs.videoHidden));
     // The video button is there from the page's first load while the video is hidden and the
-    // music is YouTube's, played or not: with no player yet, it starts the video.
+    // music is YouTube's, played or not: with no player yet, it shows the video, paused.
     dock.querySelector(".dock-controls [data-toggle='video']").hidden =
       !(prefs.videoHidden && (player || youtubeSet(musicConfig)));
   }
@@ -362,9 +364,7 @@
     } else if (name === "video") {
       prefs.videoHidden = !prefs.videoHidden;
       if (!prefs.videoHidden && !youtube.player && !youtube.key && youtubeSet(musicConfig)) {
-        if (music) stopMusic();
-        prefs.musicOn = true;
-        startYouTube(musicConfig);
+        startYouTube(musicConfig, { still: true });
       }
     } else if (name === "music") {
       await toggleMusic();

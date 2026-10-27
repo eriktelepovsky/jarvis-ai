@@ -1,12 +1,12 @@
 {# Only the box marks a task done; its title opens it to change. Done a moment ago, it stays
-   in its place, struck through: its box again brings it back. #}
+   in its place, struck through, fading out over five seconds: its box again brings it back. #}
 {% if not tasks %}
 <p class="t2">Nothing due today.{% if upcoming %} {{ upcoming }} more {{ "task" if upcoming == 1 else "tasks" }} later.{% endif %} <a href="/tasks">All tasks</a></p>
 {% else %}
 <div>
   {% for task in tasks %}
   {% if task.id in done %}
-  <div class="check is-done">
+  <div class="check is-done" style="animation-delay: -{{ faded[task.id] }}s">
     <input type="checkbox" checked hx-post="/tasks/{{ task.id }}/undo" hx-trigger="change" hx-swap="none" aria-label="Bring “{{ task.title }}” back">
     <span class="check-text"><span class="t1">{{ task.title }}</span><span class="t2">Done{% if task.repeat and task.due_date %} · next {{ task.due_date.strftime("%a %-d %b") }}{% endif %}</span></span>
   </div>

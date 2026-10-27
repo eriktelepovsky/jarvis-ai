@@ -1907,14 +1907,25 @@ button.row-btn {
   color: var(--accent);
 }
 
-/* Done a moment ago: struck through, with Undo. */
+/* Done a moment ago: struck through, fading out over five seconds (the panel's DONE_SHOWN),
+   then gone (welcome.js). Its box, checked again, brings it back. */
+.check.is-done {
+  animation: done-fade 5s linear forwards;
+}
+
+@keyframes done-fade {
+  to {
+    opacity: 0;
+  }
+}
+
 .check.is-done .t1 {
   color: var(--text-3);
   text-decoration: line-through;
 }
 
 .check.is-done input {
-  cursor: default;
+  cursor: pointer;
 }
 
 .t2.overdue {
