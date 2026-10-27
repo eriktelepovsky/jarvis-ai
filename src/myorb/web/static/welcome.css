@@ -3186,3 +3186,69 @@ dialog.is-refreshing .modal-head::after {
 .voice-lang-option[aria-checked="true"] {
   color: var(--accent);
 }
+
+/* Add in a side panel's head, and the small dialog it opens */
+.side-add {
+  padding: 0;
+  /* Grey as the other heads' source names; blue on hover, as a link. */
+  color: var(--text-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.side-add:hover,
+.side-add:focus-visible {
+  color: var(--accent-hover);
+}
+
+/* As tall as its one line, near the top as a command bar is. */
+.modal.modal-add {
+  width: min(560px, calc(100% - 32px));
+  height: fit-content;
+  margin-top: 18vh;
+  padding: 18px 20px;
+}
+
+.add-form {
+  display: grid;
+  gap: 10px;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+  /* The button as tall as the field. */
+  align-items: stretch;
+}
+
+.add-row .btn {
+  height: auto;
+}
+
+.add-due {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.add-due .field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.add-due .input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .add-due {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .add-due .field:last-child {
+    grid-column: 1 / -1;
+  }
+}

@@ -18,4 +18,6 @@ class Task(Base):
     repeat: Mapped[str | None] = mapped_column(String(40))
     # The due date before it last moved on, so marking it done can be undone.
     last_due: Mapped[date | None] = mapped_column(Date())
+    # When it last moved on, so the side panel can show it done for a moment, with Undo.
+    moved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -12,6 +12,16 @@ import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+# How a task can repeat, in its forms (a rule typed in, e.g. "every 3 days", shows as is).
+CHOICES = [
+    ("none", "Does not repeat"),
+    ("day:1", "Every day"),
+    ("weekdays", "Every weekday"),
+    ("week:1", "Every week"),
+    ("week:2", "Every 2 weeks"),
+    ("month:1", "Every month"),
+    ("year", "Every year"),
+]
 WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 # How a weekday follows "every" / "každý, každú": plain (no diacritics), as the parser matches.
 WEEKDAY_WORDS = {

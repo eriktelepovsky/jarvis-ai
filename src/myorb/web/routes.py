@@ -18,6 +18,7 @@ from myorb.db import get_db
 from myorb.overview import snapshots
 from myorb.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
 from myorb.profile import DEFAULT_ASSISTANT, user_name
+from myorb.tasks.repeat import CHOICES as REPEAT_CHOICES
 
 router = APIRouter()
 
@@ -150,6 +151,7 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             # ...unless another is chosen in the Voice panel (kept in the browser).
             "voice_languages": list(READ_LANGUAGES.values()),
             "quick_actions": QUICK_ACTIONS,
+            "repeat_choices": REPEAT_CHOICES,
         },
     )
 

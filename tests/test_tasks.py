@@ -301,3 +301,23 @@ def test_a_repeating_task_moves_on_when_done(client: TestClient):
     client.post("/tasks/1/done")
     assert "Done · last 7 days" in client.get("/tasks").text
     assert client.post("/tasks/1", data={"title": "x", "repeat": "nonsense"}).status_code == 400
+
+
+def test_the_side_panel_keeps_a_task_done_a_moment_ago(client: TestClient):
+    client.post("/tasks", data={"text": "Call Pepper", "due_time": "16:30", "repeat": "none"})
+    panel = client.get("/panels/tasks/today").text
+    # Only the box marks it done; its title opens it to change.
+    assert 'href="/tasks?edit=1"' in panel and "16:30" in panel
+    client.post("/tasks/1/done")
+    panel = client.get("/panels/tasks/today").text
+    assert "is-done" in panel and 'hx-post="/tasks/1/undo"' in panel
+    client.post("/tasks/1/undo")
+    assert "is-done" not in client.get("/panels/tasks/today").text
+
+    # One that repeats moves on, and shows done with its next date until undone.
+    client.post("/tasks", data={"text": "Water plants", "repeat": "day:2"})
+    client.post("/tasks/2/done")
+    panel = client.get("/panels/tasks/today").text
+    assert "Water plants" in panel and "Done · next" in panel
+    client.post("/tasks/2/undo")
+    assert "Done · next" not in client.get("/panels/tasks/today").text
