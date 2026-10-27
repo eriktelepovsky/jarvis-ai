@@ -3122,39 +3122,67 @@ dialog.is-refreshing .modal-head::after {
   padding-right: 64px;
 }
 
-/* Add in a side panel's head, and the small dialog it opens */
-.side-add {
-  padding: 0;
-  color: var(--accent);
-  background: none;
-  border: 0;
+/* The Voice panel's language: a small menu of the languages to speak in */
+.voice-lang {
+  position: relative;
+}
+
+.voice-lang > summary {
+  list-style: none;
   cursor: pointer;
 }
 
-.side-add:hover,
-.side-add:focus-visible {
-  color: var(--accent-hover);
+.voice-lang > summary::-webkit-details-marker {
+  display: none;
 }
 
-/* As tall as its one line, near the top as a command bar is. */
-.modal.modal-add {
-  width: min(560px, calc(100% - 32px));
-  height: fit-content;
-  margin-top: 18vh;
-  padding: 18px 20px;
+.voice-lang > summary:hover,
+.voice-lang[open] > summary {
+  color: var(--accent);
 }
 
-.add-form {
+/* While it is open, the column (which clips its events, or scrolls) lets it show whole. */
+.side-right:has(.voice-lang[open]),
+.welcome-main > .side-right:has(.voice-lang[open]) {
+  overflow: visible;
+}
+
+.voice-lang-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 300px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 55%);
 }
 
-.add-row {
+.voice-lang-option {
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-.add-row .input {
-  flex: 1;
-  min-width: 0;
+.voice-lang-option:hover,
+.voice-lang-option:focus-visible {
+  background: var(--surface-3);
+}
+
+.voice-lang-option[aria-checked="true"] {
+  color: var(--accent);
 }

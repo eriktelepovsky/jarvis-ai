@@ -147,6 +147,8 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "can_ask": claude is not None,
             # Voice questions are heard in the language the brief is written in.
             "voice_lang": READ_LANGUAGES.get(claude.language, ("", "en-GB"))[1] if claude else None,
+            # ...unless another is chosen in the Voice panel (kept in the browser).
+            "voice_languages": list(READ_LANGUAGES.values()),
             "quick_actions": QUICK_ACTIONS,
         },
     )
