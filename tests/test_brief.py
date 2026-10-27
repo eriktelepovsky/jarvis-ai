@@ -311,6 +311,8 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     client.portal.call(keep, 0, "Kept standup")
     report = client.get("/brief/report").text
     assert "Kept standup" in report and "● Now" in report
+    # Hovering an event tells how long it takes.
+    assert 'title="09:00–10:00 · 1 h · Kept standup"' in report
 
     async def keep_ahead(title: str) -> None:
         async with client.app.state.sessionmaker() as db:

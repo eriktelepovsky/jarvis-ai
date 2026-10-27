@@ -616,7 +616,7 @@ def test_free_blocks_for_focus_today(monkeypatch):
     events = [
         {**base, "title": "Standup", "start": at(9), "end": at(9, 15)},
         {**base, "title": "Planning", "start": at(11), "end": at(12)},
-        # Shown as free in Google Calendar: it does not break the afternoon up.
+        # The user's own lunch: lunch, even shown as free in Google Calendar.
         {**base, "title": "Lunch", "start": at(12, 30), "end": at(13), "free": True},
         {**base, "title": "Review", "start": at(15), "end": at(16)},
     ]
@@ -632,24 +632,24 @@ def test_free_blocks_for_focus_today(monkeypatch):
     section = asyncio.run(plugin.brief(context))
     assert (
         "Free for focus today (an hour or more, until 18:00): "
-        "10:00–11:00 (1 h), 12:00–15:00 (3 h), 16:00–18:00 (2 h)" in section.lines
+        "10:00–11:00 (1 h), 13:00–15:00 (2 h), 16:00–18:00 (2 h)" in section.lines
     )
     data = asyncio.run(plugin._widget(context))
-    assert [(s.value, s.filter) for s in data.stats if s.label == "Focus"] == [("6 h", "focus")]
+    assert [(s.value, s.filter) for s in data.stats if s.label == "Focus"] == [("5 h", "focus")]
     rows = [(r.title, r.badge) for r in data.rows]
     assert rows == [
         ("Standup", "Over"),
         ("Free for focus", "10:00"),
         ("Planning", "11:00"),
-        ("Free for focus", "12:00"),
         ("Lunch", "12:30"),
+        ("Free for focus", "13:00"),
         ("Review", "15:00"),
         ("Free for focus", "16:00"),
     ]
     assert data.rows[1].tags == ("focus",) and data.rows[1].subtitle == "10:00–11:00 · 1 h"
     panel = asyncio.run(plugin._today(context))
     kinds = [e["kind"] for e in panel["day"]["today"]]
-    assert kinds == ["past", "now", "focus", "event", "focus", "event", "event", "focus"]
+    assert kinds == ["past", "now", "focus", "event", "lunch", "focus", "event", "focus"]
     # Nothing left once the working day is over.
     late = SimpleNamespace(
         now=at(17, 30), params={}, connections=NoConnections(), sessionmaker=NoIgnored()
@@ -709,9 +709,12 @@ def test_lunch_is_kept_out_of_focus_time(monkeypatch):
     lunch = next(r for r in data.rows if r.title == "Lunch")
     assert lunch.subtitle == "11:30–12:15 · 45 m"
     assert any(r.subtitle == "12:15–13:45 · 1 h 30 m" for r in data.rows)
-    # The user's own lunch in the calendar takes its place.
+    # The user's own lunch in the calendar takes its place, shown as lunch, not a meeting.
     events.append({**base, "title": "Obed", "start": at(12), "end": at(12, 30)})
-    assert not any(r.title == "Lunch" for r in asyncio.run(plugin._widget(context)).rows)
+    data = asyncio.run(plugin._widget(context))
+    assert not any(r.title == "Lunch" for r in data.rows)
+    assert [(r.title, r.tags) for r in data.rows if r.title == "Obed"] == [("Obed", ("lunch",))]
+    assert data.value == 4  # not one of today's events
 
 
 def test_node_size_follows_attention():

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -116,19 +116,24 @@ async def _timeline_items(request: Request) -> list[TimelineItem]:
     return [item for items in results for item in items]
 
 
-def _lunch(items: list[TimelineItem], now: datetime) -> tuple[datetime, datetime] | None:
-    """Today's lunch among these events, as the calendar keeps it (see lunch_time)."""
+def _with_lunch(items: list[TimelineItem], now: datetime) -> dict[str, Any]:
+    """The day for glance(): the events, and lunch as the calendar keeps it (see lunch_time),
+    the user's own lunch event moved out of the events into it."""
     from myorb.plugins.calendar import lunch_time
 
     events = [{"title": i.title, "start": i.start, "end": i.end, "all_day": False} for i in items]
     lunch = lunch_time(events, now)
-    return (lunch["start"], lunch["end"]) if lunch else None
+    if lunch is None:
+        return {"items": items, "lunch": None}
+    title = lunch.get("title")
+    meetings = [i for i in items if not (title and (i.title, i.start) == (title, lunch["start"]))]
+    lunch_item = TimelineItem(lunch["start"], lunch["end"], title or "Lunch")
+    return {"items": meetings, "lunch": lunch_item}
 
 
 async def _timeline(request: Request) -> Glance:
     now = widget_context(request).now
-    items = await _timeline_items(request)
-    return glance(items, now, lunch=_lunch(items, now))
+    return glance(now=now, **_with_lunch(await _timeline_items(request), now))
 
 
 def calendar_changes(
@@ -225,7 +230,7 @@ async def report(request: Request) -> Response:
             if calendar is not None and hasattr(calendar, "ignored_today"):
                 ignored = await calendar.ignored_today(widget_context(request))
                 items = [i for i in items if (i.title, i.start) not in ignored]
-            context["glance"] = glance(items, now, lunch=_lunch(items, now))
+            context["glance"] = glance(now=now, **_with_lunch(items, now))
             # A meeting added, cancelled or moved since: the brief should be written again.
             current, context["sources"] = await asyncio.gather(
                 _timeline_items(request), load_widgets(request)
