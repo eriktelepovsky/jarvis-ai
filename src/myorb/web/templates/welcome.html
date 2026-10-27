@@ -180,7 +180,8 @@
      chosen here (welcome.js). #}
   <nav class="panes-nav" aria-label="Screens" data-panes-nav>
     <button type="button" class="label" data-pane="0">Today</button>
-    <button type="button" class="label is-on" data-pane="1" aria-current="true">{{ assistant }}</button>
+    {# "Orb", not the assistant's name: any name fits. #}
+    <button type="button" class="label is-on" data-pane="1" aria-current="true" aria-label="{{ assistant }}">Orb</button>
     <button type="button" class="label" data-pane="2">Activity</button>
   </nav>
   <footer class="label welcome-footer">Click a number to open its details</footer>

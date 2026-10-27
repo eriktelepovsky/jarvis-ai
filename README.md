@@ -35,7 +35,7 @@ Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anythin
 
 *Ask, with an action to confirm.*
 
-<img src="https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/phone.jpg" alt="myOrb on a phone: the orb with its numbers, the command line, and the bar to switch to Today or Activity" width="300">
+<img src="https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/phone.jpg" alt="myOrb on a phone: the orb with its numbers, the command line, and the bar to switch to Today or Activity, and the version above it" width="300">
 
 *On a phone: swipe to the day (Today) or to actions and activity.*
 

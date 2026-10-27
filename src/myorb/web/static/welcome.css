@@ -482,8 +482,9 @@ a.ti:hover .t1 {
       justify-content: center;
     }
 
-    .side-left,
-    .side-right {
+    /* Within the main, so it wins over the activity column's own overflow: hidden. */
+    .welcome-main > .side-left,
+    .welcome-main > .side-right {
       max-height: 100%;
       overflow-y: auto;
       overscroll-behavior-y: contain;
@@ -1007,6 +1008,15 @@ a.ti:hover .t1 {
   }
 }
 
+/* With the bar of screens at the bottom, the version sits above it, under the command line. */
+@media (max-width: 1279px) {
+  .welcome-version {
+    bottom: calc(max(14px, var(--safe-bottom, 0px)) + 54px);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 /* A phone on its side: the screen is too short for the header, greeting, orb and command line
    one under another (the orb shrank to a dot), so the orb takes the whole height on the right
    and the rest stacks on the left. The main and the stage step aside (display: contents) so
@@ -1034,6 +1044,12 @@ a.ti:hover .t1 {
   .welcome-main,
   .stage {
     display: contents;
+  }
+
+  /* No room for the day and the activity beside it: as before the three screens, only the orb. */
+  .side,
+  .panes-nav {
+    display: none;
   }
 
   /* The circles reach about 5% past the orb (a large one with its badge a little more). */
