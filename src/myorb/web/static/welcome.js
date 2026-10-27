@@ -859,7 +859,13 @@
   }
 
   function stopSpeaking() {
-    if (speaking && "speechSynthesis" in window) speechSynthesis.cancel();
+    // Whatever is being read, even if the reading was started before this page knew of it.
+    if ("speechSynthesis" in window && (speaking || speechSynthesis.speaking || speechSynthesis.pending)) {
+      speechSynthesis.cancel();
+    }
+    speaking = 0;
+    const stop = document.querySelector("[data-ask-stop]");
+    if (stop) stop.hidden = true;
   }
 
   document.addEventListener("click", (event) => {
@@ -1059,7 +1065,17 @@
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && listening) {
+    if (event.key !== "Escape") return;
+    // In the chat, Esc closes it, stops reading the answer and stops listening, all at once.
+    const chat = document.getElementById("ask");
+    if (chat?.open) {
+      event.preventDefault();
+      if (listening) stopListening();
+      stopSpeaking();
+      chat.close();
+      return;
+    }
+    if (listening) {
       event.preventDefault();
       stopListening();
     }
