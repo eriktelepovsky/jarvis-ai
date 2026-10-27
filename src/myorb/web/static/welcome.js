@@ -577,6 +577,9 @@
   // asks; everything else is escaped. A link is [AR-16](L3fa2c1): the id of the item's address,
   // which the answer's stream sends at its end ({"links": …}) and the conversation keeps.
   const LINK = /\[([^\]\n]+)\]\((L[0-9a-f]{6})\)/g;
+  const NOTE = /^\s*\[(ok|warn|error)\]\s*/i;
+  const NOTE_SIGNS = { ok: "✓ ", warn: "▲ ", error: "✕ " };
+
   function renderAnswer(text) {
     return text
       .split(/\n{2,}/)
@@ -595,11 +598,38 @@
                 ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`
                 : label;
             });
+        // "[ok]", "[warn]" or "[error]" before a paragraph or a list item: shown in green,
+        // yellow or red with its sign, so an outcome or a problem stands out.
+        const note = (line) => {
+          const found = line.match(NOTE);
+          if (!found) return ["", line];
+          const tone = found[1].toLowerCase();
+          return [` class="ask-note ask-note-${tone}"`, NOTE_SIGNS[tone] + line.slice(found[0].length)];
+        };
+        // List items ("- ") make a list, e.g. under a line that introduces them; other lines
+        // a paragraph.
+        const ITEM = /^\s*[-•]\s/;
         const prose = (run) => {
-          if (run.every((line) => /^\s*[-•]\s/.test(line))) {
-            return `<ul>${run.map((line) => `<li>${inline(line.replace(/^\s*[-•]\s/, ""))}</li>`).join("")}</ul>`;
+          const parts = [];
+          for (const line of run) {
+            const item = ITEM.test(line);
+            if (parts.at(-1)?.item === item) parts.at(-1).lines.push(line);
+            else parts.push({ item, lines: [line] });
           }
-          return `<p>${run.map(inline).join("<br>")}</p>`;
+          return parts
+            .map(({ item, lines }) => {
+              if (item) {
+                return `<ul>${lines
+                  .map((line) => {
+                    const [marked, rest] = note(line.replace(ITEM, ""));
+                    return `<li${marked}>${inline(rest)}</li>`;
+                  })
+                  .join("")}</ul>`;
+              }
+              const [marked, first] = note(lines[0]);
+              return `<p${marked}>${[first, ...lines.slice(1)].map(inline).join("<br>")}</p>`;
+            })
+            .join("");
         };
         // "> " lines are a text to copy, e.g. a draft reply: shown without the marks, with
         // a Copy button for all of it.
@@ -830,7 +860,7 @@
       messages: ask.messages,
     });
     // A spoken question gets a spoken answer, without the list markers, bold and links.
-    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- |^\s*>\s?/gm, "").replace(LINK, "$1"), aloud);
+    if (aloud && text) speakAnswer(text.replace(/\*\*|^\s*- |^\s*>\s?|\[(ok|warn|error)\]\s*/gim, "").replace(LINK, "$1"), aloud);
     // Nothing answered: the question is taken back, so asking again does not repeat it.
     if (error && !text) {
       ask.messages = ask.messages.filter((m, i) => !(i === ask.messages.length - 1 && m.role === "user"));

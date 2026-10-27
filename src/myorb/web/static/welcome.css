@@ -2917,6 +2917,38 @@ dialog.is-refreshing .modal-head::after {
   margin-right: 6px;
 }
 
+/* Ask: an outcome or a problem ([ok], [warn], [error] in the answer) in its colour */
+
+.ask-message .ask-note {
+  padding: 8px 12px;
+  border-left: 3px solid;
+  border-radius: 6px;
+}
+
+.ask-message li.ask-note {
+  margin: 4px 0 4px -18px;
+  padding-left: 15px;
+  list-style: none;
+}
+
+.ask-note-ok {
+  color: var(--ok);
+  background: rgb(110 231 160 / 8%);
+  border-color: var(--ok);
+}
+
+.ask-note-warn {
+  color: var(--warn);
+  background: rgb(245 196 106 / 9%);
+  border-color: var(--warn);
+}
+
+.ask-note-error {
+  color: var(--fail);
+  background: rgb(255 138 138 / 9%);
+  border-color: var(--fail);
+}
+
 /* Ask: a text to copy, e.g. a draft reply ("> " lines in the answer) */
 
 .ask-quote {
