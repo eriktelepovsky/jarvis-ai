@@ -79,6 +79,8 @@
           {% endif %}
         </form>
       </dialog>
+      {% elif panel.toggle %}
+      <div class="side-head"><span class="label strong">{{ panel.title }}</span><button type="button" class="label side-add" data-hide-toggle="{{ panel.toggle }}" aria-pressed="false">Hide {{ panel.toggle }}</button></div>
       {% else %}
       <div class="side-head"><span class="label strong">{{ panel.title }}</span><span class="label">{{ plugin.name }}</span></div>
       {% endif %}

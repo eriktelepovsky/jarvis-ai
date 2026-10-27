@@ -222,6 +222,7 @@ def lunch_time(
             "length": duration(minutes),
             "title": own["title"],
             "url": own.get("url"),
+            "over": own["end"] <= now,
         }
     day = now.replace(second=0, microsecond=0)
     earliest = max(day.replace(hour=LUNCH_FROM[0], minute=LUNCH_FROM[1]), day)
@@ -423,7 +424,9 @@ class CalendarPlugin(Plugin):
 
     def panels(self) -> list[Panel]:
         return [
-            Panel(id="today", title="Schedule", template="today.html", load=self._today),
+            Panel(
+                id="today", title="Schedule", template="today.html", load=self._today, toggle="past"
+            ),
             Panel(
                 id="next", title="Next", template="next.html", load=self._next, placement="header"
             ),

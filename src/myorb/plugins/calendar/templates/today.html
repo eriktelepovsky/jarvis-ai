@@ -23,7 +23,7 @@
   {% elif event.kind == "lunch" %}
   {# Lunch, out of the focus blocks: time kept free, or the user's own lunch event. #}
   {% set tag = "a" if event.url else "div" %}
-  <{{ tag }} class="ti lunch"{% if event.url %} href="{{ event.url }}" target="_blank" rel="noopener"{% endif %}><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">{{ event.title or "Lunch" }}</span><span class="t2">Until {{ event.end | localtime("%H:%M") }} · {{ event.length }}</span></span></{{ tag }}>
+  <{{ tag }} class="ti lunch{% if event.over %} past{% endif %}"{% if event.url %} href="{{ event.url }}" target="_blank" rel="noopener"{% endif %}><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">{{ event.title or "Lunch" }}</span><span class="t2">Until {{ event.end | localtime("%H:%M") }} · {{ event.length }}</span></span></{{ tag }}>
   {% elif event.kind == "focus" %}
   {# A free block of an hour or more between events, for deep work. #}
   <div class="ti focus"><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">Free for focus</span><span class="t2">Until {{ event.end | localtime("%H:%M") }} · {{ event.length }}</span></span></div>

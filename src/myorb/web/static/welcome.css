@@ -3209,6 +3209,7 @@ dialog.is-refreshing .modal-head::after {
 
 .voice-lang-option {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 10px;
@@ -3380,4 +3381,16 @@ button.welcome-version:focus-visible {
 
 .release.is-running .release-version {
   color: var(--accent);
+}
+
+/* Hidden with Hide past / Hide completed in the panels' heads (welcome.js): past events in
+   today's schedule, priorities that are over. */
+.welcome[data-hide-past] .ti.past,
+.welcome[data-hide-completed] .priority.is-completed {
+  display: none;
+}
+
+/* A priority that is over: dimmed while shown. */
+.priority.is-completed {
+  opacity: 0.5;
 }

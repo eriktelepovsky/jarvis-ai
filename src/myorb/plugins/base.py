@@ -174,6 +174,9 @@ class Panel:
     placement: Literal["side", "header"] = "side"
     # A one-line form to add to it (e.g. a task), opened from an Add button in its head.
     add: Input | None = None
+    # A button in its head that hides or shows a kind of its items (e.g. "past" events,
+    # marked with the class is-<kind>); the browser remembers the choice (welcome.js).
+    toggle: str = ""
 
 
 @dataclass(frozen=True)

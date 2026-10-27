@@ -1256,6 +1256,41 @@
     sound("click");
   });
 
+  // Hide past / Hide completed in a side panel's head: hides those items (welcome.css), and
+  // this browser remembers it.
+  const HIDE_KEY = "myorb.hide";
+  let hidden = {};
+  try {
+    hidden = JSON.parse(localStorage.getItem(HIDE_KEY)) || {};
+  } catch {
+    // Storage unavailable: everything shown.
+  }
+  function showHidden() {
+    const welcome = document.getElementById("welcome");
+    if (!welcome) return;
+    document.querySelectorAll("[data-hide-toggle]").forEach((button) => {
+      const kind = button.dataset.hideToggle;
+      const hide = Boolean(hidden[kind]);
+      welcome.toggleAttribute(`data-hide-${kind}`, hide);
+      button.textContent = `${hide ? "Show" : "Hide"} ${kind}`;
+      button.setAttribute("aria-pressed", String(hide));
+    });
+  }
+  showHidden();
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-hide-toggle]");
+    if (!button) return;
+    const kind = button.dataset.hideToggle;
+    hidden = { ...hidden, [kind]: !hidden[kind] };
+    try {
+      localStorage.setItem(HIDE_KEY, JSON.stringify(hidden));
+    } catch {
+      // Kept until the page is reloaded.
+    }
+    showHidden();
+    sound("click");
+  });
+
   // Add in a side panel's head (Tasks): a small dialog with one line to write it in; added,
   // it closes and the panel loads again (the response says myorb:refresh).
   document.addEventListener("click", (event) => {
