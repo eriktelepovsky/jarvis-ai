@@ -1,6 +1,7 @@
 """Recognizes a due date and time in a task written in plain language (Slovak or English).
 
-"zavolať účtovníčke zajtra 10:00" -> title "zavolať účtovníčke", due tomorrow at 10:00.
+"zavolať účtovníčke zajtra 10:00" -> title "zavolať účtovníčke", due tomorrow at 10:00;
+"vyniesť smeti každý pondelok" -> due next Monday, repeating weekly (see repeat.py).
 Rules only, no AI: what is not recognized stays in the title.
 """
 
@@ -9,12 +10,15 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date, time, timedelta
 
+from myorb.tasks import repeat as repeats
+
 
 @dataclass(frozen=True)
 class ParsedTask:
     title: str
     due_date: date | None = None
     due_time: time | None = None
+    repeat: str | None = None  # the rule, see repeat.py
 
 
 def _plain(text: str) -> str:
@@ -46,7 +50,7 @@ WEEKDAYS = {
 }
 
 # Words that only introduce a date or time and are dropped together with it.
-LEADING = r"(?:\b(?:on|at|by|due|o|do|na|v|vo|ku)\s+)?"
+LEADING = r"(?:\b(?:on|at|by|due|from|starting|o|do|na|v|vo|ku|od)\s+)?"
 WORD_END = r"(?![\w:.])"
 
 TIME_PATTERNS = [
@@ -109,6 +113,11 @@ def parse_task(text: str, today: date) -> ParsedTask:
     due_date: date | None = None
     due_time: time | None = None
 
+    # "every Monday", "každý mesiac 5." first: its weekday or day is the rule's, not a date.
+    found = repeats.find(plain)
+    if found:
+        text, plain = _remove(found[0], text, plain)
+
     for pattern in TIME_PATTERNS:
         match, text, plain = _take(pattern, text, plain)
         if match:
@@ -148,5 +157,10 @@ def parse_task(text: str, today: date) -> ParsedTask:
         # A time alone means today.
         due_date = today
 
+    rule = None
+    if found:
+        due_date = repeats.first_due(found[1], due_date, today)
+        rule = repeats.rule(found[1], due_date)
+
     title = re.sub(r"\s+", " ", text).strip(" ,.-–")
-    return ParsedTask(title=title, due_date=due_date, due_time=due_time)
+    return ParsedTask(title=title, due_date=due_date, due_time=due_time, repeat=rule)

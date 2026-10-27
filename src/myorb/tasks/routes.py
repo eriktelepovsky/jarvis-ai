@@ -7,11 +7,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from myorb.activity.store import record
 from myorb.db import get_db
+from myorb.tasks import repeat as repeats
 from myorb.tasks import store
 from myorb.tasks.models import Task
 from myorb.tasks.schedule import due_label, group
 
 router = APIRouter()
+
+# How a task can repeat, in its edit form (a rule typed in, e.g. "every 3 days", shows as is).
+REPEAT_CHOICES = [
+    ("none", "Does not repeat"),
+    ("day:1", "Every day"),
+    ("weekdays", "Every weekday"),
+    ("week:1", "Every week"),
+    ("week:2", "Every 2 weeks"),
+    ("month:1", "Every month"),
+    ("year", "Every year"),
+]
+
+repeat_label = repeats.label
 
 Db = Annotated[AsyncSession, Depends(get_db)]
 
@@ -63,6 +77,8 @@ async def tasks_page(request: Request, db: Db, edit: int | None = None) -> Respo
             "sections": [section for section in sections if section[1]],
             "done": await store.done_tasks(db, store.recently_done_since(now)),
             "label": lambda task: due_label(task, now),
+            "repeat_label": repeat_label,
+            "repeat_choices": REPEAT_CHOICES,
             "edit": edit,
         },
     )
@@ -87,7 +103,7 @@ async def command(request: Request, db: Db, text: Annotated[str, Form()]) -> Res
     return request.app.state.templates.TemplateResponse(
         request,
         "welcome/command_result.html",
-        {"task": task, "due": due_label(task, _now(request))},
+        {"task": task, "due": due_label(task, _now(request)), "repeat": repeats.label(task)},
         headers=REFRESH,
     )
 
@@ -95,14 +111,15 @@ async def command(request: Request, db: Db, text: Annotated[str, Form()]) -> Res
 @router.post("/tasks/{task_id}/done")
 async def mark_done(request: Request, db: Db, task_id: int) -> Response:
     task = await _task_or_404(db, task_id)
-    await store.set_done(db, task, True)
-    await record(request.app.state.sessionmaker, f"Done: {task.title}", "ok", "/tasks")
+    following = await store.complete(db, task, _now(request).date())
+    then = f" · next {following:%a %-d %b}" if following else ""
+    await record(request.app.state.sessionmaker, f"Done: {task.title}{then}", "ok", "/tasks")
     return _done(request)
 
 
 @router.post("/tasks/{task_id}/undo")
 async def mark_open(request: Request, db: Db, task_id: int) -> Response:
-    await store.set_done(db, await _task_or_404(db, task_id), False)
+    await store.reopen(db, await _task_or_404(db, task_id))
     return _done(request)
 
 
@@ -114,13 +131,22 @@ async def edit(
     title: Annotated[str, Form()],
     due_date: Annotated[str, Form()] = "",
     due_time: Annotated[str, Form()] = "",
+    repeat: Annotated[str | None, Form()] = None,
 ) -> Response:
     try:
         parsed_date = date.fromisoformat(due_date) if due_date else None
         parsed_time = time.fromisoformat(due_time) if due_time else None
     except ValueError as error:
         raise HTTPException(status_code=400, detail="Invalid date or time") from error
-    await store.update_task(db, await _task_or_404(db, task_id), title, parsed_date, parsed_time)
+    if repeat and repeat != "none" and not repeats.is_rule(repeat):
+        raise HTTPException(status_code=400, detail="Invalid repeat")
+    task = await _task_or_404(db, task_id)
+    # Not sent (an older form): as it was. "none": no longer repeats.
+    if not repeat or repeat == task.repeat:
+        rule = ""
+    else:
+        rule = None if repeat == "none" else repeat
+    await store.update_task(db, task, title, parsed_date, parsed_time, rule, _now(request).date())
     return _done(request)
 
 
