@@ -24,6 +24,17 @@
   <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/forward" hx-target="#email-draft" hx-swap="outerHTML">↪&#xFE0E; Forward</button>
   {% endif %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
+  {# The email's own link to stop such emails, found in its text; none, no button. #}
+  {% if unsubscribe %}<a class="btn" href="{{ unsubscribe }}" target="_blank" rel="noopener noreferrer" title="Opens the sender's page to unsubscribe">Unsubscribe</a>{% endif %}
+  {# Images, on the right: as the button under the conversation. #}
+  {% if blocked_domains %}
+  <form class="email-actions-end" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
+    {% for domain in blocked_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
+    <button type="submit" class="btn" title="Images from {{ blocked_domains | join(', ') }} will show from now on">Show images</button>
+  </form>
+  {% elif not images and messages | selectattr("html") | rejectattr("images") | list %}
+  <a class="btn email-actions-end" href="/email/{{ account.id }}/{{ thread_id }}?images=true"{% if in_view %} hx-get="/email/{{ account.id }}/{{ thread_id }}?images=true" hx-target="#page-view"{% endif %}>Show images</a>
+  {% endif %}
 </div>
 </div>
 

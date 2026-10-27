@@ -2159,6 +2159,10 @@ form.htmx-request .btn[type="submit"]::before {
   margin: 0;
 }
 
+.email-actions .email-actions-end {
+  margin-left: auto;
+}
+
 .email-star {
   color: var(--warn);
 }

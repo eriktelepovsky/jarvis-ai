@@ -1217,3 +1217,25 @@ def test_the_report_follows_an_ignored_event(client: TestClient, fake_google: Fa
     assert "The calendar changed since this brief was written" in report
     assert "<strong>LuciA madero</strong> at" not in report
     assert "LuciA madero</strong> ignored" in report
+
+
+def test_unsubscribe_and_images_in_the_email_header(client: TestClient, fake_google: FakeGoogle):
+    from myorb.plugins.gmail.message import unsubscribe_link
+
+    assert (
+        unsubscribe_link(
+            '<p>Tento e-mail <a href="https://a.cz/u?x=1&amp;y=2">Odhlásit se z odběru</a>'
+        )
+        == "https://a.cz/u?x=1&y=2"
+    )
+    assert unsubscribe_link('<a href="https://news.example/unsubscribe/abc">here</a>')
+    # Subscribing is no way out, nor is a mail link.
+    assert not unsubscribe_link('<a href="https://x.sk/odber">Prihlásiť sa na odber</a>')
+    assert not unsubscribe_link('<a href="mailto:u@x.example">Unsubscribe</a>')
+
+    connect_google(client, fake_google)
+    page = client.get("/email/1/t1").text
+    head = page.split('<div class="email-top">')[1].split("</div>\n</div>")[0]
+    # The email blocks its images: the button is in the header too; it has no unsubscribe link.
+    assert "Show images" in head and "email-actions-end" in head
+    assert "Unsubscribe" not in head

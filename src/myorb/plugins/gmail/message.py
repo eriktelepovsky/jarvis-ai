@@ -193,6 +193,29 @@ def frame_document(body_html: str, images: bool) -> str:
     )
 
 
+# A link in an email that takes its sender's list off, by its words or its address.
+UNSUBSCRIBE_WORDS = re.compile(
+    r"unsubscribe|opt[\s-]?out|odhl[aá]s|abmelden|"
+    r"zru[sš]i[tť]\s+(?:odber|odběr|zasielanie|zasílání)",
+    re.I,
+)
+UNSUBSCRIBE_HREF = re.compile(r"unsubscribe|optout|opt-out|odhlas|odhlaseni|abmelden", re.I)
+ANCHOR = re.compile(r"<a\b[^>]*?href\s*=\s*([\"'])(https?://[^\"']+)\1[^>]*>(.*?)</a>", re.I | re.S)
+
+
+def unsubscribe_link(body_html: str) -> str:
+    """The link in an email's text to stop getting such emails ("Unsubscribe", "Odhlásiť sa
+    z odberu"), or ""."""
+    for match in ANCHOR.finditer(body_html):
+        href = html.unescape(match[2]).strip()
+        words = html.unescape(re.sub(r"<[^>]+>", " ", match[3]))
+        if UNSUBSCRIBE_WORDS.search(words) or (
+            UNSUBSCRIBE_HREF.search(href) and len(words.strip()) <= 40
+        ):
+            return href
+    return ""
+
+
 def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
     """One message of a thread fetched with format=full."""
     payload = message.get("payload", {})
@@ -235,6 +258,7 @@ def read_message(message: dict[str, Any], timezone: tzinfo) -> dict[str, Any]:
         "unread": "UNREAD" in message.get("labelIds", []),
         "starred": "STARRED" in message.get("labelIds", []),
         "html": body_html,
+        "unsubscribe": unsubscribe_link(body_html),
         "text": text or html.unescape(message.get("snippet", "")),
         "inline": inline,
         # Images shown in the email are not listed again, as in Gmail.
