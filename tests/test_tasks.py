@@ -215,14 +215,17 @@ def test_widget_can_undo_tasks_done_today(client: TestClient):
     assert 'hx-post="/tasks/1/done"' in client.get("/welcome/widgets").text
 
 
-def test_panel_lists_overdue_and_today(client: TestClient):
+def test_panel_lists_overdue_today_and_undated(client: TestClient):
     assert "Nothing due today." in client.get("/panels/tasks/today").text
+    client.post("/tasks", data={"text": "Next year 1.1.2099"})
+    assert "Nothing due today. 1 more task later." in client.get("/panels/tasks/today").text
     client.post("/tasks", data={"text": "Old chore 1.1.2020"})
     client.post("/tasks", data={"text": "Water plants today"})
     client.post("/tasks", data={"text": "Someday maybe"})
     text = client.get("/panels/tasks/today").text
-    assert "Old chore" in text and "Water plants" in text
-    assert "Someday maybe" not in text
+    # Without a date, a task waits here after today's; one due later does not.
+    assert text.index("Old chore") < text.index("Water plants") < text.index("Someday maybe")
+    assert "No due date" in text and "Next year" not in text
     assert 'class="t2 overdue"' in text
 
 

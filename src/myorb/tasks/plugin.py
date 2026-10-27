@@ -107,8 +107,9 @@ class TasksPlugin(Plugin):
         async with context.sessionmaker() as db:
             groups = group(await store.open_tasks(db), context.now)
         return {
-            "tasks": [*groups.overdue, *groups.today],
+            # Tasks without a date have no day of their own: they wait here, after today's.
+            "tasks": [*groups.overdue, *groups.today, *groups.someday],
             "overdue": {task.id for task in groups.overdue},
-            "label": lambda task: due_label(task, context.now),
-            "upcoming": len(groups.upcoming) + len(groups.someday),
+            "label": lambda task: due_label(task, context.now) or "No due date",
+            "upcoming": len(groups.upcoming),
         }
