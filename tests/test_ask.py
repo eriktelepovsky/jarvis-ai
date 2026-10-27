@@ -247,6 +247,35 @@ def test_history_is_cleaned():
         clean_history([{"role": "assistant", "content": "Only me"}])
 
 
+def test_actions_of_earlier_turns_stay_in_the_history():
+    # The browser keeps what ran; started again from its copy (e.g. after a restart), Claude
+    # still knows the task was added rather than taking its own words for a mistake.
+    history = clean_history(
+        [
+            {"role": "user", "content": "Add task Invite Bednarik"},
+            {
+                "role": "action",
+                "content": "Add the task “Invite Bednarik”",
+                "result": "✓ Added the task “Invite Bednarik”.",
+                "state": "done",
+            },
+            {"role": "assistant", "content": "I added the task."},
+            {"role": "user", "content": "Move APP-1"},
+            {"role": "action", "content": "Move APP-1 to Done", "state": "cancelled"},
+            {"role": "user", "content": "Thanks"},
+        ]
+    )
+    assert history[1] == {
+        "role": "assistant",
+        "content": "(Done with the user's approval: Add the task “Invite Bednarik”. Result: "
+        "✓ Added the task “Invite Bednarik”.)\n\nI added the task.",
+    }
+    assert history[3] == {
+        "role": "assistant",
+        "content": "(The user cancelled: Move APP-1 to Done.)",
+    }
+
+
 def test_custom_sources_give_ask_only_their_brief_lines(make_client: MakeClient):
     from test_brief import FakeClaude as Claude
     from test_custom import INVOICES, TOKEN, add

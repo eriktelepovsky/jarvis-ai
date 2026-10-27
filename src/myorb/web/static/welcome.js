@@ -661,7 +661,15 @@
     setTimeout(() => (button.textContent = "Copy"), 1500);
   });
 
-  function askBubble(role, text, state = "") {
+  function askBubble(role, text, state = "", result = "") {
+    if (role === "action") {
+      const card = document.createElement("div");
+      card.className = `ask-action is-${state === "done" ? "approved" : "cancelled"}`;
+      card.innerHTML = `<span class="ask-action-text"></span><span class="ask-action-buttons"><span class="ask-action-status${state === "done" ? "" : ` is-${state === "error" ? "error" : "cancelled"}`}"></span></span>`;
+      card.querySelector(".ask-action-text").textContent = text;
+      card.querySelector(".ask-action-status").textContent = result;
+      return card;
+    }
     const bubble = document.createElement("div");
     bubble.className = `ask-message ask-${role}${state ? ` is-${state}` : ""}`;
     if (role === "user") bubble.textContent = text;
@@ -673,7 +681,7 @@
     const dialog = document.getElementById("ask");
     if (!dialog) return null;
     const log = dialog.querySelector("[data-ask-log]");
-    log.replaceChildren(...ask.messages.map((m) => askBubble(m.role, m.content)));
+    log.replaceChildren(...ask.messages.map((m) => askBubble(m.role, m.content, m.state, m.result)));
     if (!dialog.open) {
       dialogs().forEach((other) => other.open && other.close());
       dialog.showModal();
@@ -801,6 +809,11 @@
     status.className = `ask-action-status${done.error ? " is-error" : done.cancelled ? " is-cancelled" : ""}`;
     status.textContent = done.cancelled ? "Cancelled" : done.error ? done.message : `✓ ${done.message}`;
     buttons.replaceChildren(status);
+    // Kept with the conversation, so it shows again and Claude knows it ran, even when the
+    // server no longer has the conversation (e.g. after a restart).
+    const state = done.cancelled ? "cancelled" : done.error ? "error" : "done";
+    ask.messages.push({ role: "action", content: card.querySelector(".ask-action-text").textContent, result: status.textContent, state });
+    saveAsk();
     if (done.undo) {
       const undo = document.createElement("button");
       undo.type = "button";
