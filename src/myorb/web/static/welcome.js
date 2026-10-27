@@ -1237,6 +1237,25 @@
   document.querySelectorAll("#welcome .side, #welcome .side > *").forEach((el) => cutWatch.observe(el));
   markCut();
   layoutStrip();
+  // Until the page's styles apply, its screens have no size to be placed by: placed again
+  // once they have one, and whenever it changes (the window turned, the styles loaded late).
+  let placedAt = "";
+  const placeWatch = new ResizeObserver(() => {
+    const box = paneEl(0)?.getBoundingClientRect();
+    const size = `${panesBox?.clientWidth}x${box?.width}x${innerHeight}`;
+    if (size === placedAt) return;
+    placedAt = size;
+    if (sideways()) layoutStrip();
+    else showPane(paneShown, false);
+    markPane(paneShown);
+  });
+  if (panesBox) placeWatch.observe(panesBox);
+  if (paneEl(0)) placeWatch.observe(paneEl(0));
+  addEventListener("load", () => {
+    placedAt = "";
+    if (sideways()) layoutStrip();
+    else showPane(paneShown, false);
+  });
 
   let swipeFrom = null;
   let swipe = null; // whether the drag is sideways, once it is known
@@ -1340,7 +1359,8 @@
     if (narrowPanes()) {
       const column = list.closest(".side-right");
       column.style.maxHeight = "";
-      column.style.transform = "";
+      // On a phone on its side it is moved along the strip (layoutStrip), not up or down.
+      if (!sideways()) column.style.transform = "";
       list.querySelectorAll(".activity-item.is-cut").forEach((item) => item.classList.remove("is-cut"));
       return;
     }
