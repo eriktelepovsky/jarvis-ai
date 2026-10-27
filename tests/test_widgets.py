@@ -646,7 +646,7 @@ def test_free_blocks_for_focus_today(monkeypatch):
         ("Review", "15:00"),
         ("Free for focus", "16:00"),
     ]
-    assert data.rows[1].tags == ("focus",) and data.rows[1].subtitle == "10:00–11:00 · 1 h"
+    assert data.rows[1].tags == ("today", "focus") and data.rows[1].subtitle == "10:00–11:00 · 1 h"
     panel = asyncio.run(plugin._today(context))
     kinds = [e["kind"] for e in panel["day"]["today"]]
     assert kinds == ["past", "now", "focus", "event", "lunch", "focus", "event", "focus"]
@@ -713,7 +713,9 @@ def test_lunch_is_kept_out_of_focus_time(monkeypatch):
     events.append({**base, "title": "Obed", "start": at(12), "end": at(12, 30)})
     data = asyncio.run(plugin._widget(context))
     assert not any(r.title == "Lunch" for r in data.rows)
-    assert [(r.title, r.tags) for r in data.rows if r.title == "Obed"] == [("Obed", ("lunch",))]
+    assert [(r.title, r.tags) for r in data.rows if r.title == "Obed"] == [
+        ("Obed", ("today", "lunch"))
+    ]
     assert data.value == 4  # not one of today's events
 
 

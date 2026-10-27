@@ -1430,6 +1430,34 @@ button.modal-stat[aria-pressed="true"] {
   opacity: 0.5;
 }
 
+/* Today's free time for focus, lunch and the ways to the events, in their colours as in the
+   side panel: a dashed line before them. */
+.modal-row:is([data-tags~="focus"], [data-tags~="lunch"], [data-tags~="travel"]) {
+  padding-left: 12px;
+  border-left: 2px dashed var(--ok);
+}
+
+.modal-row[data-tags~="focus"] .trunc:first-child {
+  color: var(--ok);
+}
+
+.modal-row[data-tags~="lunch"] {
+  border-left-color: var(--text-3);
+}
+
+.modal-row[data-tags~="lunch"] .trunc:first-child {
+  color: var(--text-2);
+}
+
+.modal-row[data-tags~="travel"] {
+  border-left-style: dotted;
+  border-left-color: var(--warn);
+}
+
+.modal-row[data-tags~="travel"] .trunc:first-child {
+  color: var(--warn);
+}
+
 .modal-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

@@ -548,7 +548,8 @@ class CalendarPlugin(Plugin):
         focus = focus_time(today, now, trips)
         lunch = lunch_time(today, now, trips)
         rows = []
-        # All of today (what is over is dimmed) with its free blocks for focus, then the week
+        # All of today (what is over is dimmed) with its free blocks for focus, lunch and the
+        # ways to the events (each of today, in its colour, as in the side panel), then the week
         # ahead, by calendar; the numbers above filter them: today, the next event, focus
         # time, the next seven days.
         extras = [*focus, *([lunch] if lunch else []), *({**t, "kind": "travel"} for t in trips)]
@@ -564,7 +565,7 @@ class CalendarPlugin(Plugin):
                         subtitle=f"{event['length']} {event['by']} from {event['origin']}",
                         badge=f"{event['start']:%H:%M}",
                         tone="warn" if soon else "info",
-                        tags=("travel",),
+                        tags=("today", "travel"),
                     )
                 )
                 continue
@@ -575,7 +576,7 @@ class CalendarPlugin(Plugin):
                         subtitle=f"{event['start']:%H:%M}–{event['end']:%H:%M} · {event['length']}",
                         badge=f"{event['start']:%H:%M}",
                         url=event.get("url"),
-                        tags=("lunch",),
+                        tags=("today", "lunch"),
                     )
                 )
                 continue
@@ -586,7 +587,7 @@ class CalendarPlugin(Plugin):
                         subtitle=f"{event['start']:%H:%M}–{event['end']:%H:%M} · {event['length']}",
                         badge=f"{event['start']:%H:%M}",
                         tone="ok",
-                        tags=("focus",),
+                        tags=("today", "focus"),
                     )
                 )
                 continue
