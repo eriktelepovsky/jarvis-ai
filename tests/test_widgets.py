@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs
@@ -1200,6 +1201,11 @@ def test_the_report_follows_an_ignored_event(client: TestClient, fake_google: Fa
             await db.commit()
 
     client.portal.call(brief)
+    # Loaded again whenever it is opened (see welcome.js).
+    welcome = client.get("/").text
+    assert re.search(
+        r'class="report" hx-get="[^"]*/brief/report" hx-trigger="[^"]*myorb:open"', welcome
+    )
     report = client.get("/brief/report").text
     on_the_day = 'class="glance-tip"><strong>LuciA madero</strong>'
     assert on_the_day in report and "The calendar changed" not in report
