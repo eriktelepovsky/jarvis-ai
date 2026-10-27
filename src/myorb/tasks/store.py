@@ -37,6 +37,14 @@ async def done_tasks(db: AsyncSession, since: datetime) -> list[Task]:
     return list(await db.scalars(query))
 
 
+async def moved_tasks(db: AsyncSession, since: datetime) -> list[Task]:
+    """Repeating tasks done (moved on to their next date) since then."""
+    query = select(Task).where(
+        Task.done_at.is_(None), Task.moved_at >= since.astimezone(UTC), Task.last_due.is_not(None)
+    )
+    return list(await db.scalars(query.order_by(Task.moved_at.desc())))
+
+
 async def get_task(db: AsyncSession, task_id: int) -> Task | None:
     return await db.get(Task, task_id)
 
@@ -52,6 +60,7 @@ async def complete(db: AsyncSession, task: Task, today: date) -> date | None:
     if task.repeat and task.due_date:
         task.last_due = task.due_date
         task.due_date = repeats.next_due(task.repeat, task.due_date, today)
+        task.moved_at = datetime.now(UTC)
         await db.commit()
         return task.due_date
     await set_done(db, task, True)
@@ -61,7 +70,7 @@ async def complete(db: AsyncSession, task: Task, today: date) -> date | None:
 async def reopen(db: AsyncSession, task: Task) -> None:
     """Undo marking a task done: one that repeats goes back to the due date it moved on from."""
     if task.done_at is None and task.repeat and task.last_due:
-        task.due_date, task.last_due = task.last_due, None
+        task.due_date, task.last_due, task.moved_at = task.last_due, None, None
         await db.commit()
         return
     await set_done(db, task, False)

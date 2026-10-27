@@ -14,16 +14,7 @@ from myorb.tasks.schedule import due_label, group
 
 router = APIRouter()
 
-# How a task can repeat, in its edit form (a rule typed in, e.g. "every 3 days", shows as is).
-REPEAT_CHOICES = [
-    ("none", "Does not repeat"),
-    ("day:1", "Every day"),
-    ("weekdays", "Every weekday"),
-    ("week:1", "Every week"),
-    ("week:2", "Every 2 weeks"),
-    ("month:1", "Every month"),
-    ("year", "Every year"),
-]
+REPEAT_CHOICES = repeats.CHOICES
 
 repeat_label = repeats.label
 
@@ -85,10 +76,32 @@ async def tasks_page(request: Request, db: Db, edit: int | None = None) -> Respo
 
 
 @router.post("/tasks")
-async def add(request: Request, db: Db, text: Annotated[str, Form()]) -> Response:
+async def add(
+    request: Request,
+    db: Db,
+    text: Annotated[str, Form()],
+    due_date: Annotated[str, Form()] = "",
+    due_time: Annotated[str, Form()] = "",
+    repeat: Annotated[str, Form()] = "",
+) -> Response:
+    """A task written in plain language; a date, time or repeat chosen in the form's own
+    fields (the Add dialog) wins over what the text says."""
     if not text.strip():
         raise HTTPException(status_code=400, detail="Enter a task")
-    task = await store.add_task(db, text, _now(request).date())
+    today = _now(request).date()
+    task = await store.add_task(db, text, today)
+    if due_date or due_time or (repeat and repeat != "none"):
+        try:
+            parsed_date = date.fromisoformat(due_date) if due_date else task.due_date
+            parsed_time = time.fromisoformat(due_time) if due_time else task.due_time
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="Invalid date or time") from error
+        if repeat and repeat != "none" and not repeats.is_rule(repeat):
+            raise HTTPException(status_code=400, detail="Invalid repeat")
+        if parsed_time and not parsed_date:
+            parsed_date = today
+        rule = repeat if repeat and repeat != "none" else ""
+        await store.update_task(db, task, task.title, parsed_date, parsed_time, rule, today)
     await record(request.app.state.sessionmaker, f"Task added: {task.title}", "info", "/tasks")
     return _done(request)
 

@@ -300,3 +300,13 @@ def test_a_side_panel_can_add(make_client: MakeClient):
     # Tasks' head has Add instead of the source's name; it opens a one-line form.
     assert 'data-add="add-tasks-today">Add</button>' in text
     assert 'hx-post="/tasks" hx-swap="none" data-add-form' in text
+
+
+def test_responses_say_the_running_version(make_client: MakeClient):
+    from myorb import __version__
+
+    client = make_client()
+    complete_setup(client)
+    response = client.get("/")
+    assert response.headers["X-Myorb-Version"] == __version__
+    assert f'<meta name="myorb-version" content="{__version__}">' in response.text

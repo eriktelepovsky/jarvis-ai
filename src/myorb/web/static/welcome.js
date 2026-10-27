@@ -847,19 +847,61 @@
   // An answer read aloud, with a Stop button in Ask's head while it lasts. Closing Ask, a new
   // question and the microphone stop it too.
   let speaking = 0; // the reading going on, so an earlier one ending does not hide the button
+  let answerAudio = null; // read by Azure Speech
+  const LANGUAGE_NAMES = { en: "English", sk: "Slovak", cs: "Czech", de: "German", fr: "French", es: "Spanish", it: "Italian", pl: "Polish", hu: "Hungarian" };
   async function speakAnswer(text, tag) {
-    if (!window.myorbSpeech) return;
+    const dialog = document.getElementById("ask");
+    const azure = dialog?.dataset.voice === "azure";
+    if (!azure && !window.myorbSpeech) return;
+    // A browser without a voice for the language reads it with another's: not at all, then.
+    if (!azure && !window.myorbSpeech.voicesFor(tag).length) {
+      const note = askBubble("assistant", "");
+      note.className = "ask-message ask-voice-note";
+      const name = LANGUAGE_NAMES[tag.slice(0, 2)] || tag;
+      note.textContent = `Not read aloud: this browser has no ${name} voice. Add one in the system's settings (on a Mac: Accessibility → Spoken Content), or set up Azure Speech in Integrations → Voice.`;
+      dialog?.querySelector("[data-ask-log]")?.append(note);
+      return;
+    }
     const turn = ++speaking;
     const stop = document.querySelector("[data-ask-stop]");
     if (stop) stop.hidden = false;
-    await window.myorbSpeech.speak(text, tag);
+    if (azure) await speakAzure(text, tag);
+    else await window.myorbSpeech.speak(text, tag);
     if (turn !== speaking) return;
     speaking = 0;
     if (stop) stop.hidden = true;
   }
 
+  async function speakAzure(text, tag) {
+    try {
+      const response = await fetch("/voice/speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language: tag }),
+      });
+      if (!response.ok) return;
+      const url = URL.createObjectURL(await response.blob());
+      answerAudio = new Audio(url);
+      await new Promise((resolve) => {
+        answerAudio.onended = answerAudio.onerror = answerAudio.onpause = resolve;
+        answerAudio.play().catch(resolve);
+      });
+      URL.revokeObjectURL(url);
+    } catch {
+      // Not read: the answer is there to read.
+    }
+  }
+
   function stopSpeaking() {
-    if (speaking && "speechSynthesis" in window) speechSynthesis.cancel();
+    // Whatever is being read, even if the reading was started before this page knew of it.
+    if ("speechSynthesis" in window && (speaking || speechSynthesis.speaking || speechSynthesis.pending)) {
+      speechSynthesis.cancel();
+    }
+    answerAudio?.pause();
+    answerAudio = null;
+    speaking = 0;
+    const stop = document.querySelector("[data-ask-stop]");
+    if (stop) stop.hidden = true;
   }
 
   document.addEventListener("click", (event) => {
@@ -1059,7 +1101,17 @@
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && listening) {
+    if (event.key !== "Escape") return;
+    // In the chat, Esc closes it, stops reading the answer and stops listening, all at once.
+    const chat = document.getElementById("ask");
+    if (chat?.open) {
+      event.preventDefault();
+      if (listening) stopListening();
+      stopSpeaking();
+      chat.close();
+      return;
+    }
+    if (listening) {
       event.preventDefault();
       stopListening();
     }
@@ -1101,6 +1153,13 @@
   function showPane(index, smooth = true) {
     if (!panesBox || !narrowPanes()) return;
     if (sideways()) {
+      // The screen slides in from the side it comes from, as when swiped upright.
+      const welcome = document.getElementById("welcome");
+      if (welcome && smooth && index !== paneShown) {
+        delete welcome.dataset.slide;
+        void welcome.offsetWidth; // to play the animation again
+        welcome.dataset.slide = index > paneShown ? "next" : "back";
+      }
       paneShown = index;
       return markPane(index);
     }

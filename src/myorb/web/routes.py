@@ -18,6 +18,8 @@ from myorb.db import get_db
 from myorb.overview import snapshots
 from myorb.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
 from myorb.profile import DEFAULT_ASSISTANT, user_name
+from myorb.tasks.repeat import CHOICES as REPEAT_CHOICES
+from myorb.voice import load_voice
 
 router = APIRouter()
 
@@ -142,6 +144,8 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             "side_panels": [(p, panel) for p, panel in panels if panel.placement == "side"],
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
             "name": await user_name(request, db),
+            # Answers read aloud by Azure Speech when it is set up, else by the browser.
+            "voice_azure": (await load_voice(request, db)).azure,
             "slots": widget_slots(request),
             # Everything typed under the orb goes to Claude when it is connected.
             "can_ask": claude is not None,
@@ -150,6 +154,7 @@ async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]
             # ...unless another is chosen in the Voice panel (kept in the browser).
             "voice_languages": list(READ_LANGUAGES.values()),
             "quick_actions": QUICK_ACTIONS,
+            "repeat_choices": REPEAT_CHOICES,
         },
     )
 

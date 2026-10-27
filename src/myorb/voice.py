@@ -310,3 +310,22 @@ async def brief_audio(request: Request, db: Db, brief_id: int, language: str) ->
         )
     except (BriefError, ProviderError) as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+# An answer in Ask, read aloud by Azure Speech when it is set up (a browser may have no voice
+# for the language, and reads it with another's).
+MAX_SPOKEN = 5000
+
+
+@router.post("/voice/speech")
+async def speech(request: Request, db: Db) -> Response:
+    body = await request.json()
+    text = str(body.get("text", "")).strip()[:MAX_SPOKEN]
+    language = str(body.get("language", ""))[:2].lower()
+    settings = await load_voice(request, db)
+    if not settings.azure or language not in READ_LANGUAGES or not text:
+        raise HTTPException(status_code=404)
+    try:
+        return await _speech(request, settings, language, text, "ask")
+    except ProviderError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error

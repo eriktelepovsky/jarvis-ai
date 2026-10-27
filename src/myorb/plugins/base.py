@@ -63,6 +63,8 @@ class Input:
     url: str
     placeholder: str
     label: str
+    # Also when it is due and how it repeats (a task), next to the text.
+    with_due: bool = False
 
 
 @dataclass(frozen=True)

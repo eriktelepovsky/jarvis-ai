@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,8 @@ from myorb.tasks.schedule import due_label, group
 
 ICON = "M4 7l2 2 4-4M4 17l2 2 4-4M14 7h6M14 17h6"
 ROWS_SHOWN = 12
+# How long a task done in the side panel stays there, with Undo.
+DONE_SHOWN = timedelta(minutes=5)
 PLACEHOLDER = "Add a task… e.g. “call the accountant tomorrow 10:00”"
 
 
@@ -42,7 +45,7 @@ class TasksPlugin(Plugin):
                 title="Tasks",
                 template="today.html",
                 load=self._today,
-                add=Input("/tasks", PLACEHOLDER, "New task"),
+                add=Input("/tasks", PLACEHOLDER, "New task", with_due=True),
             )
         ]
 
@@ -121,7 +124,11 @@ class TasksPlugin(Plugin):
     async def _today(self, context: WidgetContext) -> dict[str, Any]:
         async with context.sessionmaker() as db:
             groups = group(await store.open_tasks(db), context.now)
+            # Done a moment ago: still listed, struck through, to be brought back if by mistake.
+            since = context.now - DONE_SHOWN
+            done = [*await store.done_tasks(db, since), *await store.moved_tasks(db, since)]
         return {
+            "done": done,
             # Tasks without a date have no day of their own: they wait here, after today's.
             "tasks": [*groups.overdue, *groups.today, *groups.someday],
             "overdue": {task.id for task in groups.overdue},

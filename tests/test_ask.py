@@ -53,6 +53,7 @@ def test_the_command_line_offers_ask_only_with_claude(client: TestClient):
     assert "data-voice-ask" in page and 'data-voice-lang="en-GB"' in page
     # Another language to speak in can be chosen in the Voice panel (kept in the browser).
     assert 'data-voice-lang-choice="sk-SK">Slovak' in page
+    assert 'id="ask" aria-labelledby="ask-title" data-voice="browser"' in page
 
 
 def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeClaude):
@@ -68,6 +69,7 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert "Answer in the language of the question" in instructions["text"]
     # Done only when its tool ran; outcomes and problems marked for their colour in the chat.
     assert "Never say that you did something" in instructions["text"]
+    assert "never correct or take back your earlier answers" in instructions["text"]
     assert "[ok]" in instructions["text"] and "[error]" in instructions["text"]
     assert board["cache_control"] == {"type": "ephemeral"}
     assert "## Tasks" in board["text"] and "Water the <plants>" in board["text"]

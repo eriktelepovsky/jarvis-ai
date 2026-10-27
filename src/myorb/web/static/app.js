@@ -258,3 +258,16 @@ document.addEventListener("click", (event) => {
     if (!menu.contains(event.target) || event.target.closest(".email-more-menu .btn")) menu.open = false;
   });
 });
+
+// After an upgrade, a page loaded before it has the old styles and scripts: what it is sent
+// now may need the new ones (e.g. a menu shown as plain buttons). It loads again instead: an
+// email opened over the list opens as a page of its own, anything else reloads the page.
+document.addEventListener("htmx:beforeSwap", (event) => {
+  const running = event.detail.xhr?.getResponseHeader("X-Myorb-Version");
+  const loaded = document.querySelector('meta[name="myorb-version"]')?.content;
+  if (!running || !loaded || running === loaded) return;
+  event.detail.shouldSwap = false;
+  const config = event.detail.requestConfig;
+  if (config?.verb === "get" && event.detail.target?.id === "page-view") location.href = config.path;
+  else location.reload();
+});

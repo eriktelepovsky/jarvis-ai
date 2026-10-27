@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="myorb-version" content="{{ version }}">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#06080b">
   <title>{{ assistant }}</title>
@@ -63,9 +64,19 @@
         <form class="add-form" hx-post="{{ panel.add.url }}" hx-swap="none" data-add-form>
           <label class="label" for="{{ add_id }}-text">{{ panel.add.label }}</label>
           <div class="add-row">
-            <input class="input" id="{{ add_id }}-text" name="text" placeholder="{{ panel.add.placeholder }}" autocomplete="off" required>
+            <input class="input" id="{{ add_id }}-text" name="text" placeholder="{{ panel.add.placeholder }}" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" required>
             <button type="submit" class="btn btn-primary">Add</button>
           </div>
+          {% if panel.add.with_due %}
+          {# Or chosen here: these win over what the text says. #}
+          <div class="add-due">
+            <label class="field"><span class="label">Due date</span><input class="input" type="date" name="due_date"></label>
+            <label class="field"><span class="label">Time</span><input class="input" type="time" name="due_time"></label>
+            <label class="field"><span class="label">Repeats</span>
+              <select class="input" name="repeat">{% for value, name in repeat_choices %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select>
+            </label>
+          </div>
+          {% endif %}
         </form>
       </dialog>
       {% else %}
@@ -141,7 +152,7 @@
 
       {% if can_ask %}
       {# Questions and answers; the conversation stays until "New conversation" or the tab closes. #}
-      <dialog class="modal ask-modal" id="ask" aria-labelledby="ask-title">
+      <dialog class="modal ask-modal" id="ask" aria-labelledby="ask-title" data-voice="{{ 'azure' if voice_azure else 'browser' }}">
         <div class="modal-head">
           <span class="tile" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>
           <div class="modal-title">

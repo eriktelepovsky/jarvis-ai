@@ -1187,6 +1187,12 @@ code,
 .task-add {
   gap: var(--s-2);
   flex-wrap: nowrap;
+  /* The button as tall as the field. */
+  align-items: stretch;
+}
+
+.task-add .btn {
+  height: auto;
 }
 
 .label.overdue {
@@ -1227,7 +1233,8 @@ code,
 
 .task-edit {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
+  /* The title on a line of its own, as long as it needs; when it is due under it. */
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   gap: var(--s-2);
   align-items: center;
 }
@@ -1242,6 +1249,10 @@ code,
 .task-edit .input {
   height: 36px;
   font-size: 14px;
+}
+
+.task-edit .input[name="title"] {
+  grid-column: 1 / -1;
 }
 
 /* Safari on iOS draws date and time fields its own way: wider than their column (the time ran
@@ -1266,7 +1277,7 @@ code,
     row-gap: 6px;
   }
 
-  .task-edit .input:first-of-type {
+  .task-edit .input[name="title"] {
     grid-column: 1 / -1;
   }
 
@@ -2212,8 +2223,30 @@ form.htmx-request .btn[type="submit"]::before {
     display: none;
   }
 
+  /* One line on a phone: a little tighter, ⋮ as narrow as the others are tall. */
+  .email-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .email-actions > form,
+  .email-actions > .btn {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .email-actions .btn {
+    padding: 0 11px;
+    white-space: nowrap;
+  }
+
   .email-more {
     display: block;
+    flex: none;
+  }
+
+  .email-more > summary.btn {
+    padding: 0 10px;
   }
 }
 

@@ -68,6 +68,8 @@ def client(make_client: MakeClient, apis: FakeApis) -> TestClient:
 
 
 def test_browser_voices_by_default(client: TestClient):
+    # Without Azure, Ask's answers are read by the browser, and there is nothing to fetch.
+    assert client.post("/voice/speech", json={"text": "Hi", "language": "en-GB"}).status_code == 404
     page = client.get("/integrations/voice").text
     assert 'value="browser" checked' in page
     assert 'data-browser-voice="sk" data-tag="sk-SK"' in page
@@ -106,6 +108,13 @@ def test_azure_voices_and_samples(client: TestClient, apis: FakeApis):
         "/integrations/voice/sample", params={"language": "sk", "voice": "en-GB-SoniaNeural"}
     )
     assert bad.status_code == 400
+
+    # Ask's answers are read by Azure too, in the language asked in.
+    # (The dialog is there only with Claude; the welcome screen says which reads.)
+    spoken = client.post("/voice/speech", json={"text": "Dobrý deň, Erik.", "language": "sk-SK"})
+    assert spoken.headers["content-type"] == "audio/mpeg"
+    assert "Dobrý deň, Erik." in azure.spoken[-1]
+    assert client.post("/voice/speech", json={"text": "x", "language": "ja-JP"}).status_code == 404
 
 
 def test_brief_audio_needs_azure(client: TestClient):

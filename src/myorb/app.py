@@ -69,6 +69,9 @@ async def untransformed_pages(request: Request, call_next: Any) -> Response:
     if response.headers.get("content-type", "").startswith("text/html"):
         cache = response.headers.get("Cache-Control")
         response.headers["Cache-Control"] = f"{cache}, no-transform" if cache else "no-transform"
+    # The running version, so a page loaded before an upgrade knows its styles and scripts are
+    # older than what it is sent (app.js).
+    response.headers["X-Myorb-Version"] = __version__
     return response
 
 
