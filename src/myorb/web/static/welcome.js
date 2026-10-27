@@ -1117,6 +1117,23 @@
     sound("click");
   });
 
+  // Add in a side panel's head (Tasks): a small dialog with one line to write it in; added,
+  // it closes and the panel loads again (the response says myorb:refresh).
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-add]");
+    if (!button) return;
+    const dialog = document.getElementById(button.dataset.add);
+    dialog?.showModal();
+    dialog?.querySelector("input")?.focus();
+    sound("open");
+  });
+  document.addEventListener("htmx:afterRequest", (event) => {
+    const form = event.detail.elt.closest?.("[data-add-form]");
+    if (!form || !event.detail.successful) return;
+    form.reset();
+    form.closest("dialog")?.close();
+  });
+
   // The activity list shows only as many events as fit on screen: under the clock, above the
   // YouTube window (or the music search) while it is shown, else above the dock's controls or
   // the window's edge. The rest, the oldest, fade out.

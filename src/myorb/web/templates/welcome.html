@@ -55,7 +55,22 @@
   <main class="welcome-main">
     <section class="side side-left" aria-label="Today">
       {% for plugin, panel in side_panels %}
+      {% if panel.add %}
+      {% set add_id = "add-%s-%s" % (plugin.id, panel.id) %}
+      <div class="side-head"><span class="label strong">{{ panel.title }}</span><button type="button" class="label side-add" data-add="{{ add_id }}">Add</button></div>
+      {# Added here, the panel and the numbers load again (myorb:refresh). #}
+      <dialog class="modal modal-add" id="{{ add_id }}" aria-label="{{ panel.add.label }}">
+        <form class="add-form" hx-post="{{ panel.add.url }}" hx-swap="none" data-add-form>
+          <label class="label" for="{{ add_id }}-text">{{ panel.add.label }}</label>
+          <div class="add-row">
+            <input class="input" id="{{ add_id }}-text" name="text" placeholder="{{ panel.add.placeholder }}" autocomplete="off" required>
+            <button type="submit" class="btn btn-primary">Add</button>
+          </div>
+        </form>
+      </dialog>
+      {% else %}
       <div class="side-head"><span class="label strong">{{ panel.title }}</span><span class="label">{{ plugin.name }}</span></div>
+      {% endif %}
       <div hx-get="{{ url_for('panel', plugin_id=plugin.id, panel_id=panel.id) }}" hx-trigger="load, every 5m, myorb:refresh from:body">
         <p class="t2">Loading…</p>
       </div>

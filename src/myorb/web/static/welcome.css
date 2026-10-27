@@ -3121,3 +3121,40 @@ dialog.is-refreshing .modal-head::after {
 .ask-quote-text {
   padding-right: 64px;
 }
+
+/* Add in a side panel's head, and the small dialog it opens */
+.side-add {
+  padding: 0;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.side-add:hover,
+.side-add:focus-visible {
+  color: var(--accent-hover);
+}
+
+/* As tall as its one line, near the top as a command bar is. */
+.modal.modal-add {
+  width: min(560px, calc(100% - 32px));
+  height: fit-content;
+  margin-top: 18vh;
+  padding: 18px 20px;
+}
+
+.add-form {
+  display: grid;
+  gap: 10px;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.add-row .input {
+  flex: 1;
+  min-width: 0;
+}

@@ -289,3 +289,14 @@ def test_due_widget_is_fetched_again(make_client: MakeClient):
     # Due and stale: the service is asked again now, not in the background.
     plugin.fresh = 0
     assert '<span class="node-value">2</span>' in client.get(due).text
+
+
+def test_a_side_panel_can_add(make_client: MakeClient):
+    from myorb.tasks.plugin import TasksPlugin
+
+    client = make_client(plugins={"tasks": TasksPlugin()})
+    complete_setup(client)
+    text = client.get("/").text
+    # Tasks' head has Add instead of the source's name; it opens a one-line form.
+    assert 'data-add="add-tasks-today">Add</button>' in text
+    assert 'hx-post="/tasks" hx-swap="none" data-add-form' in text
