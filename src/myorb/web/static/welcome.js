@@ -1160,13 +1160,9 @@
   function showPane(index, smooth = true) {
     if (!panesBox || !narrowPanes()) return;
     if (sideways()) {
-      // The screen slides in from the side it comes from, as when swiped upright.
-      const welcome = document.getElementById("welcome");
-      if (welcome && smooth && index !== paneShown) {
-        delete welcome.dataset.slide;
-        void welcome.offsetWidth; // to play the animation again
-        welcome.dataset.slide = index > paneShown ? "next" : "back";
-      }
+      // Chosen in the bar: the screen shown slides out and the chosen one in after it, as
+      // when swiped (and as upright, where the screens scroll).
+      if (smooth && index !== paneShown && slideBetween(paneShown, index)) return;
       paneShown = index;
       return markPane(index);
     }
@@ -1201,12 +1197,35 @@
   let dragged = null; // {el, next, width, sideways}
   const PANES = ["#welcome .side-left", "#welcome .orb", "#welcome .side-right"];
   const paneEl = (index) => document.querySelector(PANES[index]);
-  const GAP = 24;
+  // Between the two while dragged: the orb's circles reach past its box.
+  const GAP = 72;
   const welcomeBox = document.getElementById("welcome");
   function place(el, x) {
     el.style.transform = x ? `translateX(${x}px)` : "";
     // In its own half: what passes its left edge is not drawn over the clock.
     el.style.clipPath = x < 0 ? `inset(0 0 0 ${-x}px)` : "";
+  }
+  // Slides the screen shown out and `to` in after it; false when there is nothing to slide.
+  function slideBetween(from, to) {
+    const el = paneEl(from);
+    const next = paneEl(to);
+    if (!el || !next || !welcomeBox) return false;
+    const width = el.getBoundingClientRect().width;
+    const out = (to > from ? -1 : 1) * (width + GAP);
+    const state = { el, next };
+    next.classList.add("is-peek");
+    for (const pane of [el, next]) pane.style.transition = "none";
+    place(next, -out);
+    void next.offsetWidth; // from there, not from where it was
+    for (const pane of [el, next]) pane.style.transition = "transform 0.28s ease-out";
+    place(el, out);
+    place(next, 0);
+    setTimeout(() => {
+      paneShown = to;
+      markPane(to);
+      endDrag(state);
+    }, 290);
+    return true;
   }
   function endDrag(state) {
     for (const el of [state.el, state.next]) {
