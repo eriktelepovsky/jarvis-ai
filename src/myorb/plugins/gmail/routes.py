@@ -249,6 +249,10 @@ async def read_email(
         message["images"] = images or message["domain"] in allowed
     domains = sorted({m["domain"] for m in with_html if m["domain"]})
     context["blocked_domains"] = [d for d in domains if d not in allowed]
+    # The newest email's link to unsubscribe, if its text has one.
+    context["unsubscribe"] = next(
+        (m["unsubscribe"] for m in reversed(context["messages"]) if m.get("unsubscribe")), ""
+    )
     context["allowed_domains"] = [d for d in domains if d in allowed]
     return request.app.state.templates.TemplateResponse(request, "gmail/email.html", context)
 
