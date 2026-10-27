@@ -1008,12 +1008,19 @@ a.ti:hover .t1 {
   }
 }
 
-/* With the bar of screens at the bottom, the version sits above it, under the command line. */
+/* With the bar of screens at the bottom, the version sits above it, under the command line:
+   on the orb's screen only, as the day and the activity run down to the bar. */
 @media (max-width: 1279px) {
   .welcome-version {
     bottom: calc(max(14px, var(--safe-bottom, 0px)) + 54px);
     left: 50%;
     transform: translateX(-50%);
+    transition: opacity 0.2s ease;
+  }
+
+  .welcome[data-pane="0"] .welcome-version,
+  .welcome[data-pane="2"] .welcome-version {
+    opacity: 0;
   }
 }
 
@@ -1050,6 +1057,10 @@ a.ti:hover .t1 {
   .side,
   .panes-nav {
     display: none;
+  }
+
+  .welcome[data-pane] .welcome-version {
+    opacity: 1;
   }
 
   /* The circles reach about 5% past the orb (a large one with its badge a little more). */

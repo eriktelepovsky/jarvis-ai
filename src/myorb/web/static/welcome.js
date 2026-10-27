@@ -1066,6 +1066,8 @@
   }
   function markPane() {
     const at = paneAt();
+    // Which screen is shown, for what belongs to the orb's only (welcome.css).
+    document.getElementById("welcome").dataset.pane = at;
     document.querySelectorAll("[data-pane]").forEach((button) => {
       const on = Number(button.dataset.pane) === at;
       button.classList.toggle("is-on", on);
