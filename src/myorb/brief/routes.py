@@ -116,8 +116,19 @@ async def _timeline_items(request: Request) -> list[TimelineItem]:
     return [item for items in results for item in items]
 
 
+def _lunch(items: list[TimelineItem], now: datetime) -> tuple[datetime, datetime] | None:
+    """Today's lunch among these events, as the calendar keeps it (see lunch_time)."""
+    from myorb.plugins.calendar import lunch_time
+
+    events = [{"title": i.title, "start": i.start, "end": i.end, "all_day": False} for i in items]
+    lunch = lunch_time(events, now)
+    return (lunch["start"], lunch["end"]) if lunch else None
+
+
 async def _timeline(request: Request) -> Glance:
-    return glance(await _timeline_items(request), widget_context(request).now)
+    now = widget_context(request).now
+    items = await _timeline_items(request)
+    return glance(items, now, lunch=_lunch(items, now))
 
 
 def calendar_changes(
@@ -209,7 +220,7 @@ async def report(request: Request) -> Response:
             context["glance_kept"] = kept
             context["sources"] = await load_widgets(request)
         else:
-            context["glance"] = glance(items, now)
+            context["glance"] = glance(items, now, lunch=_lunch(items, now))
             # A meeting added, cancelled or moved since: the brief should be written again.
             current, context["sources"] = await asyncio.gather(
                 _timeline_items(request), load_widgets(request)

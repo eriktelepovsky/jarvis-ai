@@ -62,7 +62,7 @@
     <div class="glance" aria-hidden="true">
       <div class="glance-track">
         {% for placed in glance.items %}
-        <div class="glance-item{% if placed.past %} past{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%">
+        <div class="glance-item{% if placed.past %} past{% endif %}{% if placed.lunch %} lunch{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%">
           <span class="glance-label"><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span>{{ placed.item.title }}</span>
         </div>
         {% endfor %}

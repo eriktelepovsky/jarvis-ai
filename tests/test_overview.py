@@ -89,3 +89,28 @@ def test_a_past_day_has_no_now_and_nothing_free():
     day = datetime(2026, 10, 24, 6, 30, tzinfo=ZoneInfo("Europe/Bratislava"))
     shown = glance([TimelineItem(day.replace(hour=9), day.replace(hour=10), "Standup")], day, True)
     assert shown.now is None and shown.free_minutes == 0 and shown.items[0].past
+
+
+def test_lunch_is_shown_on_the_glance_but_is_no_event():
+    items = [TimelineItem(at(10), at(11), "Refinement"), TimelineItem(at(14), at(15), "Call")]
+    morning = at(8)
+    day = glance(items, morning, lunch=(at(12), at(12, 45)))
+    assert [(p.item.title, p.lunch) for p in day.items] == [
+        ("Refinement", False),
+        ("Lunch", True),
+        ("Call", False),
+    ]
+    assert day.count == 2
+    # Free from now until 18:00, less the two meetings and lunch.
+    assert day.free_minutes == 600 - 120 - 45
+    assert all(
+        not p.lunch for p in glance(items, morning, day_over=True, lunch=(at(12), at(13))).items
+    )
+
+
+def test_the_report_keeps_lunch_as_the_calendar_does():
+    from myorb.brief.routes import _lunch
+
+    items = [TimelineItem(at(10), at(11, 30), "Refinement"), TimelineItem(at(13), at(14), "X")]
+    assert _lunch(items, at(8)) == (at(12), at(12, 45))
+    assert _lunch([*items, TimelineItem(at(12), at(12, 30), "Obed")], at(8)) is None
