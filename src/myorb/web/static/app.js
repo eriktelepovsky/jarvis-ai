@@ -174,3 +174,45 @@ document.addEventListener("toggle", (event) => {
 }, true);
 window.addEventListener("resize", sizeEmailFrames);
 
+
+// The day at a glance: each event's label goes above or below the track, wherever it does not
+// run into the label before it; where neither side is free, the label before it is cut short
+// (or this one, when it ends at its event). Laid out again whenever the track's width changes,
+// e.g. once the report is opened.
+const GLANCE_GAP = 10;
+const GLANCE_MIN = 44; // room for the time at least
+function layoutGlance(track) {
+  if (!track.offsetWidth) return;
+  const lanes = [{ end: -Infinity, last: null }, { end: -Infinity, last: null }]; // above, below
+  let previous = 1;
+  track.querySelectorAll(".glance-item").forEach((item) => {
+    const label = item.querySelector(".glance-label");
+    if (!label) return;
+    label.style.maxWidth = "";
+    let width = label.offsetWidth;
+    const toEnd = item.classList.contains("end");
+    const anchor = toEnd ? item.offsetLeft + item.offsetWidth : item.offsetLeft;
+    let start = toEnd ? anchor - width : anchor;
+    const fits = (which) => lanes[which].end + GLANCE_GAP <= start;
+    let which = 1 - previous;
+    if (!fits(which)) which = fits(previous) ? previous : lanes[0].end <= lanes[1].end ? 0 : 1;
+    const lane = lanes[which];
+    if (!fits(which) && toEnd) {
+      width = Math.max(GLANCE_MIN, anchor - lane.end - GLANCE_GAP);
+      label.style.maxWidth = `${width}px`;
+      start = anchor - width;
+    }
+    if (!fits(which) && lane.last && !lane.last.toEnd) {
+      lane.last.label.style.maxWidth = `${Math.max(GLANCE_MIN, start - GLANCE_GAP - lane.last.start)}px`;
+    }
+    item.classList.toggle("below", which === 1);
+    lane.end = start + width;
+    lane.last = { label, start, toEnd };
+    previous = which;
+  });
+}
+const glanceWatch = "ResizeObserver" in window ? new ResizeObserver((entries) => entries.forEach((entry) => layoutGlance(entry.target))) : null;
+document.addEventListener("htmx:load", (event) => {
+  event.target.querySelectorAll?.(".glance-track").forEach((track) => (glanceWatch ? glanceWatch.observe(track) : layoutGlance(track)));
+});
+document.addEventListener("DOMContentLoaded", () => document.querySelectorAll(".glance-track").forEach((track) => (glanceWatch ? glanceWatch.observe(track) : layoutGlance(track))));
