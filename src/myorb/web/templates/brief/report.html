@@ -62,8 +62,10 @@
     <div class="glance" aria-hidden="true">
       <div class="glance-track">
         {% for placed in glance.items %}
-        <div class="glance-item{% if placed.past %} past{% endif %}{% if placed.kind != "event" %} {{ placed.kind }}{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%" title="{{ placed.item.start.strftime('%H:%M') }}–{{ placed.item.end.strftime('%H:%M') }} · {{ duration(((placed.item.end - placed.item.start).total_seconds() // 60) | int) }} · {{ placed.item.title }}">
+        <div class="glance-item{% if placed.past %} past{% endif %}{% if placed.kind != "event" %} {{ placed.kind }}{% endif %}{% if not placed.above %} below{% endif %}{% if placed.left > 72 %} end{% endif %}" style="left: {{ '%.2f' % placed.left }}%; width: {{ '%.2f' % placed.width }}%">
           <span class="glance-label"><span class="glance-time">{{ placed.item.start.strftime("%H:%M") }}</span>{{ placed.item.title }}</span>
+          {# Shown on hover: what it is, when, and how long. #}
+          <span class="glance-tip"><strong>{{ placed.item.title }}</strong><span class="glance-tip-when"><span>{{ placed.item.start.strftime('%H:%M') }}–{{ placed.item.end.strftime('%H:%M') }}</span><span class="glance-tip-length">{{ duration(((placed.item.end - placed.item.start).total_seconds() // 60) | int) }}</span></span></span>
         </div>
         {% endfor %}
         {% if glance.now is not none %}<span class="glance-now" style="left: {{ '%.2f' % glance.now }}%"></span>{% endif %}
