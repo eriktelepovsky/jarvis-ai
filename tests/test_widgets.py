@@ -1159,3 +1159,55 @@ def test_ignored_events_take_no_time(monkeypatch):
         "LuciA madero"
     ]
     assert asyncio.run(plugin.ignored_today(context)) == {("LuciA madero", now.replace(hour=14))}
+
+
+def test_the_report_follows_an_ignored_event(client: TestClient, fake_google: FakeGoogle):
+    from myorb.brief.models import Brief
+
+    now = datetime.now(TZ).replace(second=0, microsecond=0)
+    start, end = now + timedelta(minutes=30), now + timedelta(minutes=90)
+
+    def calendar(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.endswith("/calendarList"):
+            items = [{"id": "family@group.example", "selected": True, "summary": "Family"}]
+            return httpx2.Response(200, json={"items": items})
+        event = {
+            "id": "madero",
+            "summary": "LuciA madero",
+            "start": {"dateTime": start.isoformat()},
+            "end": {"dateTime": end.isoformat()},
+        }
+        return httpx2.Response(200, json={"items": [event]})
+
+    fake_google.routes[CALENDAR] = calendar
+    connect_google(client, fake_google)
+
+    async def brief() -> None:
+        async with client.app.state.sessionmaker() as db:
+            timeline = [
+                {"start": start.isoformat(), "end": end.isoformat(), "title": "LuciA madero"}
+            ]
+            db.add(
+                Brief(
+                    created_at=datetime.now(TZ) - timedelta(minutes=5),
+                    kind="morning",
+                    content={"headline": "", "summary": [], "priorities": [], "timeline": timeline},
+                    sources=["Calendar"],
+                    model="claude-sonnet-5-5",
+                    language="en",
+                )
+            )
+            await db.commit()
+
+    client.portal.call(brief)
+    report = client.get("/brief/report").text
+    on_the_day = 'class="glance-tip"><strong>LuciA madero</strong>'
+    assert on_the_day in report and "The calendar changed" not in report
+
+    client.post("/calendar/ignore", params={"key": "family@group.example/madero"})
+    report = client.get("/brief/report").text
+    # Gone from the day, and the brief, written with it, says to write it again.
+    assert on_the_day not in report
+    assert "The calendar changed since this brief was written" in report
+    assert "<strong>LuciA madero</strong> at" not in report
+    assert "LuciA madero</strong> ignored" in report

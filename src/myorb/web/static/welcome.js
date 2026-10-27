@@ -493,7 +493,10 @@
       sound("click");
     } else if (event.target.closest("[data-open-report]")) {
       dialogs().forEach((other) => other.open && other.close());
-      document.getElementById("report").showModal();
+      const report = document.getElementById("report");
+      report.showModal();
+      // As it is now: an event ignored or a task done since it was loaded changes it.
+      htmx.trigger(report.querySelector(".report"), "myorb:open");
       sound("open");
     } else if (event.target.closest("[data-read-aloud]")) {
       readAloud(event.target.closest("[data-read-aloud]"));

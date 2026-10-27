@@ -39,7 +39,7 @@
     <span class="alert-tag">CALENDAR</span>
     <span>The calendar changed since this brief was written:
       {% for change in calendar_changes %}{% set item = change.item %}
-      {% if change.kind == "added" %}<strong>{{ item.title }}</strong> added at {{ item.start | localtime("%H:%M") }}{% elif change.kind == "moved" %}<strong>{{ item.title }}</strong> moved from {{ change.was.start | localtime("%H:%M") }} to {{ item.start | localtime("%H:%M") }}{% else %}<strong>{{ item.title }}</strong> at {{ item.start | localtime("%H:%M") }} cancelled{% endif %}{{ ";" if not loop.last else "." }}
+      {% if change.kind == "added" %}<strong>{{ item.title }}</strong> added at {{ item.start | localtime("%H:%M") }}{% elif change.kind == "moved" %}<strong>{{ item.title }}</strong> moved from {{ change.was.start | localtime("%H:%M") }} to {{ item.start | localtime("%H:%M") }}{% elif change.kind == "ignored" %}<strong>{{ item.title }}</strong> ignored{% else %}<strong>{{ item.title }}</strong> at {{ item.start | localtime("%H:%M") }} cancelled{% endif %}{{ ";" if not loop.last else "." }}
       {% endfor %}
     </span>
     {% if configured %}<button type="button" class="btn btn-small brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this"><span class="spinner" aria-hidden="true"></span><span class="when-idle">Write it again</span><span class="when-busy">Writing…</span></button>{% endif %}
