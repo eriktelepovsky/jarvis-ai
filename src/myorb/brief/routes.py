@@ -137,10 +137,14 @@ async def _timeline(request: Request) -> Glance:
 
 
 def calendar_changes(
-    kept: list[TimelineItem], current: list[TimelineItem], now: datetime
+    kept: list[TimelineItem],
+    current: list[TimelineItem],
+    now: datetime,
+    ignored: set[tuple[str, datetime]] = frozenset(),
 ) -> list[dict]:
     """What changed in the rest of today's calendar since the brief was written: events
-    added, cancelled, or moved (the same title at another time)."""
+    added, cancelled, moved (the same title at another time), or ignored since (by title and
+    start)."""
 
     def key(item: TimelineItem) -> tuple:
         return item.title, item.start, item.end
@@ -157,7 +161,10 @@ def calendar_changes(
         else:
             before.remove(old)
             changes.append({"kind": "moved", "item": item, "was": old})
-    changes += [{"kind": "cancelled", "item": i} for i in before]
+    changes += [
+        {"kind": "ignored" if (i.title, i.start) in ignored else "cancelled", "item": i}
+        for i in before
+    ]
     return sorted(changes, key=lambda c: c["item"].start)
 
 
@@ -225,17 +232,18 @@ async def report(request: Request) -> Response:
             context["glance_kept"] = kept
             context["sources"] = await load_widgets(request)
         else:
-            # Events ignored since leave the brief's calendar too, rather than show as cancelled.
+            # Events ignored since leave the day, and the brief is to be written again.
             calendar = request.app.state.plugins.get("calendar")
+            ignored = set()
             if calendar is not None and hasattr(calendar, "ignored_today"):
                 ignored = await calendar.ignored_today(widget_context(request))
-                items = [i for i in items if (i.title, i.start) not in ignored]
-            context["glance"] = glance(now=now, **_with_lunch(items, now))
+            day = [i for i in items if (i.title, i.start) not in ignored]
+            context["glance"] = glance(now=now, **_with_lunch(day, now))
             # A meeting added, cancelled or moved since: the brief should be written again.
             current, context["sources"] = await asyncio.gather(
                 _timeline_items(request), load_widgets(request)
             )
-            context["calendar_changes"] = calendar_changes(items, current, now)
+            context["calendar_changes"] = calendar_changes(items, current, now, ignored)
     else:
         # A brief from before briefs kept their calendar: today's, as it is now.
         context["glance"], context["sources"] = await asyncio.gather(
