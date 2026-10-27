@@ -176,6 +176,13 @@
       </div>
     </section>
   </main>
+  {# Narrower than the three columns, they are three screens side by side: swiped between, or
+     chosen here (welcome.js). #}
+  <nav class="panes-nav" aria-label="Screens" data-panes-nav>
+    <button type="button" class="label" data-pane="0">Today</button>
+    <button type="button" class="label is-on" data-pane="1" aria-current="true">{{ assistant }}</button>
+    <button type="button" class="label" data-pane="2">Activity</button>
+  </nav>
   <footer class="label welcome-footer">Click a number to open its details</footer>
   <span class="label welcome-version">myOrb v{{ version }}</span>
 

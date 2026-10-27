@@ -1055,6 +1055,55 @@
     document.getElementById("ask-input")?.focus();
   });
 
+  // Narrower than the three columns, they are three screens side by side (welcome.css): the
+  // orb's in the middle, shown first; swiped between, or chosen in the bar below them.
+  const panesBox = document.querySelector(".welcome-main");
+  const narrowPanes = () => matchMedia("(max-width: 1279px)").matches;
+  const paneAt = () => (panesBox ? Math.round(panesBox.scrollLeft / Math.max(1, panesBox.clientWidth)) : 1);
+  function showPane(index, smooth = true) {
+    if (!panesBox || !narrowPanes()) return;
+    panesBox.scrollTo({ left: index * panesBox.clientWidth, behavior: smooth ? "smooth" : "instant" });
+  }
+  // As tall as the screen shown, so the orb's does not scroll on into the day's length.
+  function fitPanes() {
+    if (!panesBox) return;
+    if (!narrowPanes()) return panesBox.style.removeProperty("height");
+    const pane = panesBox.children[paneAt()];
+    if (pane) panesBox.style.height = `${pane.offsetHeight}px`;
+  }
+  function markPane() {
+    const at = paneAt();
+    fitPanes();
+    document.querySelectorAll("[data-pane]").forEach((button) => {
+      const on = Number(button.dataset.pane) === at;
+      button.classList.toggle("is-on", on);
+      if (on) button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
+    });
+  }
+  let paneShown = 1;
+  showPane(1, false);
+  panesBox?.addEventListener("scroll", () => {
+    paneShown = paneAt();
+    markPane();
+  }, { passive: true });
+  // A new width keeps the screen that was shown; a screen whose content grows (a panel
+  // loaded) stays as tall as it.
+  window.addEventListener("resize", () => {
+    showPane(paneShown, false);
+    fitPanes();
+  });
+  if ("ResizeObserver" in window && panesBox) {
+    const grown = new ResizeObserver(() => fitPanes());
+    [...panesBox.children].forEach((pane) => grown.observe(pane));
+  }
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pane]");
+    if (!button) return;
+    showPane(Number(button.dataset.pane));
+    sound("click");
+  });
+
   // The activity list shows only as many events as fit on screen: under the clock, above the
   // YouTube window (or the music search) while it is shown, else above the dock's controls or
   // the window's edge. The rest, the oldest, fade out.
@@ -1062,6 +1111,14 @@
   function fitActivity() {
     const list = document.querySelector('.side-right [hx-get="/activity"]');
     if (!list) return;
+    // As a screen of its own (narrow windows), the column shows every event and scrolls.
+    if (narrowPanes()) {
+      const column = list.closest(".side-right");
+      column.style.maxHeight = "";
+      column.style.transform = "";
+      list.querySelectorAll(".activity-item.is-cut").forEach((item) => item.classList.remove("is-cut"));
+      return;
+    }
     const items = [...list.querySelectorAll(".activity-item")];
     const column = list.closest(".side-right");
     // Shown or not: the video is only made invisible (the music plays on), the search removed.

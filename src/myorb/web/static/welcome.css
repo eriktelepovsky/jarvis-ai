@@ -427,13 +427,72 @@ a.ti:hover .t1 {
   background: rgb(255 138 138 / 70%);
 }
 
+/* Narrower than the three columns: three screens side by side, the orb in the middle, the
+   day to its left and actions and activity to its right; swiped between (they snap) or chosen
+   in the bar below them. */
+.panes-nav {
+  display: none;
+}
+
 @media (max-width: 1279px) {
   .welcome-main {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    padding: 0 0 90px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
   }
 
-  .side {
+  .welcome-main::-webkit-scrollbar {
     display: none;
+  }
+
+  .welcome-main > * {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+
+  /* Each screen keeps the full width to snap to; the column inside stays readable. */
+  .side-left,
+  .side-right {
+    box-sizing: border-box;
+    padding-block: 8px;
+    padding-inline: max(20px, calc((100% - 520px) / 2));
+    border: 0;
+  }
+
+  .panes-nav {
+    position: fixed;
+    bottom: max(14px, var(--safe-bottom, 0px));
+    left: 50%;
+    z-index: 15;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: rgb(7 9 12 / 82%);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    transform: translateX(-50%);
+    backdrop-filter: blur(8px);
+  }
+
+  .panes-nav button {
+    padding: 7px 12px;
+    color: var(--text-3);
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .panes-nav button.is-on {
+    color: var(--accent);
+    background: var(--accent-surface);
   }
 }
 
