@@ -178,7 +178,8 @@ window.addEventListener("resize", sizeEmailFrames);
 // The day at a glance: each event's label goes above or below the track, wherever it does not
 // run into the label before it; where neither side is free, the label before it is cut short
 // (or this one, when it ends at its event). A meeting too close to the one before it for even
-// its time, e.g. two at 14:00, joins its label: "14:00 Call · Review". Laid out again whenever the track's width changes,
+// its time, e.g. two at 14:00, gets a line in its label, under it (above the track, the label
+// grows upwards). Laid out again whenever the track's width changes,
 // e.g. once the report is opened.
 const GLANCE_GAP = 10;
 const GLANCE_MIN = 44; // room for the time at least
@@ -210,10 +211,18 @@ function layoutGlance(track) {
     const meeting = !item.matches(".lunch, .focus");
     const joined = !fits(which) && meeting && lanes.find(({ last }) => last?.meeting && start - GLANCE_GAP - last.start < GLANCE_MIN);
     if (joined) {
-      joined.last.label.append(` · ${label.lastChild.textContent.trim()}`);
+      const line = document.createElement("span");
+      line.className = "glance-line";
+      line.innerHTML = label.innerHTML;
+      joined.last.label.append(line);
       joined.last.label.style.maxWidth = "";
       label.hidden = true;
-      joined.end = joined.last.start + joined.last.label.offsetWidth;
+      joined.end = Math.max(joined.end, joined.last.start + joined.last.label.offsetWidth);
+      return;
+    }
+    // Lunch and focus blocks make way: their outline says what they are.
+    if (!fits(which) && !meeting) {
+      label.hidden = true;
       return;
     }
     if (!fits(which) && lane.last && !lane.last.toEnd) {
