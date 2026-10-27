@@ -1,10 +1,16 @@
-{# Only the box marks a task done; its title opens it to change. Done a moment ago, it stays,
-   struck through, with Undo. #}
-{% if not tasks and not done %}
+{# Only the box marks a task done; its title opens it to change. Done a moment ago, it stays
+   in its place, struck through: its box again brings it back. #}
+{% if not tasks %}
 <p class="t2">Nothing due today.{% if upcoming %} {{ upcoming }} more {{ "task" if upcoming == 1 else "tasks" }} later.{% endif %} <a href="/tasks">All tasks</a></p>
 {% else %}
 <div>
   {% for task in tasks %}
+  {% if task.id in done %}
+  <div class="check is-done">
+    <input type="checkbox" checked hx-post="/tasks/{{ task.id }}/undo" hx-trigger="change" hx-swap="none" aria-label="Bring “{{ task.title }}” back">
+    <span class="check-text"><span class="t1">{{ task.title }}</span><span class="t2">Done{% if task.repeat and task.due_date %} · next {{ task.due_date.strftime("%a %-d %b") }}{% endif %}</span></span>
+  </div>
+  {% else %}
   <div class="check">
     <input type="checkbox" hx-post="/tasks/{{ task.id }}/done" hx-trigger="change" hx-swap="none" aria-label="Mark “{{ task.title }}” as done">
     <a class="check-text" href="/tasks?edit={{ task.id }}" title="Change “{{ task.title }}”">
@@ -12,13 +18,7 @@
       <span class="t2{% if task.id in overdue %} overdue{% endif %}">{{ label(task) }}</span>
     </a>
   </div>
-  {% endfor %}
-  {% for task in done %}
-  <div class="check is-done">
-    <input type="checkbox" checked disabled aria-label="“{{ task.title }}” is done">
-    <span class="check-text"><span class="t1">{{ task.title }}</span><span class="t2">Done{% if task.repeat and task.due_date %} · next {{ task.due_date.strftime("%a %-d %b") }}{% endif %}</span></span>
-    <button type="button" class="row-btn" hx-post="/tasks/{{ task.id }}/undo" hx-swap="none">Undo</button>
-  </div>
+  {% endif %}
   {% endfor %}
 </div>
 {% endif %}

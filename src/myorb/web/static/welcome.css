@@ -3247,11 +3247,11 @@ dialog.is-refreshing .modal-head::after {
   color: var(--accent-hover);
 }
 
-/* As tall as its one line, near the top as a command bar is. */
+/* As tall as its fields, in the middle of the window. */
 .modal.modal-add {
   width: min(560px, calc(100% - 32px));
   height: fit-content;
-  margin-top: 18vh;
+  margin: auto;
   padding: 18px 20px;
 }
 
@@ -3393,4 +3393,18 @@ button.welcome-version:focus-visible {
 /* A priority that is over: dimmed while shown. */
 .priority.is-completed {
   opacity: 0.5;
+}
+
+/* A side column cut off by the window: its content fades out at the edge it goes on past,
+   rather than stopping sharp (welcome.js marks which). On its side, the phone has its own. */
+.welcome .side.is-cut-top {
+  mask-image: linear-gradient(transparent, #000 48px);
+}
+
+.welcome .side.is-cut-bottom {
+  mask-image: linear-gradient(#000 calc(100% - 64px), transparent);
+}
+
+.welcome .side.is-cut-top.is-cut-bottom {
+  mask-image: linear-gradient(transparent, #000 48px, #000 calc(100% - 64px), transparent);
 }

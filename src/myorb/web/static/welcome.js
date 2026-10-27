@@ -1215,6 +1215,27 @@
     });
   }
   window.addEventListener("resize", () => layoutStrip());
+
+  // A side column the window cuts off fades out at that edge (welcome.css); on its side the
+  // phone fades both edges always.
+  function markCut() {
+    document.querySelectorAll("#welcome .side").forEach((side) => {
+      const scrolls = !sideways() && side.scrollHeight > side.clientHeight + 1;
+      side.classList.toggle("is-cut-top", scrolls && side.scrollTop > 1);
+      side.classList.toggle(
+        "is-cut-bottom",
+        scrolls && side.scrollTop + side.clientHeight < side.scrollHeight - 1,
+      );
+    });
+  }
+  document.addEventListener("scroll", (event) => {
+    if (event.target.classList?.contains("side")) markCut();
+  }, { capture: true, passive: true });
+  window.addEventListener("resize", markCut);
+  // Its panels load, and grow or shrink (Hide past…), after the page.
+  const cutWatch = new ResizeObserver(markCut);
+  document.querySelectorAll("#welcome .side, #welcome .side > *").forEach((el) => cutWatch.observe(el));
+  markCut();
   layoutStrip();
 
   let swipeFrom = null;
