@@ -2223,8 +2223,30 @@ form.htmx-request .btn[type="submit"]::before {
     display: none;
   }
 
+  /* One line on a phone: a little tighter, ⋮ as narrow as the others are tall. */
+  .email-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .email-actions > form,
+  .email-actions > .btn {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .email-actions .btn {
+    padding: 0 11px;
+    white-space: nowrap;
+  }
+
   .email-more {
     display: block;
+    flex: none;
+  }
+
+  .email-more > summary.btn {
+    padding: 0 10px;
   }
 }
 
