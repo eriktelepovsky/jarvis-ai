@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +22,9 @@ from myorb.tasks.schedule import due_label, group
 
 ICON = "M4 7l2 2 4-4M4 17l2 2 4-4M14 7h6M14 17h6"
 ROWS_SHOWN = 12
-# How long a task done in the side panel stays there, with Undo.
-DONE_SHOWN = timedelta(minutes=5)
+# How long a task done in the side panel stays there, fading out (welcome.css), to be brought
+# back by its box.
+DONE_SHOWN = timedelta(seconds=5)
 PLACEHOLDER = "Add a task… e.g. “call the accountant tomorrow 10:00”"
 
 
@@ -150,8 +151,15 @@ class TasksPlugin(Plugin):
         tasks = [
             t for t in [*shown.overdue, *shown.today, *shown.someday] if t.id not in upcoming_ids
         ]
+
+        def since_done(task) -> float:
+            at = task.done_at or task.moved_at
+            return (context.now - at.replace(tzinfo=at.tzinfo or UTC)).total_seconds()
+
         return {
             "done": {task.id for task in before},
+            # How far through its fading each is, so a reload of the panel does not start it anew.
+            "faded": {task.id: round(min(since_done(task), 5.0), 2) for task in before},
             # Tasks without a date have no day of their own: they wait here, after today's.
             "tasks": tasks,
             "overdue": {task.id for task in groups.overdue},
