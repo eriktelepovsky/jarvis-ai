@@ -1194,54 +1194,81 @@
   window.addEventListener("resize", () => showPane(paneShown, false));
   // On a phone on its side nothing scrolls sideways: a swipe across the screen goes to the
   // screen beside, as one held upright does.
+  // While dragged sideways, the screen shown follows the finger and the one beside comes in
+  // after it, as when upright; let go far enough, it goes on to that screen, else back.
+  // At the first or last screen the drag gives a little only.
   let swipeFrom = null;
-  let dragged = null; // the screen following the finger, and whether the drag is sideways
-  const shownPane = () =>
-    [...document.querySelectorAll("#welcome .orb, #welcome .side")].find((el) => getComputedStyle(el).display !== "none");
+  let dragged = null; // {el, next, width, sideways}
+  const PANES = ["#welcome .side-left", "#welcome .orb", "#welcome .side-right"];
+  const paneEl = (index) => document.querySelector(PANES[index]);
+  const GAP = 24;
   const welcomeBox = document.getElementById("welcome");
+  function place(el, x) {
+    el.style.transform = x ? `translateX(${x}px)` : "";
+    // In its own half: what passes its left edge is not drawn over the clock.
+    el.style.clipPath = x < 0 ? `inset(0 0 0 ${-x}px)` : "";
+  }
+  function endDrag(state) {
+    for (const el of [state.el, state.next]) {
+      if (!el) continue;
+      el.style.transition = "";
+      el.style.transform = "";
+      el.style.clipPath = "";
+      el.classList.remove("is-peek");
+    }
+  }
   welcomeBox?.addEventListener("touchstart", (event) => {
     swipeFrom = sideways() && event.touches.length === 1 ? event.touches[0] : null;
-    dragged = swipeFrom ? { el: shownPane(), sideways: null } : null;
+    const el = swipeFrom ? paneEl(paneShown) : null;
+    dragged = el ? { el, next: null, width: el.getBoundingClientRect().width, sideways: null } : null;
   }, { passive: true });
-  // While dragged sideways, the screen follows the finger and fades, as one held upright
-  // scrolls; at the first or last screen it gives a little only.
   welcomeBox?.addEventListener("touchmove", (event) => {
-    if (!swipeFrom || !dragged?.el) return;
+    if (!swipeFrom || !dragged) return;
     const touch = event.touches[0];
     const dx = touch.clientX - swipeFrom.clientX;
     const dy = touch.clientY - swipeFrom.clientY;
     if (dragged.sideways === null && Math.abs(dx) + Math.abs(dy) > 10) dragged.sideways = Math.abs(dx) > Math.abs(dy) * 1.5;
     if (!dragged.sideways) return;
-    const edge = (dx > 0 && paneShown === 0) || (dx < 0 && paneShown === 2);
-    const moved = edge ? dx / 4 : dx;
+    const index = paneShown + (dx < 0 ? 1 : -1);
+    const next = index >= 0 && index <= 2 ? paneEl(index) : null;
+    if (next !== dragged.next) {
+      dragged.next?.classList.remove("is-peek");
+      if (dragged.next) place(dragged.next, 0);
+      next?.classList.add("is-peek");
+      dragged.next = next;
+      dragged.index = index;
+    }
+    const moved = next ? dx : dx / 4;
     dragged.el.style.transition = "none";
-    dragged.el.style.transform = `translateX(${moved}px)`;
-    // It stays in its own half: what moves past its left edge is not drawn over the clock.
-    dragged.el.style.clipPath = moved < 0 ? `inset(0 0 0 ${-moved}px)` : "";
-    dragged.el.style.opacity = String(Math.max(0.25, 1 - Math.abs(moved) / (window.innerWidth * 0.6)));
+    place(dragged.el, moved);
+    if (next) {
+      next.style.transition = "none";
+      place(next, moved + (dx < 0 ? 1 : -1) * (dragged.width + GAP));
+    }
   }, { passive: true });
   welcomeBox?.addEventListener("touchend", (event) => {
     if (!swipeFrom) return;
     const end = event.changedTouches[0];
     const dx = end.clientX - swipeFrom.clientX;
-    const dy = end.clientY - swipeFrom.clientY;
-    const el = dragged?.el;
+    const state = dragged;
     swipeFrom = null;
     dragged = null;
-    const next = Math.min(2, Math.max(0, paneShown + (dx < 0 ? 1 : -1)));
-    const goes = Math.abs(dx) >= 60 && Math.abs(dx) >= Math.abs(dy) * 1.5 && next !== paneShown;
-    if (el) {
-      // Back into place, or (going on) away at once: the next screen slides in instead.
-      el.style.transition = goes ? "none" : "transform 0.2s ease, opacity 0.2s ease";
-      el.style.transform = "";
-      el.style.opacity = "";
-      el.style.clipPath = "";
-      if (!goes) el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
-      else requestAnimationFrame(() => (el.style.transition = ""));
-    }
+    if (!state?.sideways) return;
+    const goes = state.next && Math.abs(dx) >= 60;
+    const out = (dx < 0 ? -1 : 1) * (state.width + GAP);
+    for (const el of [state.el, state.next]) if (el) el.style.transition = "transform 0.22s ease-out";
     if (goes) {
-      showPane(next);
+      place(state.el, out);
+      place(state.next, 0);
       sound("click");
+      setTimeout(() => {
+        showPane(state.index, false);
+        endDrag(state);
+      }, 230);
+    } else {
+      place(state.el, 0);
+      if (state.next) place(state.next, -out);
+      setTimeout(() => endDrag(state), 230);
     }
   }, { passive: true });
   document.addEventListener("click", (event) => {
