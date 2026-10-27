@@ -80,7 +80,7 @@ def glance(
     items: list[TimelineItem],
     now: datetime,
     day_over: bool = False,
-    lunch: tuple[datetime, datetime] | None = None,
+    lunch: TimelineItem | None = None,
 ) -> Glance:
     """The day of `now`; with `day_over`, a past day as it ended (no "now", nothing free).
     `lunch` and the free blocks for focus around it (see focus_blocks) are shown among the
@@ -94,7 +94,7 @@ def glance(
     def position(moment: datetime) -> float:
         return max(0.0, min(100.0, (moment - start).total_seconds() / span * 100))
 
-    lunch_items = [TimelineItem(*lunch, "Lunch")] if lunch and not day_over else []
+    lunch_items = [lunch] if lunch and not day_over else []
     busy = [*today, *lunch_items]
     focus = [] if day_over else focus_blocks(busy, now)
     kinds = {id(i): "lunch" for i in lunch_items}

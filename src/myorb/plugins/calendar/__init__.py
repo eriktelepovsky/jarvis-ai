@@ -50,8 +50,18 @@ LUNCH_MINUTES = 45
 LUNCH_FROM = (11, 30)
 LUNCH_TO = (13, 30)
 LUNCH_AT = (12, 0)
-# An event of the user's own for lunch takes its place.
+# An event of the user's own for lunch takes its place, and is shown as lunch.
 LUNCH_EVENT = re.compile(r"(?i)\b(lunch|obed|oběd|mittag\w*)\b")
+
+
+def is_lunch(event: dict[str, Any]) -> bool:
+    """The user's own lunch in the calendar: a timed event called so, not ignored."""
+    return (
+        event.get("kind") != "now"
+        and not event.get("all_day")
+        and not event.get("ignored")
+        and bool(LUNCH_EVENT.search(event.get("title") or ""))
+    )
 
 
 def calendar_url(email: str) -> str:
@@ -149,7 +159,9 @@ def today_and_upcoming(events: list[dict[str, Any]], now: datetime) -> dict[str,
     upcoming = [e for e in events if e["start"] >= tomorrow]
     return {
         "today": today,
-        "today_count": sum(1 for e in today if e["kind"] != "now" and not e.get("ignored")),
+        "today_count": sum(
+            1 for e in today if e["kind"] != "now" and not e.get("ignored") and not is_lunch(e)
+        ),
         "upcoming": upcoming,
     }
 
@@ -198,12 +210,19 @@ def _focus_minutes(busy: list[TimelineItem], now: datetime) -> int:
 def lunch_time(
     events: list[dict[str, Any]], now: datetime, trips: list[dict[str, Any]] = ()
 ) -> dict[str, Any] | None:
-    """Today's lunch, kept free (kind "lunch"): in the lunch window where it leaves the most
-    time for focus, then closest to noon. None once it is over, when the calendar has lunch
-    already, or when the window has no room for it."""
-    own = [e for e in events if e.get("kind") != "now" and not e.get("ignored")]
-    if any(LUNCH_EVENT.search(e.get("title") or "") for e in own):
-        return None
+    """Today's lunch (kind "lunch"): the user's own lunch event (with its title and link), or
+    else time kept free in the lunch window where it leaves the most time for focus, then
+    closest to noon. None once that is over, or when the window has no room for it."""
+    if own := next((e for e in events if is_lunch(e)), None):
+        minutes = int((own["end"] - own["start"]).total_seconds() // 60)
+        return {
+            "kind": "lunch",
+            "start": own["start"],
+            "end": own["end"],
+            "length": duration(minutes),
+            "title": own["title"],
+            "url": own.get("url"),
+        }
     day = now.replace(second=0, microsecond=0)
     earliest = max(day.replace(hour=LUNCH_FROM[0], minute=LUNCH_FROM[1]), day)
     earliest += timedelta(minutes=-earliest.minute % 5)
@@ -477,8 +496,8 @@ class CalendarPlugin(Plugin):
             if event["kind"] == "now":
                 lines.append(f"-- now is {now:%H:%M} --")
                 continue
-            if event["ignored"]:
-                continue  # the user ignores it: it does not concern them
+            if event["ignored"] or is_lunch(event):
+                continue  # the user ignores it: it does not concern them; lunch comes below
             when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
             done = " (already over)" if event["kind"] == "past" else ""
             details = f" ({event['sub']})" if event["sub"] else ""
@@ -488,7 +507,8 @@ class CalendarPlugin(Plugin):
         trips = await self._trips(context, day["today"])
         lines += [trip_line(trip) for trip in trips]
         if lunch := lunch_time(day["today"], now, trips):
-            lines.append(f"Lunch kept free: {lunch['start']:%H:%M}–{lunch['end']:%H:%M}")
+            own = f" ({lunch['title']}, in the calendar)" if lunch.get("title") else ""
+            lines.append(f"Lunch kept free: {lunch['start']:%H:%M}–{lunch['end']:%H:%M}{own}")
         lines.append(focus_line(focus_time(day["today"], now, trips)))
         # All of tomorrow, with times and places: a flight or an early start needs preparing
         # today. Then a few events of the rest of the week.
@@ -519,7 +539,9 @@ class CalendarPlugin(Plugin):
         week = [e for e in day["upcoming"] if e["start"] < now + timedelta(days=DAYS_AHEAD)]
         # The next timed event: later today, or else the first of the week ahead.
         timed = [
-            e for e in [*today, *week] if not e["all_day"] and e["start"] > now and not e["ignored"]
+            e
+            for e in [*today, *week]
+            if not e["all_day"] and e["start"] > now and not e["ignored"] and not is_lunch(e)
         ]
         nxt = timed[0] if timed else None
         trips = await self._trips(context, today)
@@ -530,7 +552,9 @@ class CalendarPlugin(Plugin):
         # ahead, by calendar; the numbers above filter them: today, the next event, focus
         # time, the next seven days.
         extras = [*focus, *([lunch] if lunch else []), *({**t, "kind": "travel"} for t in trips)]
-        listed = among_events(today, sorted(extras, key=lambda e: e["start"]))
+        # The user's own lunch shows as lunch, not as one of the meetings.
+        meetings = [e for e in today if not is_lunch(e)]
+        listed = among_events(meetings, sorted(extras, key=lambda e: e["start"]))
         for event in [*listed, *week]:
             if event.get("kind") == "travel":
                 soon = event["start"] - now <= timedelta(minutes=15)
@@ -547,9 +571,10 @@ class CalendarPlugin(Plugin):
             if event.get("kind") == "lunch":
                 rows.append(
                     Row(
-                        title="Lunch",
+                        title=event.get("title") or "Lunch",
                         subtitle=f"{event['start']:%H:%M}–{event['end']:%H:%M} · {event['length']}",
                         badge=f"{event['start']:%H:%M}",
+                        url=event.get("url"),
                         tags=("lunch",),
                     )
                 )
@@ -629,7 +654,8 @@ class CalendarPlugin(Plugin):
                     extras.append(lunch)
                 extras += [{**t, "kind": "travel"} for t in trips]
                 extras.sort(key=lambda e: e["start"])
-                day = {**day, "today": among_events(day["today"], extras)}
+                meetings = [e for e in day["today"] if not is_lunch(e)]
+                day = {**day, "today": among_events(meetings, extras)}
         else:
             events = [e for a in loaded for e in a.data["events"]]
             day = {"today": events_on(events, date, ignored)}

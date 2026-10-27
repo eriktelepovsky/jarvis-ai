@@ -95,7 +95,7 @@ def test_a_past_day_has_no_now_and_nothing_free():
 def test_lunch_is_shown_on_the_glance_but_is_no_event():
     items = [TimelineItem(at(10), at(11), "Refinement"), TimelineItem(at(14), at(15), "Call")]
     morning = at(8)
-    day = glance(items, morning, lunch=(at(12), at(12, 45)))
+    day = glance(items, morning, lunch=TimelineItem(at(12), at(12, 45), "Lunch"))
     assert [(p.item.title, p.kind) for p in day.items] == [
         ("Free for focus", "focus"),  # 09:00–10:00
         ("Refinement", "event"),
@@ -110,13 +110,20 @@ def test_lunch_is_shown_on_the_glance_but_is_no_event():
     assert day.free_minutes == 600 - 120 - 45
     assert all(
         p.kind == "event"
-        for p in glance(items, morning, day_over=True, lunch=(at(12), at(13))).items
+        for p in glance(
+            items, morning, day_over=True, lunch=TimelineItem(at(12), at(13), "Lunch")
+        ).items
     )
 
 
 def test_the_report_keeps_lunch_as_the_calendar_does():
-    from myorb.brief.routes import _lunch
+    from myorb.brief.routes import _with_lunch
 
     items = [TimelineItem(at(10), at(11, 30), "Refinement"), TimelineItem(at(13), at(14), "X")]
-    assert _lunch(items, at(8)) == (at(12), at(12, 45))
-    assert _lunch([*items, TimelineItem(at(12), at(12, 30), "Obed")], at(8)) is None
+    assert _with_lunch(items, at(8)) == {
+        "items": items,
+        "lunch": TimelineItem(at(12), at(12, 45), "Lunch"),
+    }
+    # The user's own lunch event is the lunch, with its title, and no longer one of the events.
+    own = TimelineItem(at(12), at(12, 30), "Obed s Petrom")
+    assert _with_lunch([*items, own], at(8)) == {"items": items, "lunch": own}
