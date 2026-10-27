@@ -1746,8 +1746,9 @@ button.modal-stat[aria-pressed="true"] {
   border-radius: 0;
 }
 
-/* The first message right under the head, whose line it shares. */
-.page-view details.email-message:first-of-type {
+/* The first message right under the head, whose line it shares (not when a note, e.g.
+   "Marked as read", is between them: that keeps its space). */
+.page-view .email-top + #email-draft:empty + details.email-message {
   margin-top: 0;
   border-top: 0;
 }

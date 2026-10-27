@@ -271,3 +271,34 @@ document.addEventListener("htmx:beforeSwap", (event) => {
   if (config?.verb === "get" && event.detail.target?.id === "page-view") location.href = config.path;
   else location.reload();
 });
+
+// Changing a task (its Edit link, or its title in the side panel) opens it in a dialog over
+// the page, laid out as the Add dialog, rather than the task list. Saved, the dialog closes;
+// the welcome screen loads its numbers and panels again, the task list itself.
+document.addEventListener("click", (event) => {
+  const link = event.target.closest?.('a[href^="/tasks?edit="]');
+  if (!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey) return;
+  const id = new URL(link.href, location.href).searchParams.get("edit");
+  if (!/^\d+$/.test(id || "")) return;
+  event.preventDefault();
+  event.stopPropagation();
+  let dialog = document.getElementById("task-dialog");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "task-dialog";
+    dialog.className = "modal modal-add";
+    dialog.setAttribute("aria-label", "Change the task");
+    document.body.append(dialog);
+  }
+  htmx.ajax("GET", `/tasks/${id}/form`, { target: dialog, swap: "innerHTML" }).then(() => {
+    // Over any dialog open (e.g. the tasks' details), on top of it.
+    if (!dialog.open) dialog.showModal();
+    dialog.querySelector("input[name=title]")?.focus();
+  });
+}, true);
+document.addEventListener("htmx:afterRequest", (event) => {
+  const form = event.detail.elt.closest?.("[data-task-form]");
+  if (!form || !event.detail.successful) return;
+  form.closest("dialog")?.close();
+  if (location.pathname === "/tasks") htmx.ajax("GET", "/tasks", { target: "#app", select: "#app", swap: "outerHTML" });
+});
