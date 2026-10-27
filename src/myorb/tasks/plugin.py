@@ -36,7 +36,15 @@ class TasksPlugin(Plugin):
         return [Widget(id="open", label="Tasks", title="Tasks", icon=ICON, load=self._widget)]
 
     def panels(self) -> list[Panel]:
-        return [Panel(id="today", title="Tasks", template="today.html", load=self._today)]
+        return [
+            Panel(
+                id="today",
+                title="Tasks",
+                template="today.html",
+                load=self._today,
+                add=Input("/tasks", PLACEHOLDER, "New task"),
+            )
+        ]
 
     def ask_actions(self) -> list[AskAction]:
         from myorb.tasks.actions import ask_actions

@@ -170,6 +170,8 @@ class Panel:
     template: str
     load: Callable[[WidgetContext], Awaitable[dict[str, Any]]]
     placement: Literal["side", "header"] = "side"
+    # A one-line form to add to it (e.g. a task), opened from an Add button in its head.
+    add: Input | None = None
 
 
 @dataclass(frozen=True)
