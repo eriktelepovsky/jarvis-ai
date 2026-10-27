@@ -74,6 +74,12 @@ def test_welcome_screen_loads_widgets_and_panels(make_client: MakeClient, echo: 
     client = make_client(plugins={"echo": EchoPlugin(echo), "calendar": CalendarPlugin()})
     complete_setup(client)
     text = client.get("/").text
+    # Narrow, the day and the activity are screens beside the orb's, chosen in this bar.
+    assert (
+        "data-panes-nav" in text
+        and 'data-pane="0">Today<' in text
+        and 'data-pane="2">Activity<' in text
+    )
     # Each widget loads on its own, so a slow service does not hold up the others.
     assert 'hx-get="/welcome/widget/calendar/today"' in text
     assert client.get("/welcome/widget/calendar/today").text == ""  # Google not set up: empty
