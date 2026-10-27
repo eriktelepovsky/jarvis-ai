@@ -1189,18 +1189,51 @@
   // On a phone on its side nothing scrolls sideways: a swipe across the screen goes to the
   // screen beside, as one held upright does.
   let swipeFrom = null;
-  document.getElementById("welcome")?.addEventListener("touchstart", (event) => {
+  let dragged = null; // the screen following the finger, and whether the drag is sideways
+  const shownPane = () =>
+    [...document.querySelectorAll("#welcome .orb, #welcome .side")].find((el) => getComputedStyle(el).display !== "none");
+  const welcomeBox = document.getElementById("welcome");
+  welcomeBox?.addEventListener("touchstart", (event) => {
     swipeFrom = sideways() && event.touches.length === 1 ? event.touches[0] : null;
+    dragged = swipeFrom ? { el: shownPane(), sideways: null } : null;
   }, { passive: true });
-  document.getElementById("welcome")?.addEventListener("touchend", (event) => {
+  // While dragged sideways, the screen follows the finger and fades, as one held upright
+  // scrolls; at the first or last screen it gives a little only.
+  welcomeBox?.addEventListener("touchmove", (event) => {
+    if (!swipeFrom || !dragged?.el) return;
+    const touch = event.touches[0];
+    const dx = touch.clientX - swipeFrom.clientX;
+    const dy = touch.clientY - swipeFrom.clientY;
+    if (dragged.sideways === null && Math.abs(dx) + Math.abs(dy) > 10) dragged.sideways = Math.abs(dx) > Math.abs(dy) * 1.5;
+    if (!dragged.sideways) return;
+    const edge = (dx > 0 && paneShown === 0) || (dx < 0 && paneShown === 2);
+    const moved = edge ? dx / 4 : dx;
+    dragged.el.style.transition = "none";
+    dragged.el.style.transform = `translateX(${moved}px)`;
+    // It stays in its own half: what moves past its left edge is not drawn over the clock.
+    dragged.el.style.clipPath = moved < 0 ? `inset(0 0 0 ${-moved}px)` : "";
+    dragged.el.style.opacity = String(Math.max(0.25, 1 - Math.abs(moved) / (window.innerWidth * 0.6)));
+  }, { passive: true });
+  welcomeBox?.addEventListener("touchend", (event) => {
     if (!swipeFrom) return;
     const end = event.changedTouches[0];
     const dx = end.clientX - swipeFrom.clientX;
     const dy = end.clientY - swipeFrom.clientY;
+    const el = dragged?.el;
     swipeFrom = null;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    dragged = null;
     const next = Math.min(2, Math.max(0, paneShown + (dx < 0 ? 1 : -1)));
-    if (next !== paneShown) {
+    const goes = Math.abs(dx) >= 60 && Math.abs(dx) >= Math.abs(dy) * 1.5 && next !== paneShown;
+    if (el) {
+      // Back into place, or (going on) away at once: the next screen slides in instead.
+      el.style.transition = goes ? "none" : "transform 0.2s ease, opacity 0.2s ease";
+      el.style.transform = "";
+      el.style.opacity = "";
+      el.style.clipPath = "";
+      if (!goes) el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+      else requestAnimationFrame(() => (el.style.transition = ""));
+    }
+    if (goes) {
       showPane(next);
       sound("click");
     }
