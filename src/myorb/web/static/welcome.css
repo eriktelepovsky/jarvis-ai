@@ -1035,12 +1035,13 @@ a.ti:hover .t1 {
     --edge-bottom: max(12px, var(--safe-bottom));
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto 1fr auto auto 1fr auto;
+    grid-template-rows: auto 1fr auto auto auto 1fr auto;
     grid-template-areas:
       "header orb"
       ". orb"
       "greeting orb"
       "command orb"
+      "panes orb"
       ". orb"
       "footer orb";
     column-gap: 24px;
@@ -1053,10 +1054,35 @@ a.ti:hover .t1 {
     display: contents;
   }
 
-  /* No room for the day and the activity beside it: as before the three screens, only the orb. */
-  .side,
-  .panes-nav {
+  /* The bar of screens under the command line; the day or the activity chosen there takes
+     the orb's place on the right. */
+  .side {
     display: none;
+  }
+
+  .panes-nav {
+    position: static;
+    grid-area: panes;
+    justify-self: start;
+    margin: 16px 0 0 26px;
+    transform: none;
+  }
+
+  .welcome[data-pane="0"] .orb,
+  .welcome[data-pane="2"] .orb {
+    display: none;
+  }
+
+  .welcome[data-pane="0"] .side-left,
+  .welcome[data-pane="2"] .side-right {
+    display: flex;
+    grid-area: orb;
+    width: min(46vw, 520px);
+    max-height: var(--screen);
+    padding: max(26px, var(--safe-top)) 0 max(20px, var(--safe-bottom));
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
   }
 
   .welcome[data-pane] .welcome-version {
