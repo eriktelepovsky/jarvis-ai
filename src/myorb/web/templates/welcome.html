@@ -85,7 +85,7 @@
           <span class="label core-status"><span class="live-dot" aria-hidden="true"></span><span id="core-status">Loading sources…</span></span>
           <span class="core-name" style="--chars: {{ assistant | length }}">{{ assistant }}</span>
           <span class="muted core-line" id="core-line"></span>
-          <div class="core-brief" hx-get="{{ url_for('headline') }}" hx-trigger="load, every 5m, myorb:brief from:body, myorb:open"></div>
+          <div class="core-brief" hx-get="{{ url_for('headline') }}" hx-trigger="load, every 5m, myorb:brief from:body"></div>
         </div>
 
         {# Each number loads on its own and shows as soon as its service answers; until then a
@@ -191,7 +191,7 @@
   </dialog>
 
   <dialog class="modal modal-report" id="report" aria-labelledby="report-title">
-    <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, myorb:brief from:body">
+    <div class="report" hx-get="{{ url_for('report') }}" hx-trigger="load, every 5m, myorb:brief from:body, myorb:open">
       <div class="modal-head"><h2 id="report-title">Daily brief</h2></div>
     </div>
   </dialog>
