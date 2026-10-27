@@ -469,6 +469,9 @@ def test_a_reply_is_written_and_saved_as_a_gmail_draft(make_client: MakeClient, 
     complete_setup(app)
     connect_google(app, google)
     assert 'hx-get="/email/1/t1/draft"' in app.get("/email/1/t1").text
+    # Over the list, M marks it as read and goes on to the next (see welcome.js).
+    in_view = app.get("/email/1/t1", headers={"HX-Request": "true", "HX-Target": "page-view"}).text
+    assert "data-mark-read" in in_view and '<kbd class="btn-key">M</kbd>' in in_view
     # Without Claude, the user writes the reply themselves.
     assert "Write with" not in app.get("/email/1/t1/draft").text
     assert 'name="body"' in app.get("/email/1/t1/draft").text
