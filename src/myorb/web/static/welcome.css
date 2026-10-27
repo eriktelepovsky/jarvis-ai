@@ -1074,7 +1074,8 @@ a.ti:hover .t1 {
   }
 
   .welcome[data-pane="0"] .side-left,
-  .welcome[data-pane="2"] .side-right {
+  .welcome[data-pane="2"] .side-right,
+  .welcome .side.is-peek {
     display: flex;
     grid-area: orb;
     box-sizing: border-box;
@@ -1089,6 +1090,11 @@ a.ti:hover .t1 {
 
   .welcome[data-pane] .welcome-version {
     opacity: 1;
+  }
+
+  /* The screen beside the one dragged, coming in after it (welcome.js). */
+  .welcome .orb.is-peek {
+    display: block;
   }
 
   /* Changing screen, the one shown slides in from its side (welcome.js). */
