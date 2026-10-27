@@ -1162,6 +1162,10 @@
   const GAP = 72; // the orb's circles reach past its box
   const welcomeBox = document.getElementById("welcome");
   let stripWidth = 0;
+  // Where the strip is, in screens (1: the orb in place), moved each frame by a slide: the
+  // move and the cut computed together, as Safari does not keep two transitions in step.
+  let stripAt = null;
+  let slide = 0;
   function showPane(index, smooth = true) {
     if (!panesBox || !narrowPanes()) return;
     if (sideways()) {
@@ -1199,20 +1203,39 @@
   // finger) or by the bar. Each is cut to the right half, so none passes over the clock.
   function layoutStrip(offset = 0, smooth = false) {
     const els = PANES.map((_, i) => paneEl(i));
+    cancelAnimationFrame(slide);
     if (!sideways()) {
+      stripAt = null;
       for (const el of els) if (el) Object.assign(el.style, { transform: "", clipPath: "", transition: "" });
       return;
     }
+    // Where each is laid out, without its move along the strip.
+    for (const el of els) if (el) Object.assign(el.style, { transform: "", clipPath: "", transition: "none" });
     stripWidth = paneEl(0)?.getBoundingClientRect().width || stripWidth;
-    els.forEach((el, i) => {
-      if (!el) return;
-      const x = (i - paneShown) * (stripWidth + GAP) + offset;
-      el.style.transition = smooth ? "transform 0.3s ease-out, clip-path 0.3s ease-out" : "none";
-      el.style.transform = x ? `translateX(${x}px)` : "";
-      // As far as it moved left: the clip and the move change together, so it never
-      // reaches over the clock, even halfway through a slide past two screens.
-      el.style.clipPath = `inset(0 0 0 ${Math.max(0, -x)}px)`;
-    });
+    const rest = els.map((el) => el?.getBoundingClientRect().left ?? 0);
+    const step = stripWidth + GAP;
+    // One edge for all three, where the day's screen begins: the orb's box is wider than its
+    // circle and begins further left, so cut at its own edge it would pass over the clock.
+    const edge = rest[0];
+    const place = (at) => {
+      stripAt = at;
+      els.forEach((el, i) => {
+        if (!el) return;
+        const x = (i - at) * step;
+        el.style.transform = x ? `translateX(${x}px)` : "";
+        el.style.clipPath = `inset(0 0 0 ${Math.max(0, edge - (rest[i] + x))}px)`;
+      });
+    };
+    const target = paneShown - offset / step;
+    const from = stripAt ?? target;
+    if (!smooth || from === target || matchMedia("(prefers-reduced-motion: reduce)").matches) return place(target);
+    const start = performance.now();
+    const frame = (now) => {
+      const t = Math.min(1, (now - start) / 300);
+      place(from + (target - from) * (1 - (1 - t) ** 3)); // ease-out
+      if (t < 1) slide = requestAnimationFrame(frame);
+    };
+    slide = requestAnimationFrame(frame);
   }
   window.addEventListener("resize", () => layoutStrip());
 
