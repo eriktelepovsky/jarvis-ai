@@ -10,6 +10,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Any
 
 import anthropic
@@ -86,12 +87,32 @@ def _refresh_action(plugins: list[Plugin], links: dict[str, str]) -> AskAction:
     )
 
 
+async def _claude_spend(request: Request, now: datetime) -> str:
+    """What myOrb itself spent on Claude (the brief, Ask, replies), as Integrations shows it:
+    counted from its own requests, not the organization's bill."""
+    service, http = request.app.state.brief, request.app.state.http
+    month_days = now.day
+    today, unit = await service.spent_eur(http, 1)
+    month, _ = await service.spent_eur(http, month_days)
+    last_30, _ = await service.spent_eur(http, 30)
+    return (
+        "## myOrb's use of Claude\n"
+        "What myOrb itself spent on Claude API requests (briefs, Ask, replies, summaries), "
+        "counted from its own requests; not the organization's whole bill.\n"
+        f"- Last 24 hours: {unit}{today:.2f}\n"
+        f"- This month (last {month_days} days): {unit}{month:.2f}\n"
+        f"- Last 30 days: {unit}{last_30:.2f}"
+    )
+
+
 async def _start(request: Request, earlier: list[dict[str, str]]) -> Conversation:
     """A new conversation: the dashboard now, the actions of the services set up (and loading
     new data), and the earlier turns the browser kept (e.g. after a restart) as plain text."""
     plugins = ordered_plugins(request)
     links: dict[str, str] = {}
-    text, set_up = await dashboard(widget_context(request), plugins, links)
+    context = widget_context(request)
+    text, set_up = await dashboard(context, plugins, links)
+    text += "\n\n" + await _claude_spend(request, context.now)
     actions, tools = offered(set_up, [_refresh_action(plugins, links)])
     async with request.app.state.sessionmaker() as db:
         assistant = (await load_profile(db, request.app.state.secret_box))["assistant"]
