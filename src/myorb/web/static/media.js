@@ -30,6 +30,8 @@
   // so a change applies without reloading the page.
   let musicConfig = { source: "ambient" };
 
+  const youtubeSet = (config) => config.source === "youtube" && Boolean(config.video || config.playlist);
+
   async function loadMusicConfig() {
     try {
       const response = await fetch("/music/config", { headers: { Accept: "application/json" } });
@@ -331,7 +333,10 @@
     const player = Boolean(youtube.player || youtube.key);
     dock.querySelector(".music-player").hidden = !player;
     dock.querySelector(".music-player").classList.toggle("is-hidden", Boolean(prefs.videoHidden));
-    dock.querySelector(".dock-controls [data-toggle='video']").hidden = !(player && prefs.videoHidden);
+    // The video button is there from the page's first load while the video is hidden and the
+    // music is YouTube's, played or not: with no player yet, it starts the video.
+    dock.querySelector(".dock-controls [data-toggle='video']").hidden =
+      !(prefs.videoHidden && (player || youtubeSet(musicConfig)));
   }
 
   let volumeOpen = false;
@@ -356,6 +361,11 @@
       volumeOpen = !volumeOpen;
     } else if (name === "video") {
       prefs.videoHidden = !prefs.videoHidden;
+      if (!prefs.videoHidden && !youtube.player && !youtube.key && youtubeSet(musicConfig)) {
+        if (music) stopMusic();
+        prefs.musicOn = true;
+        startYouTube(musicConfig);
+      }
     } else if (name === "music") {
       await toggleMusic();
     }
@@ -537,8 +547,7 @@
     if (!document.getElementById("media-dock")) return;
     const config = await loadMusicConfig();
     if (!prefs.musicOn || music) return;
-    const youtubeSet = config.source === "youtube" && (config.video || config.playlist);
-    if (youtubeSet) startYouTube(config, { resume: true });
+    if (youtubeSet(config)) startYouTube(config, { resume: true });
     else startMusic();
     render();
     // Only a player that never started: one paused in the player itself stays paused (a click
