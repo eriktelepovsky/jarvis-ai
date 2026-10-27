@@ -384,6 +384,15 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       stepView(event.key === "ArrowLeft" ? -1 : 1);
+    } else if (event.key.toLowerCase() === "m" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      // M: marks the email as read and goes on to the next, as reading through the inbox.
+      // One read already just goes on.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const form = document.querySelector("#page-view [data-mark-read]");
+      if (!form) return stepView(1);
+      form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && stepView(1), { once: true });
+      htmx.trigger(form, "submit");
     }
   }, true);
 
