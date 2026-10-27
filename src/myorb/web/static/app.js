@@ -239,3 +239,15 @@ document.addEventListener("htmx:load", (event) => {
   event.target.querySelectorAll?.(".glance-track").forEach((track) => (glanceWatch ? glanceWatch.observe(track) : layoutGlance(track)));
 });
 document.addEventListener("DOMContentLoaded", () => document.querySelectorAll(".glance-track").forEach((track) => (glanceWatch ? glanceWatch.observe(track) : layoutGlance(track))));
+
+// Esc on a page of its own (Integrations, Security, …) goes back to the welcome screen, unless
+// it closes something first or is typed into a field.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.defaultPrevented || location.pathname === "/") return;
+  if (document.querySelector("dialog[open]") || event.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  // Through the menu's Home link (signed in only), boosted: the music plays on.
+  const home = document.querySelector('nav.nav a[href="/"]');
+  if (!home) return;
+  event.preventDefault();
+  home.click();
+});

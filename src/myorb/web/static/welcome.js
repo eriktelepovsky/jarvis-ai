@@ -1060,12 +1060,18 @@
   const panesBox = document.querySelector(".welcome-main");
   const narrowPanes = () => matchMedia("(max-width: 1279px)").matches;
   const paneAt = () => (panesBox ? Math.round(panesBox.scrollLeft / Math.max(1, panesBox.clientWidth)) : 1);
+  // A phone on its side lays them out otherwise: the chosen screen takes the orb's place, with
+  // nothing to scroll sideways (welcome.css).
+  const sideways = () => matchMedia("(orientation: landscape) and (max-height: 560px)").matches;
   function showPane(index, smooth = true) {
     if (!panesBox || !narrowPanes()) return;
+    if (sideways()) {
+      paneShown = index;
+      return markPane(index);
+    }
     panesBox.scrollTo({ left: index * panesBox.clientWidth, behavior: smooth ? "smooth" : "instant" });
   }
-  function markPane() {
-    const at = paneAt();
+  function markPane(at = paneAt()) {
     // Which screen is shown, for what belongs to the orb's only (welcome.css).
     document.getElementById("welcome").dataset.pane = at;
     document.querySelectorAll("[data-pane]").forEach((button) => {
@@ -1077,7 +1083,9 @@
   }
   let paneShown = 1;
   showPane(1, false);
+  markPane(1);
   panesBox?.addEventListener("scroll", () => {
+    if (sideways()) return;
     paneShown = paneAt();
     markPane();
   }, { passive: true });
