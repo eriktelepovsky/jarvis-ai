@@ -1,0 +1,24 @@
+{# A task to change, in a dialog over the welcome screen or the task list (app.js), laid out as
+   the Add dialog. Saved, the dialog closes and the list and numbers load again. #}
+<form class="add-form" hx-post="/tasks/{{ task.id }}" hx-swap="none" data-task-form>
+  <label class="label" for="task-dialog-title">Change the task</label>
+  <div class="add-row">
+    <input class="input" id="task-dialog-title" name="title" value="{{ task.title }}" autocomplete="off" data-1p-ignore data-lpignore="true" data-form-type="other" required>
+    <button type="submit" class="btn btn-primary">Save</button>
+  </div>
+  <div class="add-due">
+    <label class="field"><span class="label">Due date</span><input class="input" type="date" name="due_date" value="{{ task.due_date.isoformat() if task.due_date else '' }}"></label>
+    <label class="field"><span class="label">Time</span><input class="input" type="time" name="due_time" value="{{ task.due_time.strftime('%H:%M') if task.due_time else '' }}"></label>
+    <label class="field"><span class="label">Repeats</span>
+      <select class="input" name="repeat">
+        {% set ns = namespace(known=false) %}
+        {% for value, name in repeat_choices %}
+        {% set chosen = (task.repeat or "none") == value or (task.repeat and task.repeat.startswith(value ~ ":")) %}
+        {% if chosen %}{% set ns.known = true %}{% endif %}
+        <option value="{{ value }}"{% if chosen %} selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+        {% if task.repeat and not ns.known %}<option value="{{ task.repeat }}" selected>{{ repeat_label(task) | capitalize }}</option>{% endif %}
+      </select>
+    </label>
+  </div>
+</form>

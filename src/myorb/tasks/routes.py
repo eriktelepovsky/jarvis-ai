@@ -163,6 +163,20 @@ async def edit(
     return _done(request)
 
 
+@router.get("/tasks/{task_id}/form", response_class=HTMLResponse)
+async def task_form(request: Request, db: Db, task_id: int) -> Response:
+    """The task to change, for the dialog (app.js)."""
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "tasks/form.html",
+        {
+            "task": await _task_or_404(db, task_id),
+            "repeat_choices": REPEAT_CHOICES,
+            "repeat_label": repeat_label,
+        },
+    )
+
+
 @router.post("/tasks/{task_id}/delete")
 async def delete(request: Request, db: Db, task_id: int) -> Response:
     await store.delete_task(db, await _task_or_404(db, task_id))

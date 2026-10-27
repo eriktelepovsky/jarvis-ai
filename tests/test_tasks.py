@@ -321,3 +321,12 @@ def test_the_side_panel_keeps_a_task_done_a_moment_ago(client: TestClient):
     assert "Water plants" in panel and "Done · next" in panel
     client.post("/tasks/2/undo")
     assert "Done · next" not in client.get("/panels/tasks/today").text
+
+
+def test_a_task_opens_to_change_in_a_dialog(client: TestClient):
+    client.post("/tasks", data={"text": "Water plants every 3 days"})
+    form = client.get("/tasks/1/form").text
+    assert 'hx-post="/tasks/1"' in form and "data-task-form" in form
+    # A rule of its own (not among the choices) is shown as chosen.
+    assert 'value="Water plants"' in form and '<option value="day:3" selected>Every 3 days' in form
+    assert client.get("/tasks/99/form").status_code == 404
