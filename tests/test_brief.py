@@ -312,6 +312,21 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     report = client.get("/brief/report").text
     assert "Kept standup" in report and "● Now" in report
 
+    async def keep_ahead(title: str) -> None:
+        async with client.app.state.sessionmaker() as db:
+            brief = await db.scalar(select(Brief))
+            start = datetime.now(TZ) + timedelta(hours=1)
+            event = {"start": start.isoformat(), "end": (start + timedelta(hours=1)).isoformat()}
+            brief.content = {**brief.content, "timeline": [{**event, "title": title}]}
+            await db.commit()
+
+    # A meeting cancelled since the brief was written: the report says to write it again.
+    client.portal.call(keep_ahead, "Cancelled review")
+    report = client.get("/brief/report").text
+    assert "The calendar changed since this brief was written" in report
+    assert "<strong>Cancelled review</strong> at" in report and "Write it again" in report
+    client.portal.call(keep, 0, "Kept standup")
+
     async def age_brief(days: int) -> None:
         async with client.app.state.sessionmaker() as db:
             brief = await db.scalar(select(Brief))
@@ -626,3 +641,23 @@ def test_new_brief_is_read_in_advance(make_client: MakeClient, claude: FakeClaud
         audio = client.get(f"/brief/{brief.id}/audio", params={"language": language})
         assert audio.headers["content-type"] == "audio/mpeg"
     assert len(spoken) == 2  # played from what was read in advance
+
+
+def test_calendar_changes_since_the_brief():
+    from myorb.brief.routes import calendar_changes
+    from myorb.plugins.base import TimelineItem
+
+    now = datetime(2026, 10, 27, 11, 0, tzinfo=TZ)
+
+    def item(title: str, hour: int) -> TimelineItem:
+        return TimelineItem(now.replace(hour=hour), now.replace(hour=hour + 1), title)
+
+    kept = [item("Standup", 9), item("Review", 13), item("Sync", 15), item("1:1", 16)]
+    current = [item("Standup", 10), item("Review", 14), item("Sync", 15), item("Demo", 17)]
+    changes = [
+        (c["kind"], c["item"].title, c["item"].start.hour)
+        for c in calendar_changes(kept, current, now)
+    ]
+    # The standup is over: moving it changes nothing about the rest of the day.
+    assert changes == [("moved", "Review", 14), ("cancelled", "1:1", 16), ("added", "Demo", 17)]
+    assert calendar_changes(kept, kept, now) == []

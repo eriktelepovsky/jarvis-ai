@@ -101,7 +101,8 @@ async def remove_claude(request: Request) -> Response:
     return RedirectResponse("/integrations?status=claude-removed", status_code=303)
 
 
-async def _timeline(request: Request) -> Glance:
+async def _timeline_items(request: Request) -> list[TimelineItem]:
+    """Today's calendar as the sources have it now."""
     context = widget_context(request)
 
     async def collect(plugin: Plugin) -> list[TimelineItem]:
@@ -112,7 +113,36 @@ async def _timeline(request: Request) -> Glance:
             return []
 
     results = await asyncio.gather(*(collect(p) for p in ordered_plugins(request)))
-    return glance([item for items in results for item in items], context.now)
+    return [item for items in results for item in items]
+
+
+async def _timeline(request: Request) -> Glance:
+    return glance(await _timeline_items(request), widget_context(request).now)
+
+
+def calendar_changes(
+    kept: list[TimelineItem], current: list[TimelineItem], now: datetime
+) -> list[dict]:
+    """What changed in the rest of today's calendar since the brief was written: events
+    added, cancelled, or moved (the same title at another time)."""
+
+    def key(item: TimelineItem) -> tuple:
+        return item.title, item.start, item.end
+
+    # Only what is still ahead: a change to a past meeting changes nothing about the day.
+    same = {key(i) for i in kept} & {key(i) for i in current}
+    before = [i for i in kept if i.end > now and key(i) not in same]
+    after = [i for i in current if i.end > now and key(i) not in same]
+    changes = []
+    for item in after:
+        old = next((i for i in before if i.title == item.title), None)
+        if old is None:
+            changes.append({"kind": "added", "item": item})
+        else:
+            before.remove(old)
+            changes.append({"kind": "moved", "item": item, "was": old})
+    changes += [{"kind": "cancelled", "item": i} for i in before]
+    return sorted(changes, key=lambda c: c["item"].start)
 
 
 async def _brief_context(request: Request) -> dict:
@@ -177,9 +207,14 @@ async def report(request: Request) -> Response:
             context["glance"] = glance(items, written, day_over=True)
             context["glance_day"] = written
             context["glance_kept"] = kept
+            context["sources"] = await load_widgets(request)
         else:
             context["glance"] = glance(items, now)
-        context["sources"] = await load_widgets(request)
+            # A meeting added, cancelled or moved since: the brief should be written again.
+            current, context["sources"] = await asyncio.gather(
+                _timeline_items(request), load_widgets(request)
+            )
+            context["calendar_changes"] = calendar_changes(items, current, now)
     else:
         # A brief from before briefs kept their calendar: today's, as it is now.
         context["glance"], context["sources"] = await asyncio.gather(

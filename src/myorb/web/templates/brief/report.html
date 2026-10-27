@@ -33,6 +33,18 @@
     {% if configured %}<button type="button" class="btn btn-small brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this"><span class="spinner" aria-hidden="true"></span><span class="when-idle">Write today's now</span><span class="when-busy">Writing…</span></button>{% endif %}
   </div>
   {% endif %}
+  {% if brief and calendar_changes and not generating %}
+  {# The calendar changed since the brief was written: what it says about today is behind. #}
+  <div class="alert alert-warn report-wide brief-stale" role="status">
+    <span class="alert-tag">CALENDAR</span>
+    <span>The calendar changed since this brief was written:
+      {% for change in calendar_changes %}{% set item = change.item %}
+      {% if change.kind == "added" %}<strong>{{ item.title }}</strong> added at {{ item.start | localtime("%H:%M") }}{% elif change.kind == "moved" %}<strong>{{ item.title }}</strong> moved from {{ change.was.start | localtime("%H:%M") }} to {{ item.start | localtime("%H:%M") }}{% else %}<strong>{{ item.title }}</strong> at {{ item.start | localtime("%H:%M") }} cancelled{% endif %}{{ ";" if not loop.last else "." }}
+      {% endfor %}
+    </span>
+    {% if configured %}<button type="button" class="btn btn-small brief-generate" hx-post="/brief/generate" hx-swap="none" hx-disabled-elt="this" hx-indicator="#brief-writing, this"><span class="spinner" aria-hidden="true"></span><span class="when-idle">Write it again</span><span class="when-busy">Writing…</span></button>{% endif %}
+  </div>
+  {% endif %}
   {% if error %}
   <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
   {% endif %}
