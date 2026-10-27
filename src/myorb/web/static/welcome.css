@@ -1076,6 +1076,9 @@ a.ti:hover .t1 {
   .welcome[data-pane="0"] .side-left,
   .welcome[data-pane="2"] .side-right,
   .welcome .side.is-peek {
+    /* Above the background's glow and vignette, as the orb is: not dimmed by them. */
+    position: relative;
+    z-index: 1;
     display: flex;
     grid-area: orb;
     box-sizing: border-box;
