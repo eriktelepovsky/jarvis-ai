@@ -177,7 +177,8 @@ window.addEventListener("resize", sizeEmailFrames);
 
 // The day at a glance: each event's label goes above or below the track, wherever it does not
 // run into the label before it; where neither side is free, the label before it is cut short
-// (or this one, when it ends at its event). Laid out again whenever the track's width changes,
+// (or this one, when it ends at its event). A meeting too close to the one before it for even
+// its time, e.g. two at 14:00, joins its label: "14:00 Call · Review". Laid out again whenever the track's width changes,
 // e.g. once the report is opened.
 const GLANCE_GAP = 10;
 const GLANCE_MIN = 44; // room for the time at least
@@ -188,6 +189,9 @@ function layoutGlance(track) {
   track.querySelectorAll(".glance-item").forEach((item) => {
     const label = item.querySelector(".glance-label");
     if (!label) return;
+    label.dataset.text ??= label.innerHTML;
+    label.innerHTML = label.dataset.text;
+    label.hidden = false;
     label.style.maxWidth = "";
     let width = label.offsetWidth;
     const toEnd = item.classList.contains("end");
@@ -202,12 +206,22 @@ function layoutGlance(track) {
       label.style.maxWidth = `${width}px`;
       start = anchor - width;
     }
+    // Only meetings join: lunch and focus blocks never start where one does.
+    const meeting = !item.matches(".lunch, .focus");
+    const joined = !fits(which) && meeting && lanes.find(({ last }) => last?.meeting && start - GLANCE_GAP - last.start < GLANCE_MIN);
+    if (joined) {
+      joined.last.label.append(` · ${label.lastChild.textContent.trim()}`);
+      joined.last.label.style.maxWidth = "";
+      label.hidden = true;
+      joined.end = joined.last.start + joined.last.label.offsetWidth;
+      return;
+    }
     if (!fits(which) && lane.last && !lane.last.toEnd) {
       lane.last.label.style.maxWidth = `${Math.max(GLANCE_MIN, start - GLANCE_GAP - lane.last.start)}px`;
     }
     item.classList.toggle("below", which === 1);
     lane.end = start + width;
-    lane.last = { label, start, toEnd };
+    lane.last = { label, start, toEnd, meeting: meeting && !toEnd };
     previous = which;
   });
 }

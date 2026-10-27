@@ -2057,6 +2057,16 @@ button.row-btn {
   color: var(--text-3);
 }
 
+/* A free block for focus: open time, so an outline in the schedule's green. */
+.glance-item.focus {
+  background: rgb(52 211 153 / 8%);
+  border: 1px dashed var(--ok);
+}
+
+.glance-item.focus .glance-label {
+  color: var(--ok);
+}
+
 .glance-item.past {
   background: rgb(79 209 232 / 11%);
   border-color: rgb(79 209 232 / 40%);
