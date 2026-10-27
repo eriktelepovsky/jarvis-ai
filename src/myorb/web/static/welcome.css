@@ -1091,6 +1091,15 @@ a.ti:hover .t1 {
     opacity: 1;
   }
 
+  /* Changing screen, the one shown slides in from its side (welcome.js). */
+  .welcome[data-slide="next"] :is(.orb, .side) {
+    animation: pane-in-next 0.28s ease-out;
+  }
+
+  .welcome[data-slide="back"] :is(.orb, .side) {
+    animation: pane-in-back 0.28s ease-out;
+  }
+
   /* The circles reach about 5% past the orb (a large one with its badge a little more). The
      day and the activity in its place take its size too. */
   .welcome { --orb-d: min(calc(var(--screen) - 64px), 44vw); }
@@ -3256,5 +3265,27 @@ dialog.is-refreshing .modal-head::after {
 
   .add-due .field:last-child {
     grid-column: 1 / -1;
+  }
+}
+
+/* Why an answer was not read aloud */
+.ask-message.ask-voice-note {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+@keyframes pane-in-next {
+  from { opacity: 0; transform: translateX(18%); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes pane-in-back {
+  from { opacity: 0; transform: translateX(-18%); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome[data-slide] :is(.orb, .side) {
+    animation: none;
   }
 }

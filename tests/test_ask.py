@@ -53,6 +53,7 @@ def test_the_command_line_offers_ask_only_with_claude(client: TestClient):
     assert "data-voice-ask" in page and 'data-voice-lang="en-GB"' in page
     # Another language to speak in can be chosen in the Voice panel (kept in the browser).
     assert 'data-voice-lang-choice="sk-SK">Slovak' in page
+    assert 'id="ask" aria-labelledby="ask-title" data-voice="browser"' in page
 
 
 def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeClaude):
