@@ -308,18 +308,21 @@ def test_the_side_panel_keeps_a_task_done_a_moment_ago(client: TestClient):
     panel = client.get("/panels/tasks/today").text
     # Only the box marks it done; its title opens it to change.
     assert 'href="/tasks?edit=1"' in panel and "16:30" in panel
+    client.post("/tasks", data={"text": "Water the plants"})
     client.post("/tasks/1/done")
     panel = client.get("/panels/tasks/today").text
-    assert "is-done" in panel and 'hx-post="/tasks/1/undo"' in panel
+    # Still in its place (before the one without a date), and its box brings it back.
+    assert "is-done" in panel and 'checked hx-post="/tasks/1/undo"' in panel
+    assert panel.index("Call Pepper") < panel.index("Water the plants")
     client.post("/tasks/1/undo")
     assert "is-done" not in client.get("/panels/tasks/today").text
 
     # One that repeats moves on, and shows done with its next date until undone.
     client.post("/tasks", data={"text": "Water plants", "repeat": "day:2"})
-    client.post("/tasks/2/done")
+    client.post("/tasks/3/done")
     panel = client.get("/panels/tasks/today").text
     assert "Water plants" in panel and "Done · next" in panel
-    client.post("/tasks/2/undo")
+    client.post("/tasks/3/undo")
     assert "Done · next" not in client.get("/panels/tasks/today").text
 
 

@@ -126,11 +126,34 @@ class TasksPlugin(Plugin):
             groups = group(await store.open_tasks(db), context.now)
             # Done a moment ago: still listed, struck through, to be brought back if by mistake.
             since = context.now - DONE_SHOWN
-            done = [*await store.done_tasks(db, since), *await store.moved_tasks(db, since)]
+            done = await store.done_tasks(db, since)
+            moved = await store.moved_tasks(db, since)
+        # Each where it was before it was done: a task that moved on to its next date by the
+        # date it had; one done by its date too. So checking one off moves nothing.
+        moved_ids = {task.id for task in moved}
+        listed = [
+            t for t in [*groups.overdue, *groups.today, *groups.someday] if t.id not in moved_ids
+        ]
+        before = [*done, *moved]
+        dates = {
+            task.id: task.last_due if task.id in moved_ids else task.due_date for task in before
+        }
+        undated = {task.id: task.due_date for task in before}
+        try:
+            for task in before:
+                task.due_date = dates[task.id]
+            shown = group([*listed, *before], context.now)
+        finally:
+            for task in before:
+                task.due_date = undated[task.id]
+        upcoming_ids = {task.id for task in shown.upcoming}
+        tasks = [
+            t for t in [*shown.overdue, *shown.today, *shown.someday] if t.id not in upcoming_ids
+        ]
         return {
-            "done": done,
+            "done": {task.id for task in before},
             # Tasks without a date have no day of their own: they wait here, after today's.
-            "tasks": [*groups.overdue, *groups.today, *groups.someday],
+            "tasks": tasks,
             "overdue": {task.id for task in groups.overdue},
             "label": lambda task: (
                 (due_label(task, context.now) or "No due date")
