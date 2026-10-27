@@ -1,0 +1,32 @@
+{# The versions of myOrb, newest first, with what each changed; the running one marked. #}
+<div class="modal-head">
+  <div class="modal-title">
+    <span class="label" style="color: var(--info)">myOrb</span>
+    <h2 id="releases-title">Versions</h2>
+    <span class="label">Running v{{ running }}</span>
+  </div>
+  <button type="button" class="icon-btn" data-close aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+</div>
+<div class="releases">
+  {% if releases is none %}
+  <p class="muted">The versions could not be read from GitHub right now. <a href="{{ releases_page }}" target="_blank" rel="noopener">See them on GitHub</a>.</p>
+  {% else %}
+  <ol class="release-list">
+    {% for release in releases %}
+    <li class="release{% if release.version == running %} is-running{% endif %}">
+      <div class="release-head">
+        <a class="release-version" href="{{ release.url }}" target="_blank" rel="noopener">v{{ release.version }}</a>
+        {% if release.version == running %}<span class="badge badge-ok">Running</span>{% endif %}
+        {% if release.date %}<span class="label">{{ release.date | localtime("%-d %b %Y, %H:%M") }}</span>{% endif %}
+      </div>
+      {% if release.changes %}
+      <ul class="release-changes">
+        {% for change in release.changes %}<li>{% if change.url %}<a href="{{ change.url }}" target="_blank" rel="noopener">{{ change.title }}</a>{% else %}{{ change.title }}{% endif %}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="label"><a href="{{ releases_page }}" target="_blank" rel="noopener">All versions on GitHub</a></p>
+  {% endif %}
+</div>

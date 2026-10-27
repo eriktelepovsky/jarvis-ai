@@ -500,6 +500,12 @@
     } else if (dialog && event.target.closest("[data-step]")) {
       stepDialog(dialog, Number(event.target.closest("[data-step]").dataset.step));
       sound("click");
+    } else if (event.target.closest("[data-open-releases]")) {
+      dialogs().forEach((other) => other.open && other.close());
+      const releases = document.getElementById("releases");
+      releases.showModal();
+      htmx.trigger(releases.querySelector(".releases-box"), "myorb:open");
+      sound("open");
     } else if (event.target.closest("[data-open-report]")) {
       dialogs().forEach((other) => other.open && other.close());
       const report = document.getElementById("report");
