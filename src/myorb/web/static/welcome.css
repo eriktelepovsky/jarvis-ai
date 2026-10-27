@@ -2021,14 +2021,14 @@ button.row-btn {
 /* As in the design: a dark bar with bright event blocks, labels alternating above and below. */
 .glance-track {
   position: relative;
-  height: 84px;
+  height: 98px;
   margin-top: 4px;
 }
 
 .glance-track::before {
   content: "";
   position: absolute;
-  top: 38px;
+  top: 52px;
   right: 0;
   left: 0;
   height: 20px;
@@ -2039,7 +2039,7 @@ button.row-btn {
 
 .glance-item {
   position: absolute;
-  top: 38px;
+  top: 52px;
   height: 20px;
   min-width: 4px;
   background: rgb(79 209 232 / 28%);
@@ -2074,7 +2074,8 @@ button.row-btn {
 
 .glance-label {
   position: absolute;
-  top: -26px;
+  /* Above the track, anchored at its foot: a second line grows upwards. */
+  bottom: calc(100% + 8px);
   left: 0;
   max-width: 240px;
   overflow: hidden;
@@ -2086,6 +2087,14 @@ button.row-btn {
 
 .glance-item.below .glance-label {
   top: 24px;
+  bottom: auto;
+}
+
+/* A meeting at the same time as this one: a line of its own under it. */
+.glance-line {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .glance-item.past .glance-label {
@@ -2106,7 +2115,7 @@ button.row-btn {
 
 .glance-now {
   position: absolute;
-  top: 30px;
+  top: 44px;
   width: 2px;
   height: 36px;
   margin-left: -1px;
