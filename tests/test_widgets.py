@@ -633,6 +633,61 @@ def test_free_blocks_for_focus_today(monkeypatch):
     assert any(line.startswith("No free block") for line in asyncio.run(plugin.brief(late)).lines)
 
 
+def test_lunch_is_kept_out_of_focus_time(monkeypatch):
+    import asyncio
+    from datetime import datetime
+    from types import SimpleNamespace
+    from zoneinfo import ZoneInfo
+
+    from myorb.plugins.calendar import CalendarPlugin
+    from myorb.plugins.google_data import AccountData
+
+    now = datetime(2026, 10, 27, 8, 17, tzinfo=ZoneInfo("Europe/Bratislava"))
+    base = {"location": None, "video_url": None, "url": None, "calendar": None, "all_day": False}
+
+    def at(hour: int, minute: int = 0) -> datetime:
+        return now.replace(hour=hour, minute=minute)
+
+    events = [
+        {**base, "title": "Refinement", "start": at(10), "end": at(11, 30)},
+        {**base, "title": "Purchases", "start": at(13), "end": at(13, 30)},
+        {**base, "title": "Madero", "start": at(14), "end": at(15)},
+        {**base, "title": "Open day", "start": at(17), "end": at(19)},
+    ]
+    plugin = CalendarPlugin()
+
+    async def accounts(context):
+        return [AccountData("me@example.com", {"events": events})]
+
+    monkeypatch.setattr(plugin, "_accounts", accounts)
+    context = SimpleNamespace(now=now, params={}, connections=NoConnections())
+    data = asyncio.run(plugin._widget(context))
+    # 11:30–13:00 is free, but lunch takes its middle: no hour of focus is left around it.
+    assert [(r.title, r.badge) for r in data.rows][:6] == [
+        ("Free for focus", "09:00"),
+        ("Refinement", "10:00"),
+        ("Lunch", "12:00"),
+        ("Purchases", "13:00"),
+        ("Madero", "14:00"),
+        ("Free for focus", "15:00"),
+    ]
+    assert data.rows[2].subtitle == "12:00–12:45 · 45 m"
+    section = asyncio.run(plugin.brief(context))
+    assert "Lunch kept free: 12:00–12:45" in section.lines
+    panel = asyncio.run(plugin._today(context))
+    assert "lunch" in [e["kind"] for e in panel["day"]["today"]]
+
+    # Lunch where it leaves an hour of focus: at the start of a long free stretch.
+    events[1:2] = [{**base, "title": "Purchases", "start": at(13, 45), "end": at(14)}]
+    data = asyncio.run(plugin._widget(context))
+    lunch = next(r for r in data.rows if r.title == "Lunch")
+    assert lunch.subtitle == "11:30–12:15 · 45 m"
+    assert any(r.subtitle == "12:15–13:45 · 1 h 30 m" for r in data.rows)
+    # The user's own lunch in the calendar takes its place.
+    events.append({**base, "title": "Obed", "start": at(12), "end": at(12, 30)})
+    assert not any(r.title == "Lunch" for r in asyncio.run(plugin._widget(context)).rows)
+
+
 def test_node_size_follows_attention():
     from myorb.plugins import WidgetData
     from myorb.web.routes import node_size
@@ -901,8 +956,8 @@ def test_commute_shows_when_to_leave(monkeypatch):
         "Leave at 07:10 for Quarterly meeting (08:00, Hlavná 1): 45 min by car from home "
         "in the traffic expected then" in section.lines
     )
-    # The way is no time for focus: free from 10:00, not from 07:00.
-    assert any("10:00–18:00" in line for line in section.lines)
+    # The way is no time for focus: free from 10:00, not from 07:00 (and lunch at noon).
+    assert any("10:00–12:00 (2 h), 12:45–18:00" in line for line in section.lines)
     nxt = asyncio.run(plugin._next(context))
     assert nxt["leave"] == now.replace(hour=7, minute=10) and nxt["leave_soon"]
     panel = asyncio.run(plugin._today(context))

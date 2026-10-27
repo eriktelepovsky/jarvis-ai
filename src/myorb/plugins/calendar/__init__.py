@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from datetime import date, datetime, timedelta, tzinfo
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,7 @@ from urllib.parse import quote
 
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.connections.providers import Provider, ProviderError
-from myorb.overview.glance import duration, focus_blocks
+from myorb.overview.glance import duration, focus_blocks, free_blocks
 from myorb.plugins.base import (
     AskAction,
     BriefSection,
@@ -36,6 +37,14 @@ EVENTS_PER_CALENDAR = 25
 ICON = "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"
 # Event types that are not meetings and would only clutter the list.
 HIDDEN_EVENT_TYPES = {"workingLocation"}
+# Time for lunch is kept out of the focus blocks: this long, somewhere in this window, as
+# close to noon as it fits without cutting a focus block short.
+LUNCH_MINUTES = 45
+LUNCH_FROM = (11, 30)
+LUNCH_TO = (13, 30)
+LUNCH_AT = (12, 0)
+# An event of the user's own for lunch takes its place.
+LUNCH_EVENT = re.compile(r"(?i)\b(lunch|obed|oběd|mittag\w*)\b")
 
 
 def calendar_url(email: str) -> str:
@@ -144,16 +153,63 @@ def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
     return day
 
 
-def focus_time(
-    events: list[dict[str, Any]], now: datetime, trips: list[dict[str, Any]] = ()
-) -> list[dict[str, Any]]:
-    """The rest of today's free blocks for deep work, between the events that take the time
-    and the ways to them (see commute.plan)."""
-    busy = [
+def _busy(events: list[dict[str, Any]], trips: list[dict[str, Any]]) -> list[TimelineItem]:
+    """What takes today's time: the events (not those shown as free) and the ways to them."""
+    return [
         TimelineItem(e["start"], e["end"], e["title"])
         for e in events
         if e.get("kind") != "now" and not e["all_day"] and not e.get("free")
     ] + [TimelineItem(t["start"], t["end"], "Travel") for t in trips]
+
+
+def _focus_minutes(busy: list[TimelineItem], now: datetime) -> int:
+    return sum(int((end - start).total_seconds() // 60) for start, end in focus_blocks(busy, now))
+
+
+def lunch_time(
+    events: list[dict[str, Any]], now: datetime, trips: list[dict[str, Any]] = ()
+) -> dict[str, Any] | None:
+    """Today's lunch, kept free (kind "lunch"): in the lunch window where it leaves the most
+    time for focus, then closest to noon. None once it is over, when the calendar has lunch
+    already, or when the window has no room for it."""
+    if any(LUNCH_EVENT.search(e.get("title") or "") for e in events if e.get("kind") != "now"):
+        return None
+    day = now.replace(second=0, microsecond=0)
+    earliest = max(day.replace(hour=LUNCH_FROM[0], minute=LUNCH_FROM[1]), day)
+    earliest += timedelta(minutes=-earliest.minute % 5)
+    latest = day.replace(hour=LUNCH_TO[0], minute=LUNCH_TO[1])
+    noon = day.replace(hour=LUNCH_AT[0], minute=LUNCH_AT[1])
+    length = timedelta(minutes=LUNCH_MINUTES)
+    busy = _busy(events, trips)
+    best: tuple[int, float, datetime] | None = None
+    for begin, end in free_blocks(busy, earliest, latest):
+        if end - begin < length:
+            continue
+        # At the start of the free time, at noon, or at its end.
+        for start in {begin, min(max(noon, begin), end - length), end - length}:
+            left = _focus_minutes([*busy, TimelineItem(start, start + length, "Lunch")], now)
+            score = (left, -abs((start - noon).total_seconds()), start)
+            if best is None or score[:2] > best[:2]:
+                best = score
+    if best is None:
+        return None
+    start = best[2]
+    return {
+        "kind": "lunch",
+        "start": start,
+        "end": start + length,
+        "length": duration(LUNCH_MINUTES),
+    }
+
+
+def focus_time(
+    events: list[dict[str, Any]], now: datetime, trips: list[dict[str, Any]] = ()
+) -> list[dict[str, Any]]:
+    """The rest of today's free blocks for deep work, between the events that take the time,
+    the ways to them (see commute.plan) and lunch (see lunch_time)."""
+    busy = _busy(events, trips)
+    if lunch := lunch_time(events, now, trips):
+        busy.append(TimelineItem(lunch["start"], lunch["end"], "Lunch"))
     return [
         {"start": start, "end": end, "length": duration(int((end - start).total_seconds() // 60))}
         for start, end in focus_blocks(busy, now)
@@ -163,8 +219,9 @@ def focus_time(
 def among_events(
     events: list[dict[str, Any]], extras: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Today's events with free blocks (kind "focus") and ways to them (kind "travel") among
-    them, in time order. Only among meetings: a day without any is all free, and says so."""
+    """Today's events with free blocks (kind "focus"), lunch (kind "lunch") and ways to them
+    (kind "travel") among them, in time order. Only among meetings: a day without any is all
+    free, and says so."""
     day = list(events)
     if not any(e["kind"] != "now" and not e["all_day"] for e in day):
         return day
@@ -377,6 +434,8 @@ class CalendarPlugin(Plugin):
             lines.append("Nothing on the calendar today.")
         trips = await self._trips(context, day["today"])
         lines += [trip_line(trip) for trip in trips]
+        if lunch := lunch_time(day["today"], now, trips):
+            lines.append(f"Lunch kept free: {lunch['start']:%H:%M}–{lunch['end']:%H:%M}")
         lines.append(focus_line(focus_time(day["today"], now, trips)))
         # All of tomorrow, with times and places: a flight or an early start needs preparing
         # today. Then a few events of the rest of the week.
@@ -410,11 +469,13 @@ class CalendarPlugin(Plugin):
         nxt = timed[0] if timed else None
         trips = await self._trips(context, today)
         focus = focus_time(today, now, trips)
+        lunch = lunch_time(today, now, trips)
         rows = []
         # All of today (what is over is dimmed) with its free blocks for focus, then the week
         # ahead, by calendar; the numbers above filter them: today, the next event, focus
         # time, the next seven days.
-        listed = among_events(today, [*focus, *({**t, "kind": "travel"} for t in trips)])
+        extras = [*focus, *([lunch] if lunch else []), *({**t, "kind": "travel"} for t in trips)]
+        listed = among_events(today, sorted(extras, key=lambda e: e["start"]))
         for event in [*listed, *week]:
             if event.get("kind") == "travel":
                 soon = event["start"] - now <= timedelta(minutes=15)
@@ -425,6 +486,16 @@ class CalendarPlugin(Plugin):
                         badge=f"{event['start']:%H:%M}",
                         tone="warn" if soon else "info",
                         tags=("travel",),
+                    )
+                )
+                continue
+            if event.get("kind") == "lunch":
+                rows.append(
+                    Row(
+                        title="Lunch",
+                        subtitle=f"{event['start']:%H:%M}–{event['end']:%H:%M} · {event['length']}",
+                        badge=f"{event['start']:%H:%M}",
+                        tags=("lunch",),
                     )
                 )
                 continue
@@ -490,7 +561,10 @@ class CalendarPlugin(Plugin):
             if day:
                 trips = await self._trips(context, day["today"])
                 extras = [*focus_time(day["today"], now, trips)]
+                if lunch := lunch_time(day["today"], now, trips):
+                    extras.append(lunch)
                 extras += [{**t, "kind": "travel"} for t in trips]
+                extras.sort(key=lambda e: e["start"])
                 day = {**day, "today": among_events(day["today"], extras)}
         else:
             day = {"today": events_on([e for a in loaded for e in a.data["events"]], date)}

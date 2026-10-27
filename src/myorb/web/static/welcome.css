@@ -387,6 +387,14 @@ a.ti:hover .t1 {
   color: var(--warn);
 }
 
+.ti.lunch .tx {
+  border-left: 2px dashed var(--text-3);
+}
+
+.ti.lunch .t1 {
+  color: var(--text-2);
+}
+
 .ti.focus .tx {
   border-left: 2px dashed var(--ok);
 }
