@@ -1,6 +1,6 @@
 {% if brief %}
 {% for item in brief.content.priorities %}
-<button type="button" class="priority" data-open-report>
+<button type="button" class="priority{% if loop.index0 in done %} is-completed{% endif %}" data-open-report>
   <span class="badge badge-{{ item.tone }}">{{ item.tag }}</span>
   <span class="priority-text"><span class="t1">{{ item.title }}</span>{% if item.detail %}<span class="t2">{{ item.detail }}</span>{% endif %}</span>
 </button>

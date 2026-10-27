@@ -664,3 +664,30 @@ def test_calendar_changes_since_the_brief():
     # The standup is over: moving it changes nothing about the rest of the day.
     assert changes == [("moved", "Review", 14), ("cancelled", "1:1", 16), ("added", "Demo", 17)]
     assert calendar_changes(kept, kept, now) == []
+
+
+def test_priorities_at_a_time_are_completed_once_it_is_over():
+    from types import SimpleNamespace
+
+    from myorb.brief.plugin import completed
+
+    now = datetime(2026, 10, 27, 13, 20, tzinfo=TZ)
+    meeting = now.replace(hour=13, minute=0)
+    brief = SimpleNamespace(
+        content={
+            "timeline": [
+                {
+                    "start": meeting.isoformat(),
+                    "end": (meeting + timedelta(minutes=30)).isoformat(),
+                },
+            ],
+            "priorities": [
+                {"tag": "13:00", "title": "Purchase approval meeting"},  # until 13:30
+                {"tag": "9:30", "title": "Call"},  # no event: over at 09:30
+                {"tag": "REVIEW", "title": "Two review requests"},  # no time: never
+                {"tag": "17:00", "title": "Open day"},
+            ],
+        }
+    )
+    assert completed(brief, now) == {1}
+    assert completed(brief, now.replace(hour=13, minute=31)) == {0, 1}
