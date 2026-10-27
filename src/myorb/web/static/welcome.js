@@ -585,7 +585,8 @@
   // Plain text with "- " lists, **bold** and links to the dashboard's items, as the prompt
   // asks; everything else is escaped. A link is [AR-16](L3fa2c1): the id of the item's address,
   // which the answer's stream sends at its end ({"links": …}) and the conversation keeps.
-  const LINK = /\[([^\]\n]+)\]\((L[0-9a-f]{6})\)/g;
+  // The label may hold a pair of brackets itself, e.g. "Vyzdvihnúť SPS [322653]".
+  const LINK = /\[((?:[^\[\]\n]|\[[^\[\]\n]*\])+)\]\((L[0-9a-f]{6})\)/g;
   const NOTE = /^\s*\[(ok|warn|error)\]\s*/i;
   const NOTE_SIGNS = { ok: "✓ ", warn: "▲ ", error: "✕ " };
 

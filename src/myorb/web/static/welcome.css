@@ -1877,7 +1877,6 @@ button.row-btn {
   gap: 10px;
   align-items: flex-start;
   padding: 5px 0;
-  cursor: pointer;
 }
 
 .check input {
@@ -1886,6 +1885,33 @@ button.row-btn {
   height: 16px;
   margin: 2px 0 0;
   accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* A task's title opens it, but reads as text: white, blue only on hover. */
+.check-text {
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.check a.check-text,
+.check a.check-text .t1 {
+  color: var(--text);
+}
+
+.check a.check-text:hover .t1 {
+  color: var(--accent);
+}
+
+/* Done a moment ago: struck through, with Undo. */
+.check.is-done .t1 {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.check.is-done input {
+  cursor: default;
 }
 
 .t2.overdue {

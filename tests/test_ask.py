@@ -74,6 +74,8 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert board["cache_control"] == {"type": "ephemeral"}
     assert "## Tasks" in board["text"] and "Water the <plants>" in board["text"]
     assert "(ref: task 1)" in board["text"]  # what the task actions take
+    # What myOrb spent on Claude, as Integrations shows it.
+    assert "## myOrb's use of Claude" in board["text"] and "Last 30 days:" in board["text"]
     assert request["messages"] == [
         {"role": "user", "content": [{"type": "text", "text": "What do I have today?"}]}
     ]
