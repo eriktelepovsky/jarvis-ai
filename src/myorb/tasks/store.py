@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from myorb.tasks import repeat as repeats
 from myorb.tasks.models import Task
 from myorb.tasks.parse import parse_task
 
@@ -16,6 +17,7 @@ async def add_task(db: AsyncSession, text: str, today: date) -> Task:
         title=(parsed.title or text.strip())[:MAX_TITLE],
         due_date=parsed.due_date,
         due_time=parsed.due_time,
+        repeat=parsed.repeat,
         created_at=datetime.now(UTC),
     )
     db.add(task)
@@ -44,10 +46,48 @@ async def set_done(db: AsyncSession, task: Task, done: bool) -> None:
     await db.commit()
 
 
+async def complete(db: AsyncSession, task: Task, today: date) -> date | None:
+    """Mark a task done. One that repeats moves on to its next due date instead, which is
+    returned (its last one is kept, so undo can bring it back)."""
+    if task.repeat and task.due_date:
+        task.last_due = task.due_date
+        task.due_date = repeats.next_due(task.repeat, task.due_date, today)
+        await db.commit()
+        return task.due_date
+    await set_done(db, task, True)
+    return None
+
+
+async def reopen(db: AsyncSession, task: Task) -> None:
+    """Undo marking a task done: one that repeats goes back to the due date it moved on from."""
+    if task.done_at is None and task.repeat and task.last_due:
+        task.due_date, task.last_due = task.last_due, None
+        await db.commit()
+        return
+    await set_done(db, task, False)
+
+
 async def update_task(
-    db: AsyncSession, task: Task, title: str, due_date: date | None, due_time: time | None
+    db: AsyncSession,
+    task: Task,
+    title: str,
+    due_date: date | None,
+    due_time: time | None,
+    repeat: str | None = "",
+    today: date | None = None,
 ) -> None:
+    """Change a task. `repeat` "" keeps how it repeats, None stops it, a rule sets it (a task
+    that repeats needs a due date: today, if it has none)."""
     task.title = title.strip()[:MAX_TITLE] or task.title
+    if repeat != "":
+        task.repeat = repeat
+        task.last_due = None
+        if repeat and due_date is None:
+            due_date = today or date.today()
+        if repeat and repeat.startswith("month:") and due_date:
+            # Monthly on the day it is due.
+            every = repeat.split(":")[1]
+            task.repeat = f"month:{every}:{due_date.day}"
     task.due_date = due_date
     task.due_time = due_time if due_date else None
     await db.commit()

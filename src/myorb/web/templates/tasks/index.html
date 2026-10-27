@@ -16,7 +16,7 @@
     <button type="submit" class="btn btn-primary">Add</button>
   </form>
   <div class="panel-section" style="padding-top: 0; border-top: 0">
-    <p class="label" style="margin: 0">Due dates are recognized in the text: today, tomorrow, Friday, 24.10., 10:00 — or dnes, zajtra, v piatok, o 10.</p>
+    <p class="label" style="margin: 0">Due dates are recognized in the text: today, tomorrow, Friday, 24.10., 10:00 — or dnes, zajtra, v piatok, o 10. And repeats: every Monday, every 2 weeks, monthly on the 5th — or každý pondelok, každý mesiac 5.</p>
   </div>
 
   {% for title, tasks, tone in sections %}
@@ -33,13 +33,23 @@
           <input class="input" id="date-{{ task.id }}" type="date" name="due_date" value="{{ task.due_date.isoformat() if task.due_date else '' }}">
           <label class="visually-hidden task-edit-label" for="time-{{ task.id }}">Due time</label>
           <input class="input" id="time-{{ task.id }}" type="time" name="due_time" value="{{ task.due_time.strftime('%H:%M') if task.due_time else '' }}">
+          <label class="visually-hidden task-edit-label" for="repeat-{{ task.id }}">Repeats</label>
+          <select class="input" id="repeat-{{ task.id }}" name="repeat">
+            {% set ns = namespace(known=false) %}
+            {% for value, name in repeat_choices %}
+            {% set chosen = (task.repeat or "none") == value or (task.repeat and task.repeat.startswith(value ~ ":")) %}
+            {% if chosen %}{% set ns.known = true %}{% endif %}
+            <option value="{{ value }}"{% if chosen %} selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+            {% if task.repeat and not ns.known %}<option value="{{ task.repeat }}" selected>{{ repeat_label(task) | capitalize }}</option>{% endif %}
+          </select>
           <button type="submit" class="btn btn-primary">Save</button>
           <a class="btn btn-ghost" href="/tasks">Cancel</a>
         </form>
         {% else %}
         <div class="task-row">
           <form method="post" action="/tasks/{{ task.id }}/done"><button type="submit" class="task-check" aria-label="Mark “{{ task.title }}” as done"></button></form>
-          <span style="min-width: 0">{{ task.title }}</span>
+          <span style="min-width: 0">{{ task.title }}{% if task.repeat %} <span class="task-repeat" title="Repeats {{ repeat_label(task) }}">↻ {{ repeat_label(task) }}</span>{% endif %}</span>
           {% if task.due_date %}<span class="badge badge-{{ tone }}">{{ label(task) }}</span>{% else %}<span></span>{% endif %}
           <a class="btn btn-ghost btn-small" href="/tasks?edit={{ task.id }}">Edit</a>
           <form method="post" action="/tasks/{{ task.id }}/delete"><button type="submit" class="btn btn-ghost btn-small" aria-label="Delete “{{ task.title }}”">Delete</button></form>

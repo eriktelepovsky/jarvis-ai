@@ -244,3 +244,60 @@ def test_tasks_are_not_in_the_menu(client: TestClient):
     assert '<span class="label strong">Tasks</span>' in page  # the side panel
     assert 'class="label" href="/tasks"' not in page
     assert "<h1>Tasks</h1>" in client.get("/tasks").text
+
+
+def test_repeats_are_recognized_in_the_text():
+    tuesday = date(2026, 10, 27)
+    cases = {
+        "vyniesť smeti každý pondelok": ("vyniesť smeti", date(2026, 11, 2), "week:1"),
+        "zaplatiť nájom každý mesiac 5.": ("zaplatiť nájom", date(2026, 11, 5), "month:1:5"),
+        "pay rent every month on the 1st": ("pay rent", date(2026, 11, 1), "month:1:1"),
+        "standup every weekday 9:00": ("standup", tuesday, "weekdays"),
+        "water plants every 3 days": ("water plants", tuesday, "day:3"),
+        "backup every 2 weeks from Friday": ("backup", date(2026, 10, 30), "week:2"),
+        "denne cvičiť": ("cvičiť", tuesday, "day:1"),
+        "verzia 2.0 release": ("verzia 2.0 release", None, None),
+    }
+    for text, (title, due, rule) in cases.items():
+        parsed = parse_task(text, tuesday)
+        assert (parsed.title, parsed.due_date, parsed.repeat) == (title, due, rule), text
+
+
+def test_next_due_counts_from_the_due_date():
+    from myorb.tasks.repeat import describe, next_due
+
+    monday = date(2026, 11, 2)
+    # Done on Wednesday after, the next one is still a Monday; an occurrence missed is skipped.
+    assert next_due("week:1", monday, date(2026, 11, 4)) == date(2026, 11, 9)
+    assert next_due("day:1", monday, date(2026, 11, 5)) == date(2026, 11, 6)
+    assert next_due("weekdays", date(2026, 10, 30), date(2026, 10, 30)) == monday
+    # The 31st in a month without one is its last day, and the 31st again after.
+    assert next_due("month:1:31", date(2026, 1, 31), date(2026, 1, 31)) == date(2026, 2, 28)
+    assert next_due("month:1:31", date(2026, 2, 28), date(2026, 2, 28)) == date(2026, 3, 31)
+    assert next_due("year", date(2028, 2, 29), date(2028, 2, 29)) == date(2029, 2, 28)
+    assert describe("week:1", monday) == "every Monday"
+    assert describe("month:1:5") == "every month on the 5th"
+    assert describe("week:2", monday) == "every 2 weeks on Monday"
+
+
+def test_a_repeating_task_moves_on_when_done(client: TestClient):
+    client.post("/tasks", data={"text": "Water plants every 3 days"})
+    page = client.get("/tasks").text
+    assert "Water plants" in page and "↻ every 3 days" in page
+    client.post("/tasks/1/done")
+    page = client.get("/tasks").text
+    # Still open, due three days later, with nothing in Done.
+    assert "Water plants" in page and "Done · last 7 days" not in page
+    assert "Upcoming" in page and "Today" not in page.split("Upcoming")[0].split("Tasks</h1>")[-1]
+    edit = client.get("/tasks?edit=1").text
+    assert '<option value="day:3" selected>Every 3 days</option>' in edit
+    assert "next" in client.get("/activity").text
+    client.post("/tasks/1/undo")
+    assert "Today" in client.get("/panels/tasks/today").text
+
+    # Changed in the edit form: no longer repeats, so done is done.
+    client.post("/tasks/1", data={"title": "Water plants", "due_date": "", "repeat": "none"})
+    assert "↻" not in client.get("/tasks").text
+    client.post("/tasks/1/done")
+    assert "Done · last 7 days" in client.get("/tasks").text
+    assert client.post("/tasks/1", data={"title": "x", "repeat": "nonsense"}).status_code == 400

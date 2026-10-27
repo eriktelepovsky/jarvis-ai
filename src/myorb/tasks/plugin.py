@@ -16,6 +16,7 @@ from myorb.plugins.base import (
     WidgetData,
 )
 from myorb.tasks import store
+from myorb.tasks.repeat import label as repeat_label
 from myorb.tasks.schedule import due_label, group
 
 ICON = "M4 7l2 2 4-4M4 17l2 2 4-4M14 7h6M14 17h6"
@@ -58,6 +59,7 @@ class TasksPlugin(Plugin):
                 rows.append(
                     Row(
                         title=task.title,
+                        subtitle=f"↻ {repeat_label(task)}" if task.repeat else "",
                         badge=due_label(task, now),
                         tone=tone.get(name, "neutral"),
                         url=f"/tasks?edit={task.id}",
@@ -97,10 +99,15 @@ class TasksPlugin(Plugin):
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         async with context.sessionmaker() as db:
             groups = group(await store.open_tasks(db), context.now)
-        lines = [f"Overdue ({due_label(t, context.now)}): {t.title}" for t in groups.overdue]
-        lines += [f"Due today {due_label(t, context.now)}: {t.title}" for t in groups.today]
-        lines += [f"Upcoming ({due_label(t, context.now)}): {t.title}" for t in groups.upcoming[:5]]
-        lines += [f"No due date: {t.title}" for t in groups.someday[:5]]
+
+        def named(task) -> str:
+            return task.title + (f" (repeats {repeat_label(task)})" if task.repeat else "")
+
+        now = context.now
+        lines = [f"Overdue ({due_label(t, now)}): {named(t)}" for t in groups.overdue]
+        lines += [f"Due today {due_label(t, now)}: {named(t)}" for t in groups.today]
+        lines += [f"Upcoming ({due_label(t, now)}): {named(t)}" for t in groups.upcoming[:5]]
+        lines += [f"No due date: {named(t)}" for t in groups.someday[:5]]
         return BriefSection("Tasks", lines or ["No open tasks."])
 
     async def _today(self, context: WidgetContext) -> dict[str, Any]:
@@ -110,6 +117,9 @@ class TasksPlugin(Plugin):
             # Tasks without a date have no day of their own: they wait here, after today's.
             "tasks": [*groups.overdue, *groups.today, *groups.someday],
             "overdue": {task.id for task in groups.overdue},
-            "label": lambda task: due_label(task, context.now) or "No due date",
+            "label": lambda task: (
+                (due_label(task, context.now) or "No due date")
+                + (f" · ↻ {repeat_label(task)}" if task.repeat else "")
+            ),
             "upcoming": len(groups.upcoming),
         }

@@ -67,13 +67,22 @@ async def _set_done(context: WidgetContext, task_id: int, done: bool) -> Task:
 
 
 async def _complete(context: WidgetContext, data: dict[str, Any]) -> ActionResult:
-    task = await _set_done(context, data["task_id"], True)
+    async with context.sessionmaker() as db:
+        task = await store.get_task(db, data["task_id"])
+        if task is None:
+            raise ActionError(f"There is no task {data['task_id']}.")
+        # One that repeats moves on to its next due date.
+        following = await store.complete(db, task, context.now.date())
+    task_id, title = task.id, task.title
 
     async def undo(context: WidgetContext) -> str:
-        await _set_done(context, task.id, False)
-        return f"Brought back “{task.title}”."
+        async with context.sessionmaker() as db:
+            if found := await store.get_task(db, task_id):
+                await store.reopen(db, found)
+        return f"Brought back “{title}”."
 
-    return ActionResult(f"Done: “{task.title}”.", undo)
+    then = f" It repeats: next due {following:%A %-d %B}." if following else ""
+    return ActionResult(f"Done: “{title}”.{then}", undo)
 
 
 def _due(data: dict[str, Any]) -> tuple[date | None, time | None]:
@@ -129,7 +138,9 @@ def ask_actions() -> list[AskAction]:
             "add_task",
             "Add a task to the user's task list in myOrb. Write it as the user would type it, "
             "with the due date and time in plain words if any, e.g. "
-            '"call the accountant tomorrow 10:00" or "send the invoice 24.10.".',
+            '"call the accountant tomorrow 10:00" or "send the invoice 24.10.". A task that '
+            'repeats says how, e.g. "take out the bins every Monday", "pay the rent every '
+            'month on the 1st", "water the plants every 3 days", "standup every weekday 9:00".',
             _schema(text={"type": "string", "description": "The task, in plain language."}),
             lambda c, d: _about(f"Add the task “{d['text']}”"),
             _add,

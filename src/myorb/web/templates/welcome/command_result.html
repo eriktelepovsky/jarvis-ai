@@ -1,1 +1,1 @@
-<span class="command-ok">✓ Added to Tasks</span> <span class="command-title">{{ task.title }}</span>{% if due %} · {{ due }}{% endif %}
+<span class="command-ok">✓ Added to Tasks</span> <span class="command-title">{{ task.title }}</span>{% if due %} · {{ due }}{% endif %}{% if task.repeat %} · ↻ {{ repeat }}{% endif %}
