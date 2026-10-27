@@ -27,7 +27,7 @@
   {# A free block of an hour or more between events, for deep work. #}
   <div class="ti focus"><span class="tt">{{ event.start | localtime("%H:%M") }}</span><span class="tx"><span class="t1">Free for focus</span><span class="t2">Until {{ event.end | localtime("%H:%M") }} · {{ event.length }}</span></span></div>
   {% else %}
-  <a class="ti{% if event.kind == 'past' %} past{% endif %}" href="{{ event.url }}" target="_blank" rel="noopener">
+  <a class="ti{% if event.kind == 'past' %} past{% endif %}{% if event.ignored %} ignored{% endif %}" href="{{ event.url }}" target="_blank" rel="noopener">
     {# All-day events come first; the label is shown only on the first of them. #}
     <span class="tt">{% if not event.all_day %}{{ event.start | localtime("%H:%M") }}{% elif loop.first %}All day{% endif %}</span>
     <span class="tx"><span class="t1">{{ event.title }}</span>{% if event.sub %}<span class="t2">{{ event.sub }}</span>{% endif %}</span>

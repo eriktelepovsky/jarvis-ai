@@ -3,13 +3,16 @@ import logging
 import re
 from datetime import date, datetime, timedelta, tzinfo
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
+
+from sqlalchemy import select
 
 from myorb.connections.google_accounts import GoogleAccount, GoogleAccounts
 from myorb.connections.providers import Provider, ProviderError
 from myorb.overview.glance import duration, focus_blocks, free_blocks
 from myorb.plugins.base import (
+    Action,
     AskAction,
     BriefSection,
     Panel,
@@ -23,7 +26,11 @@ from myorb.plugins.base import (
     open_buttons,
 )
 from myorb.plugins.calendar.commute import Commute, plan, route_minutes
+from myorb.plugins.calendar.models import IgnoredEvent
 from myorb.plugins.google_data import AccountData, account_status, load_accounts
+
+if TYPE_CHECKING:
+    from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +97,8 @@ def parse_event(
         "free": event.get("transparency") == "transparent",
         # What Ask needs to change the event (see actions.py).
         "id": event.get("id", ""),
+        # The series a repeating event belongs to: ignoring one day ignores them all.
+        "series": event.get("recurringEventId") or event.get("id", ""),
         "calendar_id": calendar.get("id", ""),
     }
 
@@ -100,6 +109,13 @@ def event_ref(event: dict[str, Any]) -> str:
     if not event.get("id") or not event.get("account_id"):
         return ""
     return f"event {event['account_id']} {event['calendar_id']} {event['id']}"
+
+
+def event_key(event: dict[str, Any]) -> str:
+    """The event (or its series) in its calendar, as an ignored event is kept; "" for events
+    cached by an earlier version without an id."""
+    series = event.get("series") or event.get("id")
+    return f"{event.get('calendar_id', '')}/{series}" if series else ""
 
 
 def describe(event: dict[str, Any]) -> str:
@@ -133,12 +149,14 @@ def today_and_upcoming(events: list[dict[str, Any]], now: datetime) -> dict[str,
     upcoming = [e for e in events if e["start"] >= tomorrow]
     return {
         "today": today,
-        "today_count": sum(1 for e in today if e["kind"] != "now"),
+        "today_count": sum(1 for e in today if e["kind"] != "now" and not e.get("ignored")),
         "upcoming": upcoming,
     }
 
 
-def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
+def events_on(
+    events: list[dict[str, Any]], date: Any, ignored: set[str] = frozenset()
+) -> list[dict[str, Any]]:
     """A whole other day's events (all-day ones first), for looking ahead in the side panel."""
     tz = events[0]["start"].tzinfo if events else None
     start = datetime.combine(date, datetime.min.time(), tz)
@@ -149,16 +167,27 @@ def events_on(events: list[dict[str, Any]], date: Any) -> list[dict[str, Any]]:
         key = (event["title"], event["start"])
         if event["start"] < end and event["end"] > start and key not in seen:
             seen.add(key)
-            day.append({**event, "kind": "event", "sub": describe(event)})
+            day.append(
+                {
+                    **event,
+                    "kind": "event",
+                    "sub": describe(event),
+                    "ignored": event_key(event) in ignored,
+                }
+            )
     return day
 
 
 def _busy(events: list[dict[str, Any]], trips: list[dict[str, Any]]) -> list[TimelineItem]:
-    """What takes today's time: the events (not those shown as free) and the ways to them."""
+    """What takes today's time: the events (not those shown as free or ignored) and the ways
+    to them."""
     return [
         TimelineItem(e["start"], e["end"], e["title"])
         for e in events
-        if e.get("kind") != "now" and not e["all_day"] and not e.get("free")
+        if e.get("kind") != "now"
+        and not e["all_day"]
+        and not e.get("free")
+        and not e.get("ignored")
     ] + [TimelineItem(t["start"], t["end"], "Travel") for t in trips]
 
 
@@ -172,7 +201,8 @@ def lunch_time(
     """Today's lunch, kept free (kind "lunch"): in the lunch window where it leaves the most
     time for focus, then closest to noon. None once it is over, when the calendar has lunch
     already, or when the window has no room for it."""
-    if any(LUNCH_EVENT.search(e.get("title") or "") for e in events if e.get("kind") != "now"):
+    own = [e for e in events if e.get("kind") != "now" and not e.get("ignored")]
+    if any(LUNCH_EVENT.search(e.get("title") or "") for e in own):
         return None
     day = now.replace(second=0, microsecond=0)
     earliest = max(day.replace(hour=LUNCH_FROM[0], minute=LUNCH_FROM[1]), day)
@@ -323,13 +353,20 @@ class CalendarPlugin(Plugin):
     def __init__(self) -> None:
         self.commute = Commute()
 
+    def router(self) -> "APIRouter":
+        from myorb.plugins.calendar.routes import router
+
+        return router
+
     def connections(self) -> list[Provider]:
         return [self.commute]
 
     async def _trips(
         self, context: WidgetContext, events: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """Today's ways to the events ahead, when Commute is set up (see commute.plan)."""
+        """Today's ways to the events ahead, when Commute is set up (see commute.plan); not to
+        ignored ones."""
+        events = [e for e in events if not e.get("ignored")]
         accounts = await context.connections.list(self.commute.id)
         if not accounts:
             return []
@@ -387,12 +424,25 @@ class CalendarPlugin(Plugin):
         )
         return result["accounts"]
 
+    async def _ignored(self, context: WidgetContext) -> set[str]:
+        async with context.sessionmaker() as db:
+            return set(await db.scalars(select(IgnoredEvent.key)))
+
+    async def ignored_today(self, context: WidgetContext) -> set[tuple[str, datetime]]:
+        """Today's ignored events, by title and start (as the brief keeps its calendar)."""
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        day = self._merged(loaded, context.now, await self._ignored(context))
+        return {(e["title"], e["start"]) for e in day["today"] if e.get("ignored")}
+
     @staticmethod
-    def _merged(accounts: list[AccountData], now: datetime) -> dict[str, Any]:
-        """Today's and upcoming events of all accounts together; ended events dropped."""
+    def _merged(
+        accounts: list[AccountData], now: datetime, ignored: set[str] = frozenset()
+    ) -> dict[str, Any]:
+        """Today's and upcoming events of all accounts together; ended events dropped, the
+        ignored ones marked."""
         events = sorted(
             (
-                e
+                {**e, "ignored": event_key(e) in ignored}
                 for a in accounts
                 if a.data
                 for e in a.data["events"]
@@ -408,11 +458,11 @@ class CalendarPlugin(Plugin):
 
     async def timeline(self, context: WidgetContext) -> list[TimelineItem]:
         loaded = [a for a in await self._accounts(context) if a.data is not None]
-        day = self._merged(loaded, context.now)
+        day = self._merged(loaded, context.now, await self._ignored(context))
         return [
             TimelineItem(e["start"], e["end"], e["title"])
             for e in day["today"]
-            if e["kind"] != "now" and not e["all_day"]
+            if e["kind"] != "now" and not e["all_day"] and not e["ignored"]
         ]
 
     async def brief(self, context: WidgetContext) -> BriefSection | None:
@@ -420,12 +470,15 @@ class CalendarPlugin(Plugin):
         if not loaded:
             return None
         now = context.now
-        day = self._merged(loaded, now)
+        ignored = await self._ignored(context)
+        day = self._merged(loaded, now, ignored)
         lines = []
         for event in day["today"]:
             if event["kind"] == "now":
                 lines.append(f"-- now is {now:%H:%M} --")
                 continue
+            if event["ignored"]:
+                continue  # the user ignores it: it does not concern them
             when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
             done = " (already over)" if event["kind"] == "past" else ""
             details = f" ({event['sub']})" if event["sub"] else ""
@@ -440,7 +493,7 @@ class CalendarPlugin(Plugin):
         # All of tomorrow, with times and places: a flight or an early start needs preparing
         # today. Then a few events of the rest of the week.
         tomorrow = (now + timedelta(days=1)).date()
-        events = [e for a in loaded for e in a.data["events"]]
+        events = [e for a in loaded for e in a.data["events"] if event_key(e) not in ignored]
         tomorrows = events_on(events, tomorrow)
         for event in tomorrows:
             when = "all day" if event["all_day"] else f"{event['start']:%H:%M}–{event['end']:%H:%M}"
@@ -448,7 +501,7 @@ class CalendarPlugin(Plugin):
             lines.append(f"Tomorrow {when}: {event['title']}{details}")
         if not tomorrows:
             lines.append("Nothing on the calendar tomorrow.")
-        later = [e for e in day["upcoming"] if e["start"].date() > tomorrow]
+        later = [e for e in day["upcoming"] if e["start"].date() > tomorrow and not e["ignored"]]
         for event in later[:5]:
             when = event["start"].strftime("%A" if event["all_day"] else "%A %H:%M")
             lines.append(f"Later this week, {when}: {event['title']}")
@@ -461,11 +514,13 @@ class CalendarPlugin(Plugin):
         if not loaded:
             return WidgetData(value=None, **status)
         now = context.now
-        day = self._merged(loaded, now)
+        day = self._merged(loaded, now, await self._ignored(context))
         today = [e for e in day["today"] if e["kind"] != "now"]
         week = [e for e in day["upcoming"] if e["start"] < now + timedelta(days=DAYS_AHEAD)]
         # The next timed event: later today, or else the first of the week ahead.
-        timed = [e for e in [*today, *week] if not e["all_day"] and e["start"] > now]
+        timed = [
+            e for e in [*today, *week] if not e["all_day"] and e["start"] > now and not e["ignored"]
+        ]
         nxt = timed[0] if timed else None
         trips = await self._trips(context, today)
         focus = focus_time(today, now, trips)
@@ -513,13 +568,21 @@ class CalendarPlugin(Plugin):
             tags = ["today" if event in today else "week"]
             if event is nxt:
                 tags.append("next")
+            # An ignored event stays, grey, with the button to count it again.
+            key = quote(event_key(event), safe="")
+            if event["ignored"]:
+                tags.append("ignored")
+                actions = [Action("Count again", f"/calendar/count?key={key}")]
+            else:
+                actions = [Action("Ignore", f"/calendar/ignore?key={key}")] if key else []
             rows.append(
                 Row(
                     title=event["title"],
-                    subtitle=describe(event),
+                    subtitle=describe(event) + (" · Ignored" if event["ignored"] else ""),
                     badge="Over" if event.get("kind") == "past" else event_badge(event, now),
-                    tone="neutral" if event.get("kind") == "past" else "info",
+                    tone="neutral" if event.get("kind") == "past" or event["ignored"] else "info",
                     url=event["url"],
+                    actions=actions,
                     ref=event_ref(event),
                     tags=tuple(tags),
                     group=event["calendar"] or event.get("account") or "Primary",
@@ -556,8 +619,9 @@ class CalendarPlugin(Plugin):
             offset = 0
         now = context.now
         date = (now + timedelta(days=offset)).date()
+        ignored = await self._ignored(context)
         if offset == 0:
-            day = self._merged(loaded, now) if loaded else None
+            day = self._merged(loaded, now, ignored) if loaded else None
             if day:
                 trips = await self._trips(context, day["today"])
                 extras = [*focus_time(day["today"], now, trips)]
@@ -567,7 +631,8 @@ class CalendarPlugin(Plugin):
                 extras.sort(key=lambda e: e["start"])
                 day = {**day, "today": among_events(day["today"], extras)}
         else:
-            day = {"today": events_on([e for a in loaded for e in a.data["events"]], date)}
+            events = [e for a in loaded for e in a.data["events"]]
+            day = {"today": events_on(events, date, ignored)}
         label = "Today" if offset == 0 else "Tomorrow" if offset == 1 else f"{date:%a %-d %b}"
         return {
             "connected": bool(accounts),
@@ -583,11 +648,14 @@ class CalendarPlugin(Plugin):
         loaded = [account for account in accounts if account.data is not None]
         if not loaded:
             return {"event": None}
-        day = self._merged(loaded, context.now)
+        day = self._merged(loaded, context.now, await self._ignored(context))
         upcoming = [
             e
             for e in [*day["today"], *day["upcoming"]]
-            if e.get("kind") != "now" and not e["all_day"] and e["start"] > context.now
+            if e.get("kind") != "now"
+            and not e["all_day"]
+            and e["start"] > context.now
+            and not e["ignored"]
         ]
         event = upcoming[0] if upcoming else None
         # When to leave for it, with Commute set up and the event somewhere today.

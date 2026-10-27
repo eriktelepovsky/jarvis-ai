@@ -374,8 +374,14 @@ a.ti:hover .t1 {
   border-left: 2px solid var(--accent);
 }
 
-.ti.past {
+.ti.past,
+.ti.ignored {
   opacity: 0.5;
+}
+
+/* An event the user ignores: grey, its colour gone, but still there. */
+.ti.ignored .tx {
+  border-left-color: var(--text-3);
 }
 
 .ti.travel .tx {
@@ -1417,6 +1423,11 @@ button.modal-stat[aria-pressed="true"] {
   margin-bottom: 4px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line-soft);
+}
+
+/* An ignored event in the calendar's details: grey, but its button to count it again is not. */
+.modal-row[data-tags~="ignored"] > :not(.row-actions) {
+  opacity: 0.5;
 }
 
 .modal-row {
