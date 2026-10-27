@@ -175,7 +175,15 @@
       </div>
       {# Hidden in browsers that cannot recognize speech (welcome.js). #}
       <div class="voice-panel" data-voice-panel hidden>
-        <div class="side-head"><span class="label strong">Voice</span><span class="label">Browser · {{ voice_lang }}</span></div>
+        <div class="side-head"><span class="label strong">Voice</span>
+          {# The language questions are heard (and answered aloud) in; another can be chosen. #}
+          <details class="voice-lang">
+            <summary class="label" aria-label="Language to speak in">Browser · <span data-voice-lang-label>{{ voice_lang }}</span> ▾</summary>
+            <div class="voice-lang-menu" role="menu">
+              {% for name, tag in voice_languages %}<button type="button" class="voice-lang-option" role="menuitemradio" data-voice-lang-choice="{{ tag }}">{{ name }} <span class="label">{{ tag }}</span></button>{% endfor %}
+            </div>
+          </details>
+        </div>
         <div class="voice">
           <button type="button" class="voice-mic" data-voice-ask aria-label="Ask {{ assistant }} by voice" aria-keyshortcuts="v" title="Ask {{ assistant }} by voice (V)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
           <span style="min-width: 0">

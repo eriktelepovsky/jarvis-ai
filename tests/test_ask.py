@@ -51,6 +51,8 @@ def test_the_command_line_offers_ask_only_with_claude(client: TestClient):
     assert 'data-ask-quick="Plan my day: what should I do first, and when?"' in page
     # Voice questions, heard in the brief's language.
     assert "data-voice-ask" in page and 'data-voice-lang="en-GB"' in page
+    # Another language to speak in can be chosen in the Voice panel (kept in the browser).
+    assert 'data-voice-lang-choice="sk-SK">Slovak' in page
 
 
 def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeClaude):

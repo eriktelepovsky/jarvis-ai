@@ -920,6 +920,41 @@
     askQuestion(question, { aloud });
   });
 
+  // The language questions are heard in: the brief's, unless another was chosen in the Voice
+  // panel (kept in this browser). Answers to spoken questions are read in it too.
+  const VOICE_LANG_KEY = "myorb.voiceLang";
+  function setVoiceLang(tag, keep = true) {
+    const bar = document.querySelector(".command-bar[data-voice-lang]");
+    if (!bar || !tag) return;
+    bar.dataset.voiceLang = tag;
+    document.querySelectorAll("[data-voice-lang-label]").forEach((label) => (label.textContent = tag));
+    document.querySelectorAll("[data-voice-lang-choice]").forEach((option) => {
+      option.setAttribute("aria-checked", String(option.dataset.voiceLangChoice === tag));
+    });
+    if (!keep) return;
+    try {
+      localStorage.setItem(VOICE_LANG_KEY, tag);
+    } catch {
+      // Storage unavailable: for this page only.
+    }
+  }
+  try {
+    const kept = localStorage.getItem(VOICE_LANG_KEY);
+    if (kept && document.querySelector(`[data-voice-lang-choice="${CSS.escape(kept)}"]`)) setVoiceLang(kept, false);
+    else setVoiceLang(document.querySelector(".command-bar[data-voice-lang]")?.dataset.voiceLang, false);
+  } catch {
+    // Storage unavailable: the brief's language.
+  }
+  document.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-voice-lang-choice]");
+    const menu = document.querySelector("details.voice-lang[open]");
+    if (option) {
+      setVoiceLang(option.dataset.voiceLangChoice);
+      sound("click");
+    }
+    if (menu && (option || !menu.contains(event.target))) menu.open = false;
+  });
+
   // Voice: the browser's speech recognition hears a question, shown as it is heard in the
   // command line, and asks it when the speaker stops; the answer is read aloud. Esc or the
   // button again cancels. Hidden in browsers that cannot recognize speech.
