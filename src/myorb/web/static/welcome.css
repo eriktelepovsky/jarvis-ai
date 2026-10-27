@@ -2145,6 +2145,81 @@ button.row-btn {
   left: auto;
 }
 
+/* On hover over an event: a card with its title, its time and how long it takes, above the
+   labels, coloured as the event. */
+.glance-tip {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  z-index: 5;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  max-width: 280px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text);
+  background: #0f151c;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 55%);
+  pointer-events: none;
+}
+
+.glance-item.end .glance-tip {
+  right: 0;
+  left: auto;
+}
+
+.glance-item:hover {
+  z-index: 4;
+}
+
+.glance-item:hover .glance-tip {
+  display: flex;
+}
+
+.glance-tip strong {
+  font-weight: 600;
+}
+
+.glance-tip-when {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.glance-tip-length {
+  padding: 1px 7px;
+  color: var(--accent);
+  background: rgb(79 209 232 / 12%);
+  border-radius: 999px;
+}
+
+.glance-item.focus .glance-tip {
+  border-left-color: var(--ok);
+}
+
+.glance-item.focus .glance-tip-length {
+  color: var(--ok);
+  background: rgb(110 231 160 / 12%);
+}
+
+.glance-item.lunch .glance-tip {
+  border-left-color: var(--text-3);
+}
+
+.glance-item.lunch .glance-tip-length {
+  color: var(--text-2);
+  background: rgb(135 148 161 / 14%);
+}
+
 .glance-time {
   margin-right: 6px;
   font-family: var(--font-mono);

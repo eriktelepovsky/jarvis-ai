@@ -312,7 +312,8 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     report = client.get("/brief/report").text
     assert "Kept standup" in report and "● Now" in report
     # Hovering an event tells how long it takes (its time is in the app's time zone).
-    assert '· 1 h · Kept standup"' in report
+    assert "<strong>Kept standup</strong>" in report
+    assert '<span class="glance-tip-length">1 h</span>' in report
 
     async def keep_ahead(title: str) -> None:
         async with client.app.state.sessionmaker() as db:
