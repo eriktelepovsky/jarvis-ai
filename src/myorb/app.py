@@ -142,6 +142,8 @@ def create_app(
             app, brief.id, brief.language
         )
         scheduler = asyncio.create_task(app.state.brief.run_scheduler())
+        # What changed in this version and the ones before: read once after an upgrade.
+        notes = asyncio.create_task(releases.fetch(app))
         background = [
             asyncio.create_task(job)
             for plugin in plugins.values()
@@ -161,6 +163,7 @@ def create_app(
             )
         yield
         scheduler.cancel()
+        notes.cancel()
         for job in background:
             job.cancel()
         await app.state.http.aclose()
