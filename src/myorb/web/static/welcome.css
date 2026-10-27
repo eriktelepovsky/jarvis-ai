@@ -1077,9 +1077,11 @@ a.ti:hover .t1 {
   .welcome[data-pane="2"] .side-right {
     display: flex;
     grid-area: orb;
-    width: min(46vw, 520px);
+    box-sizing: border-box;
+    /* As wide as the orb with its circles, so the left column keeps its width (see .orb). */
+    width: calc(var(--orb-d) * 1.12);
     max-height: var(--screen);
-    padding: max(26px, var(--safe-top)) 0 max(20px, var(--safe-bottom));
+    padding: max(26px, var(--safe-top)) 26px max(20px, var(--safe-bottom)) 0;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-width: none;
@@ -1089,8 +1091,10 @@ a.ti:hover .t1 {
     opacity: 1;
   }
 
-  /* The circles reach about 5% past the orb (a large one with its badge a little more). */
-  .stage { --d: min(calc(var(--screen) - 64px), 44vw); }
+  /* The circles reach about 5% past the orb (a large one with its badge a little more). The
+     day and the activity in its place take its size too. */
+  .welcome { --orb-d: min(calc(var(--screen) - 64px), 44vw); }
+  .stage { --d: var(--orb-d); }
 
   .welcome-header {
     grid-area: header;

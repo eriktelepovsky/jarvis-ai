@@ -1091,6 +1091,25 @@
   }, { passive: true });
   // A new width keeps the screen that was shown.
   window.addEventListener("resize", () => showPane(paneShown, false));
+  // On a phone on its side nothing scrolls sideways: a swipe across the screen goes to the
+  // screen beside, as one held upright does.
+  let swipeFrom = null;
+  document.getElementById("welcome")?.addEventListener("touchstart", (event) => {
+    swipeFrom = sideways() && event.touches.length === 1 ? event.touches[0] : null;
+  }, { passive: true });
+  document.getElementById("welcome")?.addEventListener("touchend", (event) => {
+    if (!swipeFrom) return;
+    const end = event.changedTouches[0];
+    const dx = end.clientX - swipeFrom.clientX;
+    const dy = end.clientY - swipeFrom.clientY;
+    swipeFrom = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const next = Math.min(2, Math.max(0, paneShown + (dx < 0 ? 1 : -1)));
+    if (next !== paneShown) {
+      showPane(next);
+      sound("click");
+    }
+  }, { passive: true });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-pane]");
     if (!button) return;
