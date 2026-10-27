@@ -1728,6 +1728,12 @@ button.modal-stat[aria-pressed="true"] {
   border-radius: 0;
 }
 
+/* The first message right under the head, whose line it shares. */
+.page-view details.email-message:first-of-type {
+  margin-top: 0;
+  border-top: 0;
+}
+
 @media (max-width: 720px) {
   .page-view {
     --view-pad: 16px;
