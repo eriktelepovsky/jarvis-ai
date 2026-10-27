@@ -2163,6 +2163,60 @@ form.htmx-request .btn[type="submit"]::before {
   margin-left: auto;
 }
 
+/* The rest of the actions: in the row on a wide screen, behind ⋮ on a phone. */
+.email-actions-wide {
+  display: contents;
+}
+
+.email-more {
+  position: relative;
+  display: none;
+  margin-left: auto;
+}
+
+.email-more > summary {
+  list-style: none;
+}
+
+.email-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.email-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 190px;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 55%);
+}
+
+.email-more-menu .btn,
+.email-more-menu form {
+  width: 100%;
+}
+
+.email-more-menu .btn {
+  justify-content: flex-start;
+}
+
+@media (max-width: 760px) {
+  .email-actions-wide {
+    display: none;
+  }
+
+  .email-more {
+    display: block;
+  }
+}
+
 .email-star {
   color: var(--warn);
 }

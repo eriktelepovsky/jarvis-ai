@@ -251,3 +251,10 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   home.click();
 });
+
+// A menu behind ⋮ (e.g. an email's other actions) closes on a click elsewhere or on its items.
+document.addEventListener("click", (event) => {
+  document.querySelectorAll("details.email-more[open]").forEach((menu) => {
+    if (!menu.contains(event.target) || event.target.closest(".email-more-menu .btn")) menu.open = false;
+  });
+});
