@@ -124,7 +124,7 @@ def test_welcome_screen_without_plugins(make_client: MakeClient):
     text = client.get("/").text
     assert "Connect a service" in text
     # The running version, in the bottom-left corner.
-    assert f'<span class="label welcome-version">myOrb v{__version__}</span>' in text
+    assert f'title="What changed in each version">myOrb v{__version__}</button>' in text
     # Stylesheets and scripts carry the version, so a CDN that keeps static files for hours
     # (Cloudflare's Browser Cache TTL overrides no-cache) cannot serve an old one after a release.
     assert f"/static/welcome.css?v={__version__}" in text
@@ -310,3 +310,48 @@ def test_responses_say_the_running_version(make_client: MakeClient):
     response = client.get("/")
     assert response.headers["X-Myorb-Version"] == __version__
     assert f'<meta name="myorb-version" content="{__version__}">' in response.text
+
+
+def test_versions_with_what_changed(make_client: MakeClient):
+    import httpx2
+
+    from myorb import __version__
+    from myorb.web import releases
+
+    body = (
+        "## What's Changed\n"
+        "* Tasks that repeat by @someone in https://github.com/x/y/pull/137\n"
+        "* Version 0.46.2 by @someone in https://github.com/x/y/pull/147\n\n"
+        "**Full Changelog**: https://github.com/x/y/compare/v1...v2"
+    )
+    calls = []
+
+    def github(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request.url.path)
+        data = [
+            {
+                "tag_name": f"v{__version__}",
+                "published_at": "2026-10-27T14:17:26Z",
+                "html_url": "https://github.com/x/y/releases/tag/v1",
+                "body": body,
+            },
+            {
+                "tag_name": "v0.1.0",
+                "published_at": "2026-10-20T10:00:00Z",
+                "html_url": "",
+                "body": "",
+            },
+        ]
+        return httpx2.Response(200, json=data)
+
+    releases._cache.update(at=0.0, releases=None)
+    client = make_client(transport=httpx2.MockTransport(github))
+    complete_setup(client)
+    assert "data-open-releases" in client.get("/").text
+    page = client.get("/releases").text
+    assert f"v{__version__}</a>" in page and ">Running<" in page and "v0.1.0" in page
+    assert '<a href="https://github.com/x/y/pull/137"' in page and ">Tasks that repeat<" in page
+    assert "Version 0.46.2" not in page and "Full Changelog" not in page
+    client.get("/releases")
+    assert len(calls) == 1  # kept, not read again
+    releases._cache.update(at=0.0, releases=None)

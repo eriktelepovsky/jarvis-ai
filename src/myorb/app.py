@@ -40,6 +40,7 @@ from myorb.profile import DEFAULT_ASSISTANT, DEFAULT_COLOR, load_profile, orb_hu
 from myorb.tasks import routes as task_routes
 from myorb.templating import register_filters
 from myorb.timezone import resolve_timezone
+from myorb.web import releases
 from myorb.web.routes import app_context, router
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -188,6 +189,7 @@ def create_app(
     app.include_router(voice.router)
     app.include_router(activity_routes.router)
     app.include_router(ask_routes.router)
+    app.include_router(releases.router)
     for plugin in plugins.values():
         if (plugin_router := plugin.router()) is not None:
             app.include_router(plugin_router)

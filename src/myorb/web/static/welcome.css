@@ -3315,3 +3315,81 @@ dialog.is-refreshing .modal-head::after {
     animation: none;
   }
 }
+
+/* The version under the welcome screen opens what changed in each version. */
+button.welcome-version {
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+button.welcome-version:hover,
+button.welcome-version:focus-visible {
+  color: var(--accent-hover);
+}
+
+.modal.modal-releases {
+  width: min(760px, calc(100% - 32px));
+}
+
+.releases-box {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.releases {
+  flex: 1;
+  min-height: 0;
+  padding: 18px 24px 24px;
+  overflow-y: auto;
+}
+
+.release-list {
+  display: grid;
+  gap: 18px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.release-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.release-version {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.release-version:hover {
+  color: var(--accent);
+}
+
+.release-changes {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text-2);
+}
+
+.release-changes a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.release-changes a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.release.is-running .release-version {
+  color: var(--accent);
+}

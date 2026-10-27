@@ -219,7 +219,13 @@
     <button type="button" class="label" data-pane="2">Activity</button>
   </nav>
   <footer class="label welcome-footer">Click a number to open its details</footer>
-  <span class="label welcome-version">myOrb v{{ version }}</span>
+  {# The versions and what each changed, in a dialog (welcome.js). #}
+  <button type="button" class="label welcome-version" data-open-releases title="What changed in each version">myOrb v{{ version }}</button>
+  <dialog class="modal modal-releases" id="releases" aria-labelledby="releases-title">
+    <div class="releases-box" hx-get="/releases" hx-trigger="myorb:open">
+      <div class="modal-head"><h2 id="releases-title">Versions</h2></div>
+    </div>
+  </dialog>
 
   {# A page opened over the details (an email), so closing it shows the list as it was. #}
   <dialog class="modal page-view-modal" id="page-view-dialog" aria-label="Email">
