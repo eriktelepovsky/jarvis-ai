@@ -2047,6 +2047,16 @@ button.row-btn {
   border-radius: 3px;
 }
 
+/* Time kept for lunch: not a meeting, so only an outline. */
+.glance-item.lunch {
+  background: transparent;
+  border: 1px dashed var(--text-3);
+}
+
+.glance-item.lunch .glance-label {
+  color: var(--text-3);
+}
+
 .glance-item.past {
   background: rgb(79 209 232 / 11%);
   border-color: rgb(79 209 232 / 40%);
