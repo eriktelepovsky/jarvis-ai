@@ -344,7 +344,6 @@ def test_versions_with_what_changed(make_client: MakeClient):
         ]
         return httpx2.Response(200, json=data)
 
-    releases._cache.update(at=0.0, releases=None)
     client = make_client(transport=httpx2.MockTransport(github))
     complete_setup(client)
     assert "data-open-releases" in client.get("/").text
@@ -353,5 +352,7 @@ def test_versions_with_what_changed(make_client: MakeClient):
     assert '<a href="https://github.com/x/y/pull/137"' in page and ">Tasks that repeat<" in page
     assert "Version 0.46.2" not in page and "Full Changelog" not in page
     client.get("/releases")
-    assert len(calls) == 1  # kept, not read again
-    releases._cache.update(at=0.0, releases=None)
+    # Read once for this version (at the start) and kept in the data directory.
+    assert len(calls) == 1
+    kept = client.app.state.settings.data_dir / "releases.json"
+    assert releases.__version__ in kept.read_text()
