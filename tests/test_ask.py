@@ -68,6 +68,7 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert "Answer in the language of the question" in instructions["text"]
     # Done only when its tool ran; outcomes and problems marked for their colour in the chat.
     assert "Never say that you did something" in instructions["text"]
+    assert "never correct or take back your earlier answers" in instructions["text"]
     assert "[ok]" in instructions["text"] and "[error]" in instructions["text"]
     assert board["cache_control"] == {"type": "ephemeral"}
     assert "## Tasks" in board["text"] and "Water the <plants>" in board["text"]
