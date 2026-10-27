@@ -1223,7 +1223,9 @@
         if (!el) return;
         const x = (i - at) * step;
         el.style.transform = x ? `translateX(${x}px)` : "";
-        el.style.clipPath = `inset(0 0 0 ${Math.max(0, edge - (rest[i] + x))}px)`;
+        // Cut on the left only, at the edge: the orb's circles reach past its box above, below
+        // and to the right.
+        el.style.clipPath = `inset(-100vmax -100vmax -100vmax ${edge - (rest[i] + x)}px)`;
       });
     };
     const target = paneShown - offset / step;
