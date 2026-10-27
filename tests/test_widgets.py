@@ -528,6 +528,22 @@ class NoConnections:
         return []
 
 
+class NoIgnored:
+    """A database where no event is ignored, for a widget's context."""
+
+    def __call__(self) -> "NoIgnored":
+        return self
+
+    async def __aenter__(self) -> "NoIgnored":
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    async def scalars(self, query: object) -> list:
+        return []
+
+
 def test_brief_includes_all_of_tomorrow(monkeypatch):
     import asyncio
     from datetime import datetime, timedelta
@@ -572,7 +588,11 @@ def test_brief_includes_all_of_tomorrow(monkeypatch):
         return [AccountData("me@example.com", {"events": events})]
 
     monkeypatch.setattr(plugin, "_accounts", accounts)
-    section = asyncio.run(plugin.brief(SimpleNamespace(now=now, connections=NoConnections())))
+    section = asyncio.run(
+        plugin.brief(
+            SimpleNamespace(now=now, connections=NoConnections(), sessionmaker=NoIgnored())
+        )
+    )
     assert "Tomorrow 19:00–21:00: Flight to Bratislava (2 h · VIE)" in section.lines
     assert sum(line.startswith("Tomorrow all day") for line in section.lines) == 6
     assert any(line.startswith("Later this week, Monday 09:00: Dentist") for line in section.lines)
@@ -606,7 +626,9 @@ def test_free_blocks_for_focus_today(monkeypatch):
         return [AccountData("me@example.com", {"events": events})]
 
     monkeypatch.setattr(plugin, "_accounts", accounts)
-    context = SimpleNamespace(now=now, params={}, connections=NoConnections())
+    context = SimpleNamespace(
+        now=now, params={}, connections=NoConnections(), sessionmaker=NoIgnored()
+    )
     section = asyncio.run(plugin.brief(context))
     assert (
         "Free for focus today (an hour or more, until 18:00): "
@@ -629,7 +651,9 @@ def test_free_blocks_for_focus_today(monkeypatch):
     kinds = [e["kind"] for e in panel["day"]["today"]]
     assert kinds == ["past", "now", "focus", "event", "focus", "event", "event", "focus"]
     # Nothing left once the working day is over.
-    late = SimpleNamespace(now=at(17, 30), params={}, connections=NoConnections())
+    late = SimpleNamespace(
+        now=at(17, 30), params={}, connections=NoConnections(), sessionmaker=NoIgnored()
+    )
     assert any(line.startswith("No free block") for line in asyncio.run(plugin.brief(late)).lines)
 
 
@@ -660,7 +684,9 @@ def test_lunch_is_kept_out_of_focus_time(monkeypatch):
         return [AccountData("me@example.com", {"events": events})]
 
     monkeypatch.setattr(plugin, "_accounts", accounts)
-    context = SimpleNamespace(now=now, params={}, connections=NoConnections())
+    context = SimpleNamespace(
+        now=now, params={}, connections=NoConnections(), sessionmaker=NoIgnored()
+    )
     data = asyncio.run(plugin._widget(context))
     # 11:30–13:00 is free, but lunch takes its middle: no hour of focus is left around it.
     assert [(r.title, r.badge) for r in data.rows][:6] == [
@@ -944,7 +970,7 @@ def test_commute_shows_when_to_leave(monkeypatch):
 
     monkeypatch.setattr(plugin, "_accounts", accounts)
     monkeypatch.setattr(plugin, "_trips", trips)
-    context = SimpleNamespace(now=now, params={})
+    context = SimpleNamespace(now=now, params={}, sessionmaker=NoIgnored())
     data = asyncio.run(plugin._widget(context))
     assert [(r.title, r.badge, r.tone) for r in data.rows][:2] == [
         ("Leave for Quarterly meeting", "07:10", "warn"),  # in a quarter of an hour
@@ -1046,3 +1072,85 @@ def test_attachments_open_with_a_preview(client: TestClient, fake_google: FakeGo
         assert Image.open(io.BytesIO(picture.content)).width == 360
     assert client.get("/email/1/attachment/m9/3/thumbnail").status_code == 404
     assert client.get("/email/1/attachment/m9/7").status_code == 404
+
+
+def test_an_event_is_ignored_and_counted_again(client: TestClient, fake_google: FakeGoogle):
+    now = datetime.now(TZ)
+
+    def calendar(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.endswith("/calendarList"):
+            items = [{"id": "family@group.example", "selected": True, "summary": "Family"}]
+            return httpx2.Response(200, json={"items": items})
+        # A day of someone else's repeating event, in a shared calendar.
+        event = {
+            "id": "madero_20261027",
+            "recurringEventId": "madero",
+            "summary": "LuciA madero",
+            "start": {"dateTime": (now - timedelta(minutes=1)).isoformat()},
+            "end": {"dateTime": (now + timedelta(hours=1)).isoformat()},
+        }
+        return httpx2.Response(200, json={"items": [event]})
+
+    fake_google.routes[CALENDAR] = calendar
+    connect_google(client, fake_google)
+    text = client.get("/welcome/widgets").text
+    assert 'hx-post="/calendar/ignore?key=family%40group.example%2Fmadero"' in text
+    assert (
+        client.post("/calendar/ignore", params={"key": "family@group.example/madero"}).status_code
+        == 204
+    )
+
+    text = client.get("/welcome/widgets").text
+    # Still listed, grey, with the button to count it again; no longer one of today's.
+    assert 'data-tags="today ignored"' in text and ">Count again<" in text
+    assert "· Ignored" in text
+    panel = client.get("/panels/calendar/today").text
+    assert 'class="ti ignored"' in panel
+
+    client.post("/calendar/count", params={"key": "family@group.example/madero"})
+    assert ">Ignore<" in client.get("/welcome/widgets").text
+    assert client.post("/calendar/ignore", params={"key": "x"}).status_code == 400
+
+
+def test_ignored_events_take_no_time(monkeypatch):
+    from types import SimpleNamespace
+
+    from myorb.plugins.google_data import AccountData
+
+    now = datetime(2026, 10, 27, 8, 0, tzinfo=TZ)
+    base = {"location": None, "video_url": None, "url": None, "all_day": False}
+
+    def event(title: str, hour: int, calendar: str | None = None) -> dict:
+        start = now.replace(hour=hour)
+        return {
+            **base,
+            "title": title,
+            "start": start,
+            "end": start + timedelta(hours=1),
+            "id": title,
+            "calendar": calendar,
+            "calendar_id": calendar or "me",
+        }
+
+    events = [event("Refinement", 10), event("LuciA madero", 14, "Family")]
+    plugin = CalendarPlugin()
+
+    async def accounts(context):
+        return [AccountData("me@example.com", {"events": events})]
+
+    async def ignored(context):
+        return {"Family/LuciA madero"}
+
+    monkeypatch.setattr(plugin, "_accounts", accounts)
+    monkeypatch.setattr(plugin, "_ignored", ignored)
+    context = SimpleNamespace(now=now, params={}, connections=NoConnections())
+    assert [i.title for i in asyncio.run(plugin.timeline(context))] == ["Refinement"]
+    lines = asyncio.run(plugin.brief(context)).lines
+    assert not any("LuciA" in line for line in lines)
+    # Its hour is free for focus: 11:00–18:00, less lunch.
+    assert any("12:45–18:00 (5 h 15 m)" in line for line in lines)
+    data = asyncio.run(plugin._widget(context))
+    assert data.value == 1 and [r.title for r in data.rows if "ignored" in r.tags] == [
+        "LuciA madero"
+    ]
+    assert asyncio.run(plugin.ignored_today(context)) == {("LuciA madero", now.replace(hour=14))}

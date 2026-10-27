@@ -220,6 +220,11 @@ async def report(request: Request) -> Response:
             context["glance_kept"] = kept
             context["sources"] = await load_widgets(request)
         else:
+            # Events ignored since leave the brief's calendar too, rather than show as cancelled.
+            calendar = request.app.state.plugins.get("calendar")
+            if calendar is not None and hasattr(calendar, "ignored_today"):
+                ignored = await calendar.ignored_today(widget_context(request))
+                items = [i for i in items if (i.title, i.start) not in ignored]
             context["glance"] = glance(items, now, lunch=_lunch(items, now))
             # A meeting added, cancelled or moved since: the brief should be written again.
             current, context["sources"] = await asyncio.gather(
