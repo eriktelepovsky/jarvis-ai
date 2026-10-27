@@ -49,7 +49,8 @@ def test_glance_lays_out_the_day():
     items = [TimelineItem(at(9), at(10), "Standup"), TimelineItem(at(6), at(6, 30), "Gym")]
     day = glance(items, NOW)
     assert day.hours[0] == (6, 0.0)  # starts at the earliest event, before 07:00
-    assert [p.item.title for p in day.items] == ["Gym", "Standup"]
+    # The rest of the working day is free: a block for focus, not counted as an event.
+    assert [p.item.title for p in day.items] == ["Gym", "Standup", "Free for focus"]
     assert day.items[0].past and day.items[0].above and not day.items[1].above
     assert 0 < day.now < 100
     assert day.count == 2
@@ -95,16 +96,21 @@ def test_lunch_is_shown_on_the_glance_but_is_no_event():
     items = [TimelineItem(at(10), at(11), "Refinement"), TimelineItem(at(14), at(15), "Call")]
     morning = at(8)
     day = glance(items, morning, lunch=(at(12), at(12, 45)))
-    assert [(p.item.title, p.lunch) for p in day.items] == [
-        ("Refinement", False),
-        ("Lunch", True),
-        ("Call", False),
+    assert [(p.item.title, p.kind) for p in day.items] == [
+        ("Free for focus", "focus"),  # 09:00–10:00
+        ("Refinement", "event"),
+        ("Free for focus", "focus"),  # 11:00–12:00
+        ("Lunch", "lunch"),
+        ("Free for focus", "focus"),  # 12:45–14:00
+        ("Call", "event"),
+        ("Free for focus", "focus"),  # 15:00–18:00
     ]
     assert day.count == 2
     # Free from now until 18:00, less the two meetings and lunch.
     assert day.free_minutes == 600 - 120 - 45
     assert all(
-        not p.lunch for p in glance(items, morning, day_over=True, lunch=(at(12), at(13))).items
+        p.kind == "event"
+        for p in glance(items, morning, day_over=True, lunch=(at(12), at(13))).items
     )
 
 

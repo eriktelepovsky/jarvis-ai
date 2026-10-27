@@ -21,7 +21,8 @@ class Placed:
     width: float
     above: bool  # label above or below the bar, alternating so neighbours do not overlap
     past: bool
-    lunch: bool = False  # time kept free for lunch, not an event
+    # "event"; "lunch", time kept for lunch; "focus", a free block for deep work.
+    kind: str = "event"
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,8 @@ def glance(
     lunch: tuple[datetime, datetime] | None = None,
 ) -> Glance:
     """The day of `now`; with `day_over`, a past day as it ended (no "now", nothing free).
-    `lunch` is shown among the events, as time that is not free, but is no event."""
+    `lunch` and the free blocks for focus around it (see focus_blocks) are shown among the
+    events, but are none."""
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today = [i for i in items if i.end > midnight and i.start < midnight + timedelta(days=1)]
     first = min([DAY_START] + [i.start.hour for i in today])
@@ -92,8 +94,13 @@ def glance(
     def position(moment: datetime) -> float:
         return max(0.0, min(100.0, (moment - start).total_seconds() / span * 100))
 
-    lunch_item = TimelineItem(lunch[0], lunch[1], "Lunch") if lunch and not day_over else None
-    shown = sorted([*today, *([lunch_item] if lunch_item else [])], key=lambda i: i.start)
+    lunch_items = [TimelineItem(*lunch, "Lunch")] if lunch and not day_over else []
+    busy = [*today, *lunch_items]
+    focus = [] if day_over else focus_blocks(busy, now)
+    kinds = {id(i): "lunch" for i in lunch_items}
+    focus_items = [TimelineItem(begin, end, "Free for focus") for begin, end in focus]
+    kinds |= {id(i): "focus" for i in focus_items}
+    shown = sorted([*busy, *focus_items], key=lambda i: i.start)
     placed = [
         Placed(
             item,
@@ -101,7 +108,7 @@ def glance(
             max(0.8, position(item.end) - position(item.start)),
             above=index % 2 == 0,
             past=day_over or item.end <= now,
-            lunch=item is lunch_item,
+            kind=kinds.get(id(item), "event"),
         )
         for index, item in enumerate(shown)
     ]
@@ -113,9 +120,7 @@ def glance(
         items=placed,
         hours=hours,
         now=position(now) if inside and not day_over else None,
-        free_minutes=0
-        if day_over
-        else free_minutes([*today, *([lunch_item] if lunch_item else [])], now),
+        free_minutes=0 if day_over else free_minutes(busy, now),
         count=len(today),
     )
 
