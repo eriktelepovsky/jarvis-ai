@@ -437,7 +437,7 @@ a.ti:hover .t1 {
 @media (max-width: 1279px) {
   .welcome-main {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0;
     padding: 0 0 90px;
     overflow-x: auto;
@@ -464,6 +464,36 @@ a.ti:hover .t1 {
     padding-block: 8px;
     padding-inline: max(20px, calc((100% - 520px) / 2));
     border: 0;
+  }
+
+  /* Where the screen is tall enough, the welcome screen keeps to it, as on a desktop: the
+     orb in the middle, the corners in view, and a long day or activity scrolls on its own. */
+  @media (min-height: 561px) {
+    .welcome {
+      height: 100svh;
+    }
+
+    .welcome-main {
+      align-items: stretch;
+      min-height: 0;
+    }
+
+    .stage {
+      justify-content: center;
+    }
+
+    .side-left,
+    .side-right {
+      max-height: 100%;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      scrollbar-width: none;
+    }
+  }
+
+  /* The bar of screens takes the hint's place at the bottom. */
+  .welcome-footer {
+    visibility: hidden;
   }
 
   .panes-nav {

@@ -1064,16 +1064,8 @@
     if (!panesBox || !narrowPanes()) return;
     panesBox.scrollTo({ left: index * panesBox.clientWidth, behavior: smooth ? "smooth" : "instant" });
   }
-  // As tall as the screen shown, so the orb's does not scroll on into the day's length.
-  function fitPanes() {
-    if (!panesBox) return;
-    if (!narrowPanes()) return panesBox.style.removeProperty("height");
-    const pane = panesBox.children[paneAt()];
-    if (pane) panesBox.style.height = `${pane.offsetHeight}px`;
-  }
   function markPane() {
     const at = paneAt();
-    fitPanes();
     document.querySelectorAll("[data-pane]").forEach((button) => {
       const on = Number(button.dataset.pane) === at;
       button.classList.toggle("is-on", on);
@@ -1087,16 +1079,8 @@
     paneShown = paneAt();
     markPane();
   }, { passive: true });
-  // A new width keeps the screen that was shown; a screen whose content grows (a panel
-  // loaded) stays as tall as it.
-  window.addEventListener("resize", () => {
-    showPane(paneShown, false);
-    fitPanes();
-  });
-  if ("ResizeObserver" in window && panesBox) {
-    const grown = new ResizeObserver(() => fitPanes());
-    [...panesBox.children].forEach((pane) => grown.observe(pane));
-  }
+  // A new width keeps the screen that was shown.
+  window.addEventListener("resize", () => showPane(paneShown, false));
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-pane]");
     if (!button) return;
