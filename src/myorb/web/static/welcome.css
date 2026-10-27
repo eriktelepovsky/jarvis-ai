@@ -3299,6 +3299,19 @@ dialog.is-refreshing .modal-head::after {
   min-width: 0;
 }
 
+/* Safari on iOS draws date and time fields its own way: wider than their column (the time ran
+   past the dialog's edge). Without its appearance they take the size given here, as the
+   other fields. */
+.add-due input[type="date"],
+.add-due input[type="time"] {
+  appearance: none;
+}
+
+.add-due ::-webkit-date-and-time-value {
+  min-height: 1lh;
+  text-align: left;
+}
+
 @media (max-width: 560px) {
   .add-due {
     grid-template-columns: repeat(2, minmax(0, 1fr));
