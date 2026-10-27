@@ -1907,10 +1907,10 @@ button.row-btn {
   color: var(--accent);
 }
 
-/* Done a moment ago: struck through, fading out over five seconds (the panel's DONE_SHOWN),
+/* Done a moment ago: struck through, fading out over eight seconds (the panel's DONE_SHOWN),
    then gone (welcome.js). Its box, checked again, brings it back. */
 .check.is-done {
-  animation: done-fade 5s linear forwards;
+  animation: done-fade 8s linear forwards;
 }
 
 @keyframes done-fade {

@@ -24,7 +24,7 @@ ICON = "M4 7l2 2 4-4M4 17l2 2 4-4M14 7h6M14 17h6"
 ROWS_SHOWN = 12
 # How long a task done in the side panel stays there, fading out (welcome.css), to be brought
 # back by its box.
-DONE_SHOWN = timedelta(seconds=5)
+DONE_SHOWN = timedelta(seconds=8)
 PLACEHOLDER = "Add a task… e.g. “call the accountant tomorrow 10:00”"
 
 
@@ -159,7 +159,10 @@ class TasksPlugin(Plugin):
         return {
             "done": {task.id for task in before},
             # How far through its fading each is, so a reload of the panel does not start it anew.
-            "faded": {task.id: round(min(since_done(task), 5.0), 2) for task in before},
+            "faded": {
+                task.id: round(min(since_done(task), DONE_SHOWN.total_seconds()), 2)
+                for task in before
+            },
             # Tasks without a date have no day of their own: they wait here, after today's.
             "tasks": tasks,
             "overdue": {task.id for task in groups.overdue},
