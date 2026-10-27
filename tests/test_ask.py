@@ -64,6 +64,9 @@ def test_answer_is_streamed_from_the_dashboard(client: TestClient, claude: FakeC
     assert request["stream"] is True and request["model"] == "claude-sonnet-5-5"
     instructions, board = request["system"]
     assert "Answer in the language of the question" in instructions["text"]
+    # Done only when its tool ran; outcomes and problems marked for their colour in the chat.
+    assert "Never say that you did something" in instructions["text"]
+    assert "[ok]" in instructions["text"] and "[error]" in instructions["text"]
     assert board["cache_control"] == {"type": "ephemeral"}
     assert "## Tasks" in board["text"] and "Water the <plants>" in board["text"]
     assert "(ref: task 1)" in board["text"]  # what the task actions take
