@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from sqlalchemy import select
 
 from myorb.cache import refreshing
+from myorb.connections.providers import ConnectedAccount, Provider
 from myorb.plugins.base import (
     AskAction,
     BriefSection,
@@ -21,6 +22,7 @@ from myorb.plugins.base import (
     WidgetData,
 )
 from myorb.plugins.uptime.checks import Checker
+from myorb.plugins.uptime.kuma import UptimeKuma
 from myorb.plugins.uptime.models import Incident, Monitor
 
 ICON = "M3 12h4l2-5 4 10 2-5h6"
@@ -65,20 +67,29 @@ class UptimePlugin(Plugin):
     templates_dir = Path(__file__).parent / "templates"
     position = 42
     settings = SettingsLink(
-        "↑", "Checks your websites every minute and records outages.", "/integrations/uptime"
+        "↑",
+        "Checks your websites every minute and records outages, with your Uptime Kuma's monitors.",
+        "/integrations/uptime",
     )
 
     def __init__(self) -> None:
         self.checker = Checker()
+        self.kuma = UptimeKuma()
 
     def router(self) -> APIRouter:
         from myorb.plugins.uptime.routes import router
 
         return router
 
+    def connections(self) -> list[Provider]:
+        return [self.kuma]
+
     def background(self, context: Callable[[], WidgetContext]) -> Awaitable[None]:
         ctx = context()
-        return self.checker.run(ctx.sessionmaker, ctx.http)
+        return self.checker.run(ctx.sessionmaker, ctx.http, self._kumas(ctx))
+
+    def _kumas(self, context: WidgetContext) -> Callable[[], Awaitable[list[ConnectedAccount]]]:
+        return lambda: context.connections.list(UptimeKuma.id)
 
     def ask_actions(self) -> list[AskAction]:
         from myorb.plugins.uptime.actions import ask_actions
@@ -119,7 +130,9 @@ class UptimePlugin(Plugin):
     async def _widget(self, context: WidgetContext) -> WidgetData:
         if refreshing.get():
             # Refresh: check every website now instead of waiting for the next minute.
-            await self.checker.check_all(context.sessionmaker, context.http)
+            await self.checker.check_all(
+                context.sessionmaker, context.http, await self._kumas(context)()
+            )
         monitors, incidents = await self._state(context)
         if not monitors:
             return WidgetData(
@@ -140,6 +153,8 @@ class UptimePlugin(Plugin):
             open_incident = next((i for i in incidents.get(m.id, []) if i.ended_at is None), None)
             percent = uptime_percent(m, incidents.get(m.id, []), now)
             details = [m.url.split("://", 1)[-1], f"{percent:.2f}% · 30 days"]
+            if m.kuma_key:
+                details.append("Uptime Kuma")
             if m.response_ms is not None and m.up:
                 details.insert(1, f"{m.response_ms} ms")
             if m.up is False:
@@ -184,7 +199,9 @@ class UptimePlugin(Plugin):
             group_label="groups",
             rows=rows,
             action=Link("Manage monitors", "/integrations/uptime"),
-            source="myOrb checks every minute",
+            source="myOrb and Uptime Kuma, every minute"
+            if any(m.kuma_key for m in monitors)
+            else "myOrb checks every minute",
             updated_at=min(_utc(c) for c in checked).timestamp() if checked else None,
         )
 

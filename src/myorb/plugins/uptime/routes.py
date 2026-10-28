@@ -24,7 +24,13 @@ async def _page(
     return request.app.state.templates.TemplateResponse(
         request,
         "uptime/settings.html",
-        {"monitors": monitors, "groups": groups, "error": error, "values": values or {}},
+        {
+            "monitors": monitors,
+            "groups": groups,
+            "kuma": any(m.kuma_key for m in monitors),
+            "error": error,
+            "values": values or {},
+        },
         status_code=400 if error else 200,
     )
 
@@ -91,6 +97,9 @@ async def delete(db: Db, monitor_id: int) -> Response:
     monitor = await db.get(Monitor, monitor_id)
     if monitor is None:
         raise HTTPException(status_code=404, detail="Monitor not found")
+    if monitor.kuma_key:
+        # It would come back with the next reading; it goes when it goes in Kuma.
+        raise HTTPException(status_code=400, detail="Remove it in Uptime Kuma")
     await db.delete(monitor)
     await db.commit()
     return RedirectResponse(PAGE, 303)

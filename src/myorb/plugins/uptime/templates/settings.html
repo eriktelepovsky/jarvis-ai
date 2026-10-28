@@ -32,7 +32,7 @@
 </section>
 
 <section class="panel" aria-labelledby="monitors-title">
-  <div class="panel-header"><h2 class="label" id="monitors-title">Monitors · checked every minute</h2></div>
+  <div class="panel-header"><h2 class="label" id="monitors-title">Monitors · checked every minute</h2><a class="btn btn-ghost btn-small" style="margin-left: auto" href="/integrations/uptime_kuma/connect">{{ "+ Add Uptime Kuma" if not kuma else "+ Add another Kuma" }}</a></div>
   {% for monitor in monitors %}
   <div class="integration">
     <span class="integration-logo" aria-hidden="true">{{ "✓" if monitor.up else ("✕" if monitor.up == false else "◌") }}</span>
@@ -50,7 +50,8 @@
         <input class="input" id="group-{{ monitor.id }}" name="group" value="{{ monitor.group_name }}" list="monitor-groups" placeholder="No group" maxlength="60" autocomplete="off">
         <span class="label saved-note" aria-live="polite">✓ Saved</span>
       </form>
-      <form method="post" action="/integrations/uptime/{{ monitor.id }}/delete"><button type="submit" class="btn btn-danger">Remove</button></form>
+      {% if monitor.kuma_key %}<span class="badge badge-neutral" title="Uptime Kuma checks it; remove it there">Uptime Kuma</span>
+      {% else %}<form method="post" action="/integrations/uptime/{{ monitor.id }}/delete"><button type="submit" class="btn btn-danger">Remove</button></form>{% endif %}
     </div>
   </div>
   {% else %}

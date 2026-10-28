@@ -23,6 +23,10 @@ class Monitor(Base):
     error: Mapped[str | None] = mapped_column(String(300))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     tls_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A monitor of the user's Uptime Kuma (kuma.py): the connection it comes from and its id
+    # (or name) there. Kuma checks it; myOrb only reads its state. None for myOrb's own.
+    kuma_connection: Mapped[int | None] = mapped_column(Integer())
+    kuma_key: Mapped[str | None] = mapped_column(String(200))
 
 
 class Incident(Base):
