@@ -937,6 +937,22 @@ def test_commute_asks_google_routes():
     asyncio.run(run())
 
 
+def test_commute_pauses_after_google_refuses():
+    from myorb.plugins.calendar.commute import PAUSE, Pause
+
+    now = [0.0]
+    pause = Pause(clock=lambda: now[0])
+    key, other = {"api_key": "key"}, {"api_key": "new"}
+    assert not pause.paused(key)
+    pause.refused(key)
+    assert pause.paused(key)
+    assert not pause.paused(other)  # a key changed in the settings is asked with at once
+    now[0] = PAUSE - 1
+    assert pause.paused(key)
+    now[0] = PAUSE
+    assert not pause.paused(key)
+
+
 def test_commute_shows_when_to_leave(monkeypatch):
     import asyncio
     from types import SimpleNamespace

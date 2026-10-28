@@ -25,7 +25,7 @@ from myorb.plugins.base import (
     WidgetData,
     open_buttons,
 )
-from myorb.plugins.calendar.commute import Commute, plan, route_minutes
+from myorb.plugins.calendar.commute import Commute, Pause, plan, route_minutes
 from myorb.plugins.calendar.models import IgnoredEvent
 from myorb.plugins.google_data import AccountData, account_status, load_accounts
 
@@ -372,6 +372,7 @@ class CalendarPlugin(Plugin):
 
     def __init__(self) -> None:
         self.commute = Commute()
+        self.commute_pause = Pause()
 
     def router(self) -> "APIRouter":
         from myorb.plugins.calendar.routes import router
@@ -398,9 +399,15 @@ class CalendarPlugin(Plugin):
             key = f"commute:{account.id}:{origin}|{destination}|{slot:%Y-%m-%d %H:%M}"
 
             async def fetch() -> int | None:
-                return await route_minutes(
-                    context.http, account.credentials, origin, destination, departure
-                )
+                if self.commute_pause.paused(account.credentials):
+                    raise ProviderError("Google refused a way a moment ago.")
+                try:
+                    return await route_minutes(
+                        context.http, account.credentials, origin, destination, departure
+                    )
+                except ProviderError:
+                    self.commute_pause.refused(account.credentials)
+                    raise
 
             try:
                 cached = await context.cache.get(key, fetch, fresh=15 * 60, max_age=60 * 60)
