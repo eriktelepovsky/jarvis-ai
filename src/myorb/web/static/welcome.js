@@ -222,36 +222,117 @@
     );
   }
 
-  function showView(link, step = 0) {
-    const dialog = viewDialog();
-    const view = document.getElementById("page-view");
-    if (!dialog || !view) return false;
-    viewing = link;
-    view.dataset.slide = step;
+  // The newer email, the one shown and the older one, each in its place of the strip. Only the
+  // one shown has the ids its forms aim at; the others cannot be used until they are shown.
+  let strip = [];
+
+  function arrange() {
+    strip.forEach((slot, i) => {
+      slot.style.order = i;
+      if (i === 1) return;
+      slot.inert = true;
+      slot.removeAttribute("id");
+      slot.querySelectorAll("[id]").forEach((el) => {
+        el.dataset.offId = el.id;
+        el.removeAttribute("id");
+      });
+    });
+    const view = strip[1];
+    view.inert = false;
+    view.id = "page-view";
+    view.querySelectorAll("[data-off-id]").forEach((el) => {
+      el.id = el.dataset.offId;
+      delete el.dataset.offId;
+    });
+  }
+
+  // A neighbour is loaded before it is swiped to, so it slides in whole. Reading an email
+  // changes nothing in Gmail.
+  function preload(slot, link) {
+    const href = link?.getAttribute("href") || "";
+    slot.toggleAttribute("data-none", !link);
+    if (slot.dataset.href === href) return;
+    slot.dataset.href = href;
+    slot.replaceChildren();
+    if (!link) return;
+    fetch(href, { headers: { "HX-Request": "true", "HX-Target": "page-view" } }).then(async (response) => {
+      // After an upgrade the email loads again when it is shown, and goes to its own page.
+      const running = response.headers.get("X-Myorb-Version");
+      const loaded = document.querySelector('meta[name="myorb-version"]')?.content;
+      if (!response.ok || (running && loaded && running !== loaded)) return;
+      const html = await response.text();
+      if (slot.dataset.href !== href || slot === strip[1]) return;
+      slot.innerHTML = html;
+      htmx.process(slot);
+      arrange();
+    }).catch(() => {});
+  }
+
+  function preloadNeighbours() {
+    const rows = viewRows();
+    const at = rows.indexOf(viewing);
+    preload(strip[0], rows[at - 1]);
+    preload(strip[2], rows[at + 1]);
+  }
+
+  function loadView(link) {
+    const view = strip[1];
+    view.dataset.href = link.getAttribute("href");
     view.classList.add("is-loading");
-    if (!dialog.open) {
-      view.replaceChildren();
-      dialog.showModal();
-      history.pushState({ myorbView: true }, "");
-    }
-    centreSwipe();
-    labelGhosts();
     htmx.ajax("GET", link.getAttribute("href"), { target: "#page-view", swap: "innerHTML" }).then(() => {
       view.classList.remove("is-loading");
       view.scrollTop = 0;
       centreSwipe();
-      link.closest(".modal-row")?.scrollIntoView({ block: "nearest" });
     });
+  }
+
+  function showView(link) {
+    const dialog = viewDialog();
+    const box = swiper();
+    if (!dialog || !box) return false;
+    viewing = link;
+    if (!dialog.open) {
+      strip = [...box.children];
+      strip.forEach((slot) => {
+        slot.replaceChildren();
+        delete slot.dataset.href;
+      });
+      arrange();
+      dialog.showModal();
+      history.pushState({ myorbView: true }, "");
+    }
+    centreSwipe();
+    loadView(link);
+    preloadNeighbours();
+    link.closest(".modal-row")?.scrollIntoView({ block: "nearest" });
     return true;
   }
 
+  // Settled on a neighbour: it becomes the one shown, the one on the far side goes round to
+  // the near side for the next, and the strip is back in the middle without a visible move.
   function stepView(step) {
     const rows = viewRows();
     const next = rows[rows.indexOf(viewing) + step];
-    if (next) {
-      showView(next, step);
-      sound("click");
-    }
+    if (!next) return;
+    viewing = next;
+    strip = step > 0 ? [strip[1], strip[2], strip[0]] : [strip[2], strip[0], strip[1]];
+    strip[1].classList.remove("is-loading");
+    arrange();
+    centreSwipe();
+    if (strip[1].dataset.href !== next.getAttribute("href") || !strip[1].childElementCount) loadView(next);
+    preloadNeighbours();
+    next.closest(".modal-row")?.scrollIntoView({ block: "nearest" });
+    sound("click");
+  }
+
+  // ← →, or M going on: the strip slides there as a swipe would.
+  function goView(step) {
+    const box = swiper();
+    const rows = viewRows();
+    const slot = strip[1 + step];
+    if (!rows[rows.indexOf(viewing) + step]) return;
+    if (!box || !slot?.childElementCount || matchMedia("(prefers-reduced-motion: reduce)").matches) return stepView(step);
+    box.scrollTo({ left: slot.offsetLeft, behavior: "smooth" });
   }
 
   function closeView() {
@@ -344,35 +425,31 @@
 
   function centreSwipe() {
     const box = swiper();
-    if (box) box.scrollLeft = box.clientWidth;
-  }
-
-  function labelGhosts() {
-    const rows = viewRows();
-    const at = rows.indexOf(viewing);
-    document.querySelectorAll("[data-ghost]").forEach((ghost) => {
-      const row = rows[at + Number(ghost.dataset.ghost)];
-      ghost.classList.toggle("is-none", !row);
-      ghost.querySelector(".page-ghost-title").textContent = row
-        ? row.querySelector(".trunc")?.textContent.trim() || ""
-        : "No more emails";
-    });
+    if (box && strip[1]) box.scrollLeft = strip[1].offsetLeft;
   }
 
   let swipeTimer = null;
   document.addEventListener("scroll", (event) => {
     const box = event.target;
-    if (!box.matches?.("[data-page-swipe]")) return;
+    if (!box.matches?.("[data-page-swipe]") || !strip[1]) return;
     clearTimeout(swipeTimer);
     swipeTimer = setTimeout(() => {
-      const width = box.clientWidth;
-      const step = box.scrollLeft < width * 0.25 ? -1 : box.scrollLeft > width * 1.75 ? 1 : 0;
-      if (!step) return;
+      const width = strip[1].offsetLeft - strip[0].offsetLeft;
+      const step = Math.round((box.scrollLeft - strip[1].offsetLeft) / width);
+      // Only once it rests on the neighbour: Safari's smooth scroll pauses on the way, and
+      // moving the strip then would carry it on past the next one.
+      if (!step || Math.abs(box.scrollLeft - strip[1 + step].offsetLeft) > 2) return;
       const rows = viewRows();
       if (rows[rows.indexOf(viewing) + step]) stepView(step);
-      else box.scrollTo({ left: width, behavior: "smooth" });
+      else box.scrollTo({ left: strip[1].offsetLeft, behavior: "smooth" });
     }, 120);
   }, true);
+
+  // An answer that arrives after a swipe went on (Show images, Mark as read) lands in an email
+  // no longer shown: its ids go too.
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (strip.includes(event.detail.target) && event.detail.target !== strip[1]) arrange();
+  });
 
   window.addEventListener("resize", () => viewDialog()?.open && centreSwipe());
 
@@ -383,15 +460,15 @@
       // next email would sit off its place.
       event.preventDefault();
       event.stopImmediatePropagation();
-      stepView(event.key === "ArrowLeft" ? -1 : 1);
+      goView(event.key === "ArrowLeft" ? -1 : 1);
     } else if (event.key.toLowerCase() === "m" && !event.ctrlKey && !event.metaKey && !event.altKey) {
       // M: marks the email as read and goes on to the next, as reading through the inbox.
       // One read already just goes on.
       event.preventDefault();
       event.stopImmediatePropagation();
       const form = document.querySelector("#page-view [data-mark-read]");
-      if (!form) return stepView(1);
-      form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && stepView(1), { once: true });
+      if (!form) return goView(1);
+      form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && goView(1), { once: true });
       htmx.trigger(form, "submit");
     }
   }, true);
