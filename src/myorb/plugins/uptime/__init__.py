@@ -12,6 +12,7 @@ from myorb.connections.providers import ConnectedAccount, Provider
 from myorb.plugins.base import (
     AskAction,
     BriefSection,
+    HistoryDay,
     Link,
     Plugin,
     Row,
@@ -55,6 +56,32 @@ def uptime_percent(monitor: Monitor, incidents: list[Incident], now: datetime) -
         for i in incidents
     )
     return max(0.0, 100 * (1 - down / window))
+
+
+def history(monitor: Monitor, incidents: list[Incident], now: datetime) -> tuple[HistoryDay, ...]:
+    """The last 30 days, today last, by the hour in the user's time zone (that of `now`):
+    down when an outage touched the hour, not known before the monitor was added."""
+    added = _utc(monitor.created_at)
+    spans = [(_utc(i.started_at), _utc(i.ended_at) if i.ended_at else now) for i in incidents]
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    days = []
+    for back in range(WINDOW.days - 1, -1, -1):
+        day = (today - timedelta(days=back)).replace(tzinfo=None)
+        hours = ""
+        for hour in range(24):
+            # Through UTC, so a day that changes to or from summer time has its true hours.
+            start = day.replace(hour=hour).replace(tzinfo=now.tzinfo).astimezone(UTC)
+            if start > now:
+                break
+            end = start + timedelta(hours=1)
+            if end <= added:
+                hours += "-"
+            elif any(s < end and e > start for s, e in spans):
+                hours += "d"
+            else:
+                hours += "u"
+        days.append(HistoryDay(day.strftime("%a %-d %b"), hours))
+    return tuple(days)
 
 
 def _utc(value: datetime) -> datetime:
@@ -178,6 +205,7 @@ class UptimePlugin(Plugin):
                     m.url,
                     # The user's own groups; "No group" only once some monitors have one.
                     group=m.group_name or ("No group" if grouped else ""),
+                    history=history(m, incidents.get(m.id, []), context.now),
                 )
             )
         checked = [m.checked_at for m in monitors if m.checked_at]

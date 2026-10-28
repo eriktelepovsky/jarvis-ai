@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx2
 import pytest
@@ -7,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_integrations import FakeApis
 
-from myorb.plugins.uptime import UptimePlugin, duration, uptime_percent
+from myorb.plugins.uptime import UptimePlugin, duration, history, uptime_percent
 from myorb.plugins.uptime.models import Incident, Monitor
 
 
@@ -143,3 +144,25 @@ def test_monitors_in_groups(client: TestClient, apis: FakeApis):
     text = client.get("/welcome/widgets").text
     assert '<span class="trunc">Transportly</span><span class="group-count">2</span>' in text
     assert '<span class="trunc">No group</span><span class="group-count">1</span>' in text
+
+
+def test_history_is_a_bar_a_day_by_the_hour():
+    zone = ZoneInfo("Europe/Bratislava")
+    now = datetime(2026, 10, 28, 9, 30, tzinfo=zone)
+    monitor = Monitor(created_at=datetime(2026, 10, 20, 12, 0, tzinfo=UTC))
+    # Down 03:10–03:14 today, local time, and still down since 09:20.
+    incidents = [
+        Incident(
+            started_at=datetime(2026, 10, 28, 2, 10, tzinfo=UTC),
+            ended_at=datetime(2026, 10, 28, 2, 14, tzinfo=UTC),
+        ),
+        Incident(started_at=datetime(2026, 10, 28, 8, 20, tzinfo=UTC), ended_at=None),
+    ]
+    days = history(monitor, incidents, now)
+    assert len(days) == 30 and days[-1].label == "Wed 28 Oct"
+    assert days[-1].hours == "uuudu" + "u" * 4 + "d"  # up to the hour now
+    # Added on the 20th at 14:00 local: not known before, and a whole day each after.
+    assert days[-9].hours == "-" * 14 + "u" * 10
+    assert days[-10].hours == "-" * 24
+    # The day summer time ended has 25 hours, but 24 bars by the clock.
+    assert len(days[-4].hours) == 24

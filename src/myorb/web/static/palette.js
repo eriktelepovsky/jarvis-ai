@@ -31,7 +31,7 @@
       <div class="palette-head">
         <span class="palette-prompt" aria-hidden="true">›</span>
         <input class="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Search or run a command…">
-        <kbd class="command-key">Esc</kbd>
+        <button type="button" class="icon-btn palette-close" aria-label="Close" title="Close (Esc)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
       <ul class="palette-list" id="palette-list" role="listbox"></ul>
       <div class="palette-foot label">↑ ↓ choose · Enter runs · Esc closes</div>`;
@@ -54,6 +54,7 @@
         mark();
       }
     });
+    dialog.querySelector(".palette-close").addEventListener("click", () => dialog.close());
     // A click on the dialog element itself is a click on its backdrop.
     dialog.addEventListener("click", (event) => event.target === dialog && dialog.close());
   }

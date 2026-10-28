@@ -32,6 +32,8 @@ from myorb.plugins.base import Link, Plugin, Row, Stat, Widget, WidgetContext, W
 from myorb.plugins.calendar import CalendarPlugin
 from myorb.plugins.calendar.commute import plan
 from myorb.plugins.google_data import AccountData
+from myorb.plugins.uptime import history as uptime_history
+from myorb.plugins.uptime.models import Incident, Monitor
 from myorb.plugins.weather import WeatherPlugin
 from myorb.tasks.models import Task
 from myorb.tasks.plugin import TasksPlugin
@@ -203,8 +205,30 @@ def _mentions() -> WidgetData:
     )
 
 
-def _uptime() -> WidgetData:
-    return WidgetData(
+# The outages behind the bars: (days ago, hour, minutes down).
+OUTAGES = {
+    "starkindustries.example": [(11, 16, 4)],
+    "staging.example.com": [(0, 3, 4)],
+}
+
+
+def _with_history(rows: list[Row], now: datetime) -> list[Row]:
+    """The monitors' 30 days as bars, all up but for OUTAGES, drawn by the real plugin."""
+    watched = Monitor(created_at=now - timedelta(days=60))
+    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    made = []
+    for row in rows:
+        incidents = [
+            Incident(started_at=start, ended_at=start + timedelta(minutes=minutes))
+            for back, hour, minutes in OUTAGES.get(row.title, [])
+            if (start := day - timedelta(days=back) + timedelta(hours=hour)) < now
+        ]
+        made.append(replace(row, history=uptime_history(watched, incidents, now)))
+    return made
+
+
+def _uptime(now: datetime) -> WidgetData:
+    made = WidgetData(
         value=0,
         summary="all 7 monitors are up",
         stats=[Stat(0, "Down"), Stat(7, "Monitors"), Stat(1, "Incidents · 30 d")],
@@ -222,6 +246,7 @@ def _uptime() -> WidgetData:
             ]
         ),
     )
+    return replace(made, rows=_with_history(made.rows, now))
 
 
 def _sleep() -> WidgetData:
@@ -277,7 +302,8 @@ WIDGETS = [  # id, label, title, data
 
 def _widget(id: str, label: str, title: str, data: Any) -> Widget:
     async def load(context: WidgetContext) -> WidgetData:
-        return replace(data(), source=f"{title} · demo", updated_at=time.time())
+        made = data(context.now) if data is _uptime else data()
+        return replace(made, source=f"{title} · demo", updated_at=time.time())
 
     return Widget(id=id, label=label, title=title, icon=ICONS[id], load=load)
 
