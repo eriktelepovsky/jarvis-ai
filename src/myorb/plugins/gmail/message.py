@@ -21,7 +21,10 @@ IMAGES_ALLOWED = "default-src 'none'; style-src 'unsafe-inline' https:; img-src 
 # The frame never scrolls up and down itself: the page sizes it to its content. A wide email
 # still scrolls sideways.
 FRAME_STYLE = (
-    "html{overflow-y:hidden!important;overflow-x:auto}"
+    # iOS would enlarge the text of a narrow frame and leave the email's px line heights,
+    # so its lines overlap.
+    "html{overflow-y:hidden!important;overflow-x:auto;-webkit-text-size-adjust:100%;"
+    "text-size-adjust:100%}"
     "body{margin:0;padding:18px;font:15px/1.55 -apple-system,system-ui,sans-serif;color:#1d2125;"
     "background:#fff;overflow-wrap:anywhere}img{max-width:100%;height:auto}"
     "table{max-width:100%}a{color:#0b6bcb}"
