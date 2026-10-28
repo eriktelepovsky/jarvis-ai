@@ -2264,7 +2264,7 @@ form.htmx-request .btn[type="submit"]::before {
 
 /* The reply panel, between the email's notes and its messages */
 
-#email-draft:empty {
+.email-draft-place:empty {
   display: none;
 }
 
