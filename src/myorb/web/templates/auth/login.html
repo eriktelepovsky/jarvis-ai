@@ -10,16 +10,16 @@
   {{ icon("key", 18) }} Sign in with passkey
 </button>
 <div class="alert alert-error" role="alert" data-passkey-error hidden></div>
-<div class="divider"><span class="label">or password</span></div>
-{% endif %}
+{% else %}
 <form method="post" action="/login" hx-boost="false" class="form">
   <input type="hidden" name="next" value="{{ next }}">
   <div class="field">
     <label class="label" for="password">Password</label>
-    <input class="input" id="password" type="password" name="password" autocomplete="current-password" required {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %} {% if not has_passkeys %}autofocus{% endif %}>
+    <input class="input" id="password" type="password" name="password" autocomplete="current-password" required {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %} autofocus>
   </div>
-  <button type="submit" class="btn {{ 'btn-large' if has_passkeys else 'btn-primary btn-large' }}">Sign in</button>
+  <button type="submit" class="btn btn-primary btn-large">Sign in</button>
 </form>
+{% endif %}
 {% if error %}
 <div class="alert alert-error" role="alert" id="login-error"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>
 {% endif %}

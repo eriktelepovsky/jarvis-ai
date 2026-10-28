@@ -16,7 +16,28 @@ def main() -> None:
     serve.add_argument(
         "--reload", action="store_true", help="Restart on code changes (development)"
     )
+    passkeys = subcommands.add_parser(
+        "remove-passkeys",
+        help="Remove every passkey, so the password signs you in again (after losing them)",
+    )
+    passkeys.add_argument("--yes", action="store_true", help="Do not ask to confirm")
     args = parser.parse_args()
+
+    if args.command == "remove-passkeys":
+        import sqlite3
+
+        from myorb.config import Settings
+
+        # Straight in the database: the server looks for passkeys on every sign-in.
+        database = Settings().data_dir / "myorb.db"
+        if not database.exists():
+            parser.exit(1, f"No myOrb database at {database}. Set MYORB_DATA_DIR.\n")
+        if not args.yes and input("Remove every passkey? [y/N] ").strip().lower() != "y":
+            parser.exit(1, "Nothing removed.\n")
+        with sqlite3.connect(database) as connection:
+            removed = connection.execute("DELETE FROM passkeys").rowcount
+        print(f"Removed {removed} passkey(s). Sign in with the password and add a new one.")
+        return
 
     if args.command == "serve":
         from granian import Granian
