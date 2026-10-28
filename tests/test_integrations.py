@@ -329,7 +329,7 @@ def test_jira_across_workspaces(client: TestClient, apis: FakeApis):
 
     text = client.get("/welcome/widgets").text
     assert "assigned to you · 1 overdue" in text
-    active = re.search(r'num" style="font-size: 24px">(\d+)</div><div [^>]*>Active', text)
+    active = re.search(r'num stat-num">(\d+)</div><div [^>]*>Active', text)
     assert active and active.group(1) == "3"
     assert text.index("SUP-88") < text.index("TRP-412") < text.index("TRP-409")
     assert "https://support.atlassian.net/browse/SUP-88" in text
