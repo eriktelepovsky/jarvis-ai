@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Work · {{ assistant }}{% endblock %}
+
+{% block main_class %}form{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div><div class="label">Integrations</div><h1>Work</h1></div>
+</div>
+
+<section class="panel panel-narrow" aria-labelledby="work-title">
+  <div class="panel-header"><h2 class="label" id="work-title">{{ names | join(" and ") }} around the orb</h2></div>
+  <form method="post" action="/integrations/work" class="panel-section form">
+    <fieldset class="choices">
+      <legend class="visually-hidden">How they are shown</legend>
+      <label class="choice"><input type="radio" name="merged" value="" {% if not merged %}checked{% endif %}><span><strong>Each on its own</strong><span class="muted">A number for {{ names | join(" and a number for ") }}, each with its own details.</span></span></label>
+      <label class="choice"><input type="radio" name="merged" value="on" {% if merged %}checked{% endif %}><span><strong>One number: Work</strong><span class="muted">Everything assigned to you in one list, grouped by service and then by workspace, overdue first. The brief and Ask still see each service on its own.</span></span></label>
+    </fieldset>
+    {% if request.query_params.get("saved") %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ SAVED</span><span>The welcome screen shows it the next time it loads.</span></div>{% endif %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>
+  </form>
+</section>
+{% endblock %}

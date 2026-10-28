@@ -55,6 +55,12 @@ def ordered_plugins(request: Request) -> list[Plugin]:
     return sorted(request.app.state.plugins.values(), key=lambda p: (p.position, p.id))
 
 
+def shown_widgets(request: Request, plugin: Plugin) -> list[Widget]:
+    """A plugin's widgets on the welcome screen: those the Work number shows instead left out."""
+    work = request.app.state.plugins.get("work")
+    return [w for w in plugin.widgets() if not (work and work.hides(plugin.id, w.id))]
+
+
 @router.get("/healthz", response_class=PlainTextResponse)
 async def health() -> str:
     return "ok"
@@ -212,9 +218,7 @@ async def _finish(
 async def load_widgets(request: Request) -> list[dict[str, Any]]:
     """All widgets of set-up services, with today's numbers kept for "change since yesterday"."""
     context = widget_context(request)
-    entries = [
-        (plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()
-    ]
+    entries = widget_slots(request)
     results = await asyncio.gather(*(_load_widget(context, p, w) for p, w in entries))
     # Widgets of services that are not set up are left out; Integrations lists them instead.
     items = [
@@ -227,7 +231,11 @@ async def load_widgets(request: Request) -> list[dict[str, Any]]:
 
 def widget_slots(request: Request) -> list[tuple[Plugin, Widget]]:
     """Every widget, in order: the welcome screen gives each a place and loads it on its own."""
-    return [(plugin, widget) for plugin in ordered_plugins(request) for widget in plugin.widgets()]
+    return [
+        (plugin, widget)
+        for plugin in ordered_plugins(request)
+        for widget in shown_widgets(request, plugin)
+    ]
 
 
 @router.get("/welcome/widget/{plugin_id}/{widget_id}", response_class=HTMLResponse)

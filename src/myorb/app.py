@@ -36,6 +36,8 @@ from myorb.http_log import RequestLog
 from myorb.paces import Paces
 from myorb.plugins import Plugin, discover_plugins
 from myorb.plugins.install import add_to_path, plugins_dir
+from myorb.plugins.work import WorkPlugin
+from myorb.plugins.work.routes import load_merged
 from myorb.profile import DEFAULT_ASSISTANT, DEFAULT_COLOR, load_profile, orb_hue
 from myorb.tasks import routes as task_routes
 from myorb.templating import register_filters
@@ -115,6 +117,10 @@ def create_app(
     add_to_path(plugins_dir(settings.data_dir))
     if plugins is None:
         plugins = demo.plugins() if settings.demo else discover_plugins()
+    if "jira" in plugins and "asana" in plugins:
+        # One number for both, when the user chooses so (plugins/work).
+        parts = [(plugins[id], plugins[id].widgets()[0]) for id in ("jira", "asana")]
+        plugins = {**plugins, "work": WorkPlugin(parts)}
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -164,6 +170,8 @@ def create_app(
         async with app.state.sessionmaker() as db:
             app.state.auth = await load_auth_state(db)
             profile = await load_profile(db, app.state.secret_box)
+            if "work" in plugins:
+                plugins["work"].merged = await load_merged(db, app.state.secret_box)
             app.state.assistant, app.state.orb_color = profile["assistant"], profile["color"]
         if not app.state.auth.password_set and not settings.public_demo:
             setup_url = f"{(settings.public_url or '').rstrip('/')}/setup"
