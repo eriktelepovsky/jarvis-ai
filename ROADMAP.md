@@ -17,6 +17,7 @@ The smallest useful version for a daily morning routine.
 - [x] Sample data mode with fictional data for development and demos (`MYORB_DEMO=1`)
 - [x] Public demo anyone can try without signing in (`MYORB_PUBLIC_DEMO=1`)
 - [x] AI powered by Claude (Anthropic API)
+- [x] Other AI services through an OpenAI-compatible API: OpenAI, Gemini, Mistral, Ollama, LM Studio
 
 ### Features
 

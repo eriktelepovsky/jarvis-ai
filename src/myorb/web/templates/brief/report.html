@@ -46,7 +46,7 @@
   </div>
   {% endif %}
   {% if error %}
-  <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">Claude settings</a></span></div>
+  <div class="alert alert-error report-wide" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }} <a href="/integrations/claude">{{ ai_name }} settings</a></span></div>
   {% endif %}
 
   <section class="report-section report-wide report-glance" aria-labelledby="glance-title">
@@ -78,8 +78,8 @@
 
   {% if not configured %}
   <div class="report-wide">
-    <p style="margin: 0 0 12px">myOrb can write you a short brief every morning from your calendar, email and tasks. It uses Claude, Anthropic's AI, with your own API key.{% if brief %} Below is the last brief it wrote.{% endif %}</p>
-    <a class="btn btn-primary" href="/integrations/claude">Connect Claude</a>
+    <p style="margin: 0 0 12px">myOrb can write you a short brief every morning from your calendar, email and tasks. It uses an AI you choose (Claude, OpenAI, Gemini, Mistral or a local model) with your own API key.{% if brief %} Below is the last brief it wrote.{% endif %}</p>
+    <a class="btn btn-primary" href="/integrations/claude">Connect an AI</a>
   </div>
   {% endif %}
   {% if configured and not brief %}

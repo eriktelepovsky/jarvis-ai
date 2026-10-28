@@ -1,29 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}Claude · {{ assistant }}{% endblock %}
+{% block title %}AI · {{ assistant }}{% endblock %}
 
 {% block main_class %}form{% endblock %}
 
 {% block content %}
 <div class="page-title">
-  <div><div class="label">Integrations</div><h1>Claude</h1></div>
+  <div><div class="label">Integrations</div><h1>AI</h1></div>
 </div>
 
-<section class="panel panel-narrow" aria-labelledby="claude-title">
-  <div class="panel-header"><h2 class="label" id="claude-title">Daily brief</h2></div>
+{% set current_service = service or (settings.service if settings else "anthropic") %}
+<section class="panel panel-narrow" aria-labelledby="ai-title">
+  <div class="panel-header"><h2 class="label" id="ai-title">Daily brief and Ask</h2></div>
   <div class="panel-section">
-    <p style="margin: 0">myOrb asks Claude, Anthropic's AI, to write your daily brief from today's calendar, the subjects and senders of your latest unread emails, and your tasks. That information is sent to Anthropic's API with your own API key each time a brief is written: once a day at the time below, and when you ask for a new one.</p>
-    <p class="muted" style="margin: 0">Create an API key in the <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic Console</a>. A brief costs about 1–3 cents with Sonnet, a few cents with Opus and well under a cent with Haiku.</p>
+    <p style="margin: 0">myOrb asks an AI to write your daily brief from today's calendar, the subjects and senders of your latest unread emails and your tasks, and to answer what you ask. That information is sent to the AI you choose, with your own API key, each time: once a day at the time below for the brief, and whenever you ask. A local model (Ollama, LM Studio) keeps it on your own computer.</p>
+    <p class="muted" style="margin: 0">Claude is what myOrb is made and tested with: its brief costs about 1–3 cents with Sonnet, a few cents with Opus and well under a cent with Haiku. Other services work through their OpenAI-compatible API; how well Ask's actions work depends on the model, and myOrb counts only Claude's costs.</p>
   </div>
-  <form method="post" action="/integrations/claude" class="panel-section form">
+  <form method="post" action="/integrations/claude" class="panel-section form" data-ai-form>
     <div class="field">
-      <label class="label" for="api-key">API key</label>
-      <input class="input" id="api-key" type="password" name="api_key" autocomplete="off" placeholder="{{ 'Saved; leave empty to keep it' if settings else 'sk-ant-…' }}" {% if not settings %}required{% endif %} {% if error %}aria-invalid="true" aria-describedby="claude-error"{% endif %}>
+      <label class="label" for="service">AI</label>
+      <select class="input" id="service" name="service" data-ai-service>
+        <option value="anthropic" {% if current_service == "anthropic" %}selected{% endif %}>Claude (Anthropic) · recommended</option>
+        {% for id, option in services.items() %}<option value="{{ id }}" data-base-url="{{ option.base_url }}" data-key="{{ option.key | lower }}" data-keys-url="{{ option.keys_url }}" {% if id == current_service %}selected{% endif %}>{{ option.name }}{% if not option.key %} · local{% endif %}</option>{% endfor %}
+      </select>
     </div>
     <div class="field">
+      <label class="label" for="api-key">API key <span style="text-transform: none" data-ai-only="optional">(optional for a local model)</span></label>
+      <input class="input" id="api-key" type="password" name="api_key" autocomplete="off" placeholder="{{ 'Saved; leave empty to keep it' if settings and settings.service == current_service else ('sk-ant-…' if current_service == 'anthropic' else '') }}" {% if error %}aria-invalid="true" aria-describedby="claude-error"{% endif %}>
+      <span class="muted" style="font-size: 12.5px" data-ai-only="anthropic">Create one in the <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic Console</a>.</span>
+      <span class="muted" style="font-size: 12.5px" data-ai-only="keys"><a href="" target="_blank" rel="noopener" data-ai-keys>Create an API key</a> with the service.</span>
+    </div>
+    <div class="field" data-ai-only="anthropic">
       <label class="label" for="workspace-id">Workspace ID <span style="text-transform: none">(optional)</span></label>
       <input class="input" id="workspace-id" name="workspace_id" value="{{ workspace_id if workspace_id is defined else (settings.workspace_id if settings else '') }}" autocomplete="off" placeholder="wrkspc_…" spellcheck="false">
       <span class="muted" style="font-size: 12.5px">Only for an API key created for the whole organization rather than in a workspace. Find the ID in the Console under Settings → Workspaces.</span>
+    </div>
+    <div class="field" data-ai-only="other">
+      <label class="label" for="base-url">Address of the API</label>
+      <input class="input" id="base-url" name="base_url" type="url" value="{{ base_url if base_url is defined else (settings.base_url if settings else '') }}" autocomplete="off" spellcheck="false" placeholder="{{ services[current_service].base_url if current_service in services else '' }}" data-ai-base>
+      <span class="muted" style="font-size: 12.5px">Leave it empty for the service's usual address. When myOrb runs in Docker, a model on the same computer is at http://host.docker.internal:… rather than localhost.</span>
     </div>
     <div class="field">
       <label class="label" for="language">Language of the brief</label>
@@ -32,12 +47,17 @@
         {% for code, name in languages.items() %}<option value="{{ code }}" {% if code == current %}selected{% endif %}>{{ name }}</option>{% endfor %}
       </select>
     </div>
-    <div class="field">
+    <div class="field" data-ai-only="anthropic">
       <label class="label" for="model">Model</label>
       <select class="input" id="model" name="model">
-        {% set current_model = model or (settings.model if settings else default_model) %}
+        {% set current_model = model or (settings.model if settings and settings.service == "anthropic" else default_model) %}
         {% for id, option in models.items() %}<option value="{{ id }}" {% if id == current_model %}selected{% endif %}>{{ option.name }} · {{ option.note }}</option>{% endfor %}
       </select>
+    </div>
+    <div class="field" data-ai-only="other">
+      <label class="label" for="model-name">Model</label>
+      <input class="input" id="model-name" name="model_name" value="{{ model_name if model_name is defined else (settings.model if settings and settings.service != 'anthropic' else '') }}" autocomplete="off" spellcheck="false" placeholder="As the service names it, e.g. llama3.2">
+      <span class="muted" style="font-size: 12.5px">myOrb checks it with the service when you save, and lists the models it offers if it has no such one.</span>
     </div>
     <div class="field">
       <label class="label" for="brief-time">Write the brief every day at</label>
@@ -48,9 +68,28 @@
   </form>
   {% if settings %}
   <form method="post" action="/integrations/claude/remove" class="panel-section actions">
-    <button type="submit" class="btn btn-danger">Disconnect Claude</button>
+    <button type="submit" class="btn btn-danger">Disconnect {{ settings.name }}</button>
     <span class="muted" style="font-size: 12.5px">Removes the API key. Written briefs stay.</span>
   </form>
   {% endif %}
 </section>
+<script>
+  // Only the fields of the AI chosen: Claude's model list and workspace, or another service's
+  // address, model and where to get a key.
+  (() => {
+    const form = document.querySelector("[data-ai-form]");
+    const select = form.querySelector("[data-ai-service]");
+    function show() {
+      const option = select.selectedOptions[0];
+      const claude = select.value === "anthropic";
+      const local = option.dataset.key === "false";
+      const shown = { anthropic: claude, other: !claude, optional: !claude && local, keys: !claude && Boolean(option.dataset.keysUrl) };
+      document.querySelectorAll("[data-ai-only]").forEach((el) => (el.hidden = !shown[el.dataset.aiOnly]));
+      form.querySelector("[data-ai-keys]").href = option.dataset.keysUrl || "";
+      form.querySelector("[data-ai-base]").placeholder = option.dataset.baseUrl || "https://…/v1";
+    }
+    select.addEventListener("change", show);
+    show();
+  })();
+</script>
 {% endblock %}

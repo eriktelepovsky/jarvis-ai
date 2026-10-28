@@ -3,10 +3,12 @@ import logging
 import re
 from datetime import datetime
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
+from myorb.brief.compatible import ANTHROPIC, SERVICES
 from myorb.brief.service import DEFAULT_TIME, KICKERS, BriefService, ClaudeSettings
 from myorb.brief.writer import DEFAULT_MODEL, LANGUAGES, MODELS, READ_LANGUAGES, BriefError
 from myorb.overview.glance import Glance, duration, glance
@@ -44,10 +46,16 @@ def _form_context(settings: ClaudeSettings | None, **values: str) -> dict:
         "settings": settings,
         "languages": LANGUAGES,
         "models": MODELS,
+        "services": SERVICES,
         "default_time": DEFAULT_TIME,
         "default_model": DEFAULT_MODEL,
         **values,
     }
+
+
+def _address(base_url: str) -> bool:
+    parts = urlsplit(base_url)
+    return parts.scheme in ("http", "https") and bool(parts.netloc)
 
 
 @router.post("/integrations/claude")
@@ -58,29 +66,43 @@ async def save_claude(
     brief_time: Annotated[str, Form()] = DEFAULT_TIME,
     model: Annotated[str, Form()] = DEFAULT_MODEL,
     workspace_id: Annotated[str, Form()] = "",
+    service: Annotated[str, Form()] = ANTHROPIC,
+    base_url: Annotated[str, Form()] = "",
+    model_name: Annotated[str, Form()] = "",
 ) -> Response:
-    service = _service(request)
-    existing = await service.settings()
-    api_key = api_key.strip() or (existing.api_key if existing else "")
+    brief = _service(request)
+    existing = await brief.settings()
+    same_service = existing is not None and existing.service == service
+    api_key = api_key.strip() or (existing.api_key if same_service else "")
     workspace_id = workspace_id.strip()
+    base_url = base_url.strip()
+    other = SERVICES.get(service)
+    if other is not None:
+        model, workspace_id = model_name.strip(), ""
     error = None
-    if not api_key:
+    if service != ANTHROPIC and other is None:
+        error = "Choose an AI."
+    elif not api_key and (other is None or other.key):
         error = "Enter an API key."
     elif language not in LANGUAGES:
         error = "Choose a language."
     elif not TIME.match(brief_time):
         error = "Enter the time as HH:MM."
-    elif model not in MODELS:
+    elif other is None and model not in MODELS:
         error = "Choose a model."
+    elif other is not None and not model:
+        error = "Enter the model, e.g. as the service names it in its list of models."
+    elif other is not None and not (base_url or other.base_url):
+        error = "Enter the address of the API, e.g. http://localhost:8080/v1."
+    elif base_url and not _address(base_url):
+        error = "Enter the address as http://… or https://…"
     elif workspace_id and not WORKSPACE.match(workspace_id):
         error = "A workspace ID looks like wrkspc_… — copy it from the Anthropic Console."
-    elif (
-        not existing
-        or api_key != existing.api_key
-        or model != existing.model
-        or workspace_id != existing.workspace_id
+    settings = ClaudeSettings(api_key, language, brief_time, model, workspace_id, service, base_url)
+    if not error and settings.__dict__ | {"language": "", "brief_time": ""} != (
+        existing.__dict__ | {"language": "", "brief_time": ""} if existing else None
     ):
-        error = await service.check_key(api_key, model, workspace_id)
+        error = await brief.check_key(settings)
     if error:
         context = _form_context(
             existing,
@@ -89,15 +111,20 @@ async def save_claude(
             brief_time=brief_time,
             model=model,
             workspace_id=workspace_id,
+            service=service,
+            base_url=base_url,
+            model_name=model_name,
         )
         return _render(request, "brief/settings.html", context, status_code=400)
-    await service.save_settings(ClaudeSettings(api_key, language, brief_time, model, workspace_id))
+    await brief.save_settings(settings)
+    request.app.state.ai_name = settings.name
     return RedirectResponse("/integrations?status=claude-saved", status_code=303)
 
 
 @router.post("/integrations/claude/remove")
 async def remove_claude(request: Request) -> Response:
     await _service(request).remove_settings()
+    request.app.state.ai_name = "Claude"
     return RedirectResponse("/integrations?status=claude-removed", status_code=303)
 
 

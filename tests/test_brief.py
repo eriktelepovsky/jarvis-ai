@@ -209,7 +209,7 @@ def test_connect_claude_validates_and_encrypts_the_key(client: TestClient):
     assert "Claude rejected this API key." in response.text
 
     response = connect(client)
-    assert "Claude is connected" in response.text
+    assert "The AI is connected" in response.text
 
     async def stored() -> bytes:
         async with client.app.state.sessionmaker() as db:
@@ -219,7 +219,7 @@ def test_connect_claude_validates_and_encrypts_the_key(client: TestClient):
 
     # Saving again without a key keeps the stored one.
     response = connect(client, api_key="", language="sk", brief_time="07:15")
-    assert "Claude is connected" in response.text
+    assert "The AI is connected" in response.text
     settings = client.portal.call(client.app.state.brief.settings)
     assert (settings.api_key, settings.language, settings.brief_time) == (API_KEY, "sk", "07:15")
 
@@ -242,10 +242,10 @@ def test_disconnect_claude_keeps_written_briefs(client: TestClient):
     connect(client)
     client.post("/brief/generate")
     response = client.post("/integrations/claude/remove")
-    assert "Claude was disconnected" in response.text
+    assert "The AI was disconnected" in response.text
     assert client.portal.call(client.app.state.brief.settings) is None
     report = client.get("/brief/report").text
-    assert "Connect Claude" in report
+    assert "Connect an AI" in report
     assert "A quiet day." in report
 
 
@@ -253,7 +253,7 @@ def test_disconnect_claude_keeps_written_briefs(client: TestClient):
 
 
 def test_report_without_claude_asks_to_connect(client: TestClient):
-    assert "Connect Claude" in client.get("/brief/report").text
+    assert "Connect an AI" in client.get("/brief/report").text
     assert "Daily brief →" in client.get("/brief/headline").text
 
 
@@ -372,7 +372,7 @@ def test_priorities_panel_shows_todays_brief(make_client: MakeClient, claude: Fa
     )
     complete_setup(client)
     assert "/panels/brief/priorities" in client.get("/").text
-    assert "Connect Claude" in client.get("/panels/brief/priorities").text
+    assert "Connect an AI" in client.get("/panels/brief/priorities").text
 
     connect(client)
     assert "No brief yet today." in client.get("/panels/brief/priorities").text
