@@ -15,7 +15,7 @@
     <fieldset class="choices">
       <legend class="visually-hidden">How they are shown</legend>
       <label class="choice"><input type="radio" name="merged" value="" {% if not merged %}checked{% endif %}><span><strong>Each on its own</strong><span class="muted">A number for {{ names | join(" and a number for ") }}, each with its own details.</span></span></label>
-      <label class="choice"><input type="radio" name="merged" value="on" {% if merged %}checked{% endif %}><span><strong>One number: Work</strong><span class="muted">Everything assigned to you in one list, grouped by service and then by workspace, overdue first. The brief and Ask still see each service on its own.</span></span></label>
+      <label class="choice"><input type="radio" name="merged" value="on" {% if merged %}checked{% endif %}><span><strong>One number: Work</strong><span class="muted">Everything assigned to you in one list, grouped by workspace and then by project, overdue first. The brief and Ask still see each service on its own.</span></span></label>
     </fieldset>
     {% if request.query_params.get("saved") %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ SAVED</span><span>The welcome screen shows it the next time it loads.</span></div>{% endif %}
     <div class="actions"><button type="submit" class="btn btn-primary">Save</button></div>

@@ -15,20 +15,30 @@ def service(id: str, name: str, data: WidgetData, position: int) -> Plugin:
     return Service()
 
 
+APP = {"group": "acme", "subgroup": "APP"}
 JIRA = WidgetData(
     value=2,
     attention=True,
     stats=[Stat(2, "Active")],
     rows=[
-        Row("APP-1 Login", "Medium", "In progress", tags=("active", "progress"), group="acme"),
-        Row("APP-2 Old idea", "Low", "Backlog", tags=("backlog",), group="acme"),
-        Row("APP-3 Invoices", "High", "▲ Due 1 Oct", tags=("active", "overdue"), group="acme"),
+        Row("APP-1 Login", "Medium", "In progress", tags=("active", "progress"), **APP),
+        Row("APP-2 Old idea", "Low", "Backlog", tags=("backlog",), **APP),
+        Row("APP-3 Invoices", "High", "▲ Due 1 Oct", tags=("active", "overdue"), **APP),
     ],
     action=Link("Open Jira", "https://acme.atlassian.net"),
 )
 ASANA = WidgetData(
     value=1,
-    rows=[Row("Write the newsletter", "Marketing", "Today", tags=("today",), group="Studio")],
+    rows=[
+        Row(
+            "Write the newsletter",
+            "Marketing",
+            "Today",
+            tags=("today",),
+            group="Studio",
+            subgroup="Newsletter",
+        )
+    ],
     action=Link("Open Asana", "https://app.asana.com"),
 )
 
@@ -53,10 +63,11 @@ def test_jira_and_asana_as_one_number(make_client: MakeClient):
     work = client.get("/welcome/widget/work/assigned").text
     assert ">3<" in work  # 2 active in Jira and 1 in Asana
     assert "assigned to you · 1 overdue" in work
-    # Overdue first, the backlog last; grouped by the service, then its workspace.
+    # Overdue first, the backlog last; grouped by workspace (with its service), then project.
     order = [work.index(title) for title in ("APP-3", "APP-1", "Write the newsletter", "APP-2")]
     assert order == sorted(order)
-    assert 'data-group="Asana" data-subgroup="Studio"' in work
+    assert 'data-group="Studio · Asana" data-subgroup="Newsletter"' in work
+    assert 'data-group="acme · Jira" data-subgroup="APP"' in work
     assert "Open Jira" in work and "Open Asana" in work
 
     # Kept after a restart, and undone the same way.
