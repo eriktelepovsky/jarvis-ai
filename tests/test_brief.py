@@ -285,7 +285,7 @@ def test_generate_brief(client: TestClient, claude: FakeClaude):
 
     headline = client.get("/brief/headline").text
     assert "One thing needs you &lt;today&gt;." in headline
-    assert "Full report →" in headline
+    assert "Daily brief →" in headline
     report = client.get("/brief/report").text
     assert "A quiet day." in report and "Water the plants." in report
     assert "Water plants" in report

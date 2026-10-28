@@ -1,4 +1,4 @@
 {% if brief and brief.content.headline and not stale %}
 <span class="muted core-line brief-headline">{{ brief.content.headline }}</span>
 {% endif %}
-<button type="button" class="full-report label" data-open-report>{% if not brief %}Daily brief{% elif stale %}{{ "Yesterday's" if yesterday else "Last" }} report{% else %}Full report{% endif %} →</button>
+<button type="button" class="full-report label" data-open-report>{% if not brief %}Daily brief{% elif stale %}{{ "Yesterday's" if yesterday else "Last" }} report{% else %}Daily brief{% endif %} →</button>
