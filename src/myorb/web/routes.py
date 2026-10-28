@@ -14,6 +14,7 @@ from myorb import __version__
 from myorb.brief.writer import READ_LANGUAGES
 from myorb.cache import due as due_now
 from myorb.cache import refreshing
+from myorb.connections import checklist
 from myorb.db import get_db
 from myorb.overview import snapshots
 from myorb.plugins import Link, Plugin, Widget, WidgetContext, WidgetData
@@ -136,10 +137,13 @@ QUICK_ACTIONS = [
 async def welcome(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> HTMLResponse:
     panels = [(plugin, panel) for plugin in ordered_plugins(request) for panel in plugin.panels()]
     claude = await request.app.state.brief.settings()
+    setup = await checklist.shown(request, db)
     return request.app.state.templates.TemplateResponse(
         request,
         "welcome.html",
         {
+            # Get started's steps done and in all, in the header until it is finished.
+            "setup": (sum(step.state == "done" for step in setup), len(setup)) if setup else None,
             "now": datetime.now(request.app.state.timezone),
             "side_panels": [(p, panel) for p, panel in panels if panel.placement == "side"],
             "header_panels": [(p, panel) for p, panel in panels if panel.placement == "header"],
