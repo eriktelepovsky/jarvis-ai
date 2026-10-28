@@ -4,7 +4,7 @@ myOrb is your personal AI-powered daily briefing dashboard. It connects to email
 
 > 🚧 Work in progress.
 
-![myOrb welcome screen: the orb with numbers from email, calendar, tasks, pull requests, Jira, finance, Slack, uptime, sleep and YouTube; today's schedule, tasks, priorities from the brief and the weather on the left; quick actions, recent activity and a YouTube player on the right](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/welcome.jpg)
+![myOrb welcome screen: the orb with numbers from email, calendar, tasks, pull requests, Jira, finance, Slack, uptime, sleep and YouTube; today's schedule with when to leave for lunch, tasks, priorities from the brief and the weather on the left; quick actions, recent activity and a YouTube player on the right](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/welcome.jpg)
 
 *The welcome screen, with sample data.*
 
@@ -19,7 +19,7 @@ Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anythin
 - **Focus time:** the free blocks of an hour or more between today's meetings (an event you ignore in the calendar's details, e.g. someone else's in a shared calendar, stays grey and takes no time), with 45 minutes kept for lunch between 11:30 and 13:30 (unless the calendar has a lunch already), in the schedule, the calendar's details and the brief. Ask can block one in your calendar.
 - **Commute:** when to leave for today's events that happen somewhere, with the traffic expected then (Google Routes API): in the header, the schedule and the brief.
 - **Tasks:** due dates written in plain language, e.g. “call Anna tomorrow 10:00”, and repeats, e.g. “take out the bins every Monday” or “pay the rent every month on the 1st”: done, such a task moves on to its next date.
-- **Side columns:** today's schedule, tasks, priorities from the brief and the weather on the left; quick actions and what happened lately on the right.
+- **Side columns:** today's schedule with when to leave for lunch, tasks, priorities from the brief and the weather on the left; quick actions and what happened lately on the right.
 - **Music and sounds:** generated ambient music or any YouTube video or playlist while you work, and quiet interface sounds.
 - **Yours:** self-hosted, a password and passkeys for sign-in, works on a phone and installs as an app. Claude's cost is counted in euros. Extend it with [plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md).
 
