@@ -116,24 +116,40 @@ async def _timeline_items(request: Request) -> list[TimelineItem]:
     return [item for items in results for item in items]
 
 
-def _with_lunch(items: list[TimelineItem], now: datetime) -> dict[str, Any]:
-    """The day for glance(): the events, and lunch as the calendar keeps it (see lunch_time),
-    the user's own lunch event moved out of the events into it."""
+async def _trips(request: Request) -> list[dict[str, Any]]:
+    """Today's ways to the events ahead, when the calendar plans them (Commute)."""
+    calendar = request.app.state.plugins.get("calendar")
+    if calendar is None or not hasattr(calendar, "trips_today"):
+        return []
+    try:
+        return await calendar.trips_today(widget_context(request))
+    except Exception:
+        logger.exception("Trips for the timeline failed")
+        return []
+
+
+def _with_lunch(
+    items: list[TimelineItem], now: datetime, trips: list[dict[str, Any]] = ()
+) -> dict[str, Any]:
+    """The day for glance(): the events, the ways to them, and lunch as the calendar keeps it
+    (see lunch_time), the user's own lunch event moved out of the events into it."""
     from myorb.plugins.calendar import lunch_time
 
+    travel = [TimelineItem(t["start"], t["end"], f"Leave for {t['event']['title']}") for t in trips]
     events = [{"title": i.title, "start": i.start, "end": i.end, "all_day": False} for i in items]
-    lunch = lunch_time(events, now)
+    lunch = lunch_time(events, now, trips)
     if lunch is None:
-        return {"items": items, "lunch": None}
+        return {"items": items, "lunch": None, "travel": travel}
     title = lunch.get("title")
     meetings = [i for i in items if not (title and (i.title, i.start) == (title, lunch["start"]))]
     lunch_item = TimelineItem(lunch["start"], lunch["end"], title or "Lunch")
-    return {"items": meetings, "lunch": lunch_item}
+    return {"items": meetings, "lunch": lunch_item, "travel": travel}
 
 
 async def _timeline(request: Request) -> Glance:
     now = widget_context(request).now
-    return glance(now=now, **_with_lunch(await _timeline_items(request), now))
+    items, trips = await asyncio.gather(_timeline_items(request), _trips(request))
+    return glance(now=now, **_with_lunch(items, now, trips))
 
 
 def calendar_changes(
@@ -238,7 +254,7 @@ async def report(request: Request) -> Response:
             if calendar is not None and hasattr(calendar, "ignored_today"):
                 ignored = await calendar.ignored_today(widget_context(request))
             day = [i for i in items if (i.title, i.start) not in ignored]
-            context["glance"] = glance(now=now, **_with_lunch(day, now))
+            context["glance"] = glance(now=now, **_with_lunch(day, now, await _trips(request)))
             # A meeting added, cancelled or moved since: the brief should be written again.
             current, context["sources"] = await asyncio.gather(
                 _timeline_items(request), load_widgets(request)

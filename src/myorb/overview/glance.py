@@ -21,7 +21,8 @@ class Placed:
     width: float
     above: bool  # label above or below the bar, alternating so neighbours do not overlap
     past: bool
-    # "event"; "lunch", time kept for lunch; "focus", a free block for deep work.
+    # "event"; "lunch", time kept for lunch; "focus", a free block for deep work; "travel",
+    # the way to an event (see commute.plan).
     kind: str = "event"
 
 
@@ -81,10 +82,11 @@ def glance(
     now: datetime,
     day_over: bool = False,
     lunch: TimelineItem | None = None,
+    travel: list[TimelineItem] = (),
 ) -> Glance:
     """The day of `now`; with `day_over`, a past day as it ended (no "now", nothing free).
-    `lunch` and the free blocks for focus around it (see focus_blocks) are shown among the
-    events, but are none."""
+    `lunch`, the ways to events (`travel`) and the free blocks for focus around them (see
+    focus_blocks) are shown among the events, but are none."""
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today = [i for i in items if i.end > midnight and i.start < midnight + timedelta(days=1)]
     first = min([DAY_START] + [i.start.hour for i in today])
@@ -95,9 +97,10 @@ def glance(
         return max(0.0, min(100.0, (moment - start).total_seconds() / span * 100))
 
     lunch_items = [lunch] if lunch and not day_over else []
-    busy = [*today, *lunch_items]
+    travel_items = [] if day_over else list(travel)
+    busy = [*today, *lunch_items, *travel_items]
     focus = [] if day_over else focus_blocks(busy, now)
-    kinds = {id(i): "lunch" for i in lunch_items}
+    kinds = {id(i): "lunch" for i in lunch_items} | {id(i): "travel" for i in travel_items}
     focus_items = [TimelineItem(begin, end, "Free for focus") for begin, end in focus]
     kinds |= {id(i): "focus" for i in focus_items}
     shown = sorted([*busy, *focus_items], key=lambda i: i.start)
