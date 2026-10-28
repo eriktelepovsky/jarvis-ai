@@ -1661,9 +1661,11 @@ button.modal-stat[aria-pressed="true"] {
 }
 
 /* A page over the details (an email): the details' size, its own scroll; beside it the
-   previous and next one, reached by swiping sideways. */
+   previous and next one, reached by swiping sideways, a line between them. */
 .page-swipe {
+  position: relative;
   display: flex;
+  gap: 1px;
   flex: 1;
   min-height: 0;
   overflow-x: auto;
@@ -1671,6 +1673,7 @@ button.modal-stat[aria-pressed="true"] {
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
+  background: var(--line);
 }
 
 .page-swipe::-webkit-scrollbar {
@@ -1683,29 +1686,6 @@ button.modal-stat[aria-pressed="true"] {
   scroll-snap-stop: always;
 }
 
-.page-ghost {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  text-align: center;
-}
-
-.page-ghost-title {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 16px;
-  color: var(--text-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.page-ghost.is-none .label {
-  display: none;
-}
-
 .page-view {
   --view-pad: 22px;
   --view-top: 22px;
@@ -1714,6 +1694,7 @@ button.modal-stat[aria-pressed="true"] {
   padding: var(--view-top) var(--view-pad) 28px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+  background: #0b0f14;
   transition: opacity 0.15s ease;
 }
 
@@ -1771,20 +1752,8 @@ button.modal-stat[aria-pressed="true"] {
   content: "Loading email…";
 }
 
-@keyframes view-from-right {
-  from { opacity: 0; transform: translateX(28px); }
-}
-
-@keyframes view-from-left {
-  from { opacity: 0; transform: translateX(-28px); }
-}
-
-.page-view[data-slide="1"]:not(.is-loading) > * {
-  animation: view-from-right 0.2s ease-out;
-}
-
-.page-view[data-slide="-1"]:not(.is-loading) > * {
-  animation: view-from-left 0.2s ease-out;
+.page-view[data-none]:empty::before {
+  content: "No more emails";
 }
 
 .row-mark {

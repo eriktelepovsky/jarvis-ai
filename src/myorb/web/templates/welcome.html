@@ -231,12 +231,13 @@
 
   {# A page opened over the details (an email), so closing it shows the list as it was. #}
   <dialog class="modal page-view-modal" id="page-view-dialog" aria-label="Email">
-    {# Side by side with the previous and next email: a sideways swipe scrolls to one of them,
-       natively, so it also works over the email's own frame, which runs no scripts. #}
+    {# One strip with the newer and the older email loaded beside it, as in Gmail: a sideways
+       swipe scrolls to one of them, natively, so it also works over the email's own frame,
+       which runs no scripts. welcome.js moves the id to the email shown. #}
     <div class="page-swipe" data-page-swipe>
-      <div class="page-ghost" data-ghost="-1"><span class="label">Newer</span><span class="page-ghost-title"></span></div>
+      <div class="page-view"></div>
       <div class="page-view" id="page-view"></div>
-      <div class="page-ghost" data-ghost="1"><span class="label">Older</span><span class="page-ghost-title"></span></div>
+      <div class="page-view"></div>
     </div>
   </dialog>
 
