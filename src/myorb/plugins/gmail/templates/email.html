@@ -46,7 +46,7 @@
 </div>
 </div>
 
-{% if marked_read %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}
+{% if marked_read %}<div class="alert alert-success panel-narrow email-done" role="status"><span class="alert-tag">✓ DONE</span><span>Marked as read.</span></div>{% endif %}
 {% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
 <div class="email-draft-place" id="email-draft"></div>
 {% if not can_mark_read %}<p class="muted panel-narrow email-note">To mark emails as read, draft replies or forward emails from myOrb, connect this Google account again in <a href="/integrations">Integrations</a> and allow it.</p>{% endif %}
