@@ -2274,8 +2274,6 @@ form.htmx-request .btn[type="submit"]::before {
   gap: 12px;
   margin-bottom: 16px;
   /* No box of its own: the reply's field is the only frame, as wide as it can be. */
-  padding-top: 12px;
-  border-top: 1px solid var(--line-soft);
 }
 
 .email-draft-head,
