@@ -330,6 +330,24 @@ def test_parse_event_hides_irrelevant_events(fields: dict[str, Any]):
     assert parse_event(event(**fields), {}, TZ) is None
 
 
+def test_parse_event_free_unless_gmail_made_it():
+    assert parse_event(event(transparency="transparent"), {}, TZ)["free"]
+    # Gmail marks every event it makes from an email (a booking, a flight) free.
+    booking = event(transparency="transparent", eventType="fromGmail")
+    assert not parse_event(booking, {}, TZ)["free"]
+
+
+def test_an_event_gone_to_takes_the_time_even_shown_as_free():
+    from myorb.plugins.calendar import _busy
+
+    base = {"all_day": False, "kind": "event", "free": True}
+    start = datetime(2026, 10, 28, 16, tzinfo=TZ)
+    gone = {**base, "title": "Physio", "start": start, "end": start + timedelta(hours=1)}
+    stay = {**base, "title": "Hold", "start": start, "end": start + timedelta(hours=1)}
+    trip = {"event": gone, "start": start - timedelta(minutes=18), "end": start}
+    assert [i.title for i in _busy([gone, stay], [trip])] == ["Physio", "Travel"]
+
+
 def test_parse_event_all_day_and_video_link():
     parsed = parse_event(
         event(
