@@ -51,7 +51,7 @@ Built as custom plugins for the author's own invoicing system and wallet app.
 - [x] **Email:** read an email and its conversation in myOrb (images blocked until asked for) and mark it as read
 - [x] **Quick actions:** common questions for Ask (plan today, inbox brief, focus block…) one click away
 - [ ] **Triage:** mark items as done or snooze them for later
-- [ ] **Command palette:** quick search and commands with ⌘K
+- [x] **Command palette:** quick search and commands with ⌘K
 - [ ] **Voice control:** talk to myOrb using speech-to-text and text-to-speech
   - Swappable voice providers, so each speech service is a plugin
   - Speech-to-text: self-hosted Whisper (faster-whisper), so recordings never leave the server

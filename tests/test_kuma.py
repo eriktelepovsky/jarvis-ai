@@ -147,6 +147,7 @@ def test_kuma_monitors_show_with_myorbs_own(
     assert {m.name: m.url for m in rows(client, Monitor)}["DB"] == "https://kuma.example.com"
     page = client.get("/integrations/uptime").text
     assert page.count("Uptime Kuma</span>") == 2 and "Remove</button>" not in page
+    assert 'href="/integrations#service-uptime_kuma"' in page  # Manage Kuma
 
     # Kuma's DOWN is an outage at once: Kuma counted its retries already.
     kuma.monitors["Shop"]["status"] = 0
