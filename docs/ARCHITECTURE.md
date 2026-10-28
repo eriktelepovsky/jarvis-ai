@@ -136,6 +136,7 @@ Every setup wizard follows the same structure:
 | GitHub | Fine-grained personal access token | Creates a token via a link with the permissions prefilled. |
 | Slack | Own Slack app | myOrb generates an app manifest; the user pastes it into Slack, installs the app and copies the token. |
 | Strava | OAuth with own API application | Same as Google, but simpler. |
+| Uptime Kuma | Address and API key | Creates an API key in Kuma (Settings → API Keys). myOrb reads its monitors' state from `/metrics` every minute and keeps them with its own monitors, without checking them again; outages, uptime, the brief and the activity work the same for both. |
 | Apple Health | Webhook | myOrb shows a URL with a secret token; an iPhone Shortcuts automation posts data to it. |
 | Custom plugins | Defined by the plugin | The plugin declares its own form, e.g. URL and API key. |
 
