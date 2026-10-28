@@ -302,7 +302,9 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     async def keep(day_offset: int, title: str) -> None:
         async with client.app.state.sessionmaker() as db:
             brief = await db.scalar(select(Brief))
-            day = (datetime.now(TZ) + timedelta(days=day_offset)).replace(hour=9, minute=0)
+            day = (datetime.now(client.app.state.timezone) + timedelta(days=day_offset)).replace(
+                hour=9, minute=0
+            )
             event = {"start": day.isoformat(), "end": (day + timedelta(hours=1)).isoformat()}
             brief.content = {**brief.content, "timeline": [{**event, "title": title}]}
             await db.commit()
@@ -318,7 +320,7 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     async def keep_ahead(title: str) -> None:
         async with client.app.state.sessionmaker() as db:
             brief = await db.scalar(select(Brief))
-            start = datetime.now(TZ) + timedelta(hours=1)
+            start = datetime.now(client.app.state.timezone) + timedelta(hours=1)
             event = {"start": start.isoformat(), "end": (start + timedelta(hours=1)).isoformat()}
             brief.content = {**brief.content, "timeline": [{**event, "title": title}]}
             await db.commit()
@@ -340,13 +342,13 @@ def test_yesterdays_brief_says_so(client: TestClient, claude: FakeClaude):
     client.portal.call(age_brief, 1)
     report = client.get("/brief/report").text
     # The calendar of the brief's own day, as the brief saw it, not today's.
-    yesterday = (datetime.now(TZ) - timedelta(days=1)).strftime("%A")
+    yesterday = (datetime.now(client.app.state.timezone) - timedelta(days=1)).strftime("%A")
     assert f"{yesterday} · 0 events" in report and "● Now" not in report
 
     async def keep_event() -> None:
         async with client.app.state.sessionmaker() as db:
             brief = await db.scalar(select(Brief))
-            day = brief.created_at.astimezone(TZ).replace(hour=9, minute=0)
+            day = brief.created_at.astimezone(client.app.state.timezone).replace(hour=9, minute=0)
             event = {"start": day.isoformat(), "end": (day + timedelta(hours=1)).isoformat()}
             brief.content = {**brief.content, "timeline": [{**event, "title": "Standup"}]}
             await db.commit()
