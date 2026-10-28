@@ -7,23 +7,27 @@ The day is the same every day: the brief is the morning's, written at 07:48, and
 takes what is left of it when asked.
 """
 
+import asyncio
 import json
 import secrets
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from myorb import profile
 from myorb.activity.models import ActivityEvent
 from myorb.activity.store import record
 from myorb.brief.models import Brief
 from myorb.brief.plugin import BriefPlugin
 from myorb.brief.service import KICKERS, BriefService, ClaudeSettings, kind_for
+from myorb.connections import store
+from myorb.crypto import SecretBox
 from myorb.plugins.base import Link, Plugin, Row, Stat, Widget, WidgetContext, WidgetData
 from myorb.plugins.calendar import CalendarPlugin
 from myorb.plugins.calendar.commute import plan
@@ -202,16 +206,18 @@ def _mentions() -> WidgetData:
 def _uptime() -> WidgetData:
     return WidgetData(
         value=0,
-        summary="all 6 sites are up",
-        stats=[Stat(0, "Down"), Stat(6, "Monitors"), Stat(1, "Incidents · 30 d")],
+        summary="all 7 monitors are up",
+        stats=[Stat(0, "Down"), Stat(7, "Monitors"), Stat(1, "Incidents · 30 d")],
         list_title="Monitors",
         rows=_rows(
             [
                 ("starkindustries.example", "99.99 % · 30 d", "UP", "ok"),
                 ("shop.example.com", "100 % · TLS expires in 9 days", "UP", "warn"),
                 ("staging.example.com", "99.91 % · down 4 min at night", "UP", "ok"),
-                ("api.example.com", "100 % · 30 d", "UP", "ok"),
-                ("status.example.com", "100 % · 30 d", "UP", "ok"),
+                # Checked by Uptime Kuma, which also watches what is not a website.
+                ("api.example.com", "100 % · 30 d · Uptime Kuma", "UP", "ok"),
+                ("status.example.com", "100 % · 30 d · Uptime Kuma", "UP", "ok"),
+                ("Database", "db.internal:5432 · 100 % · 30 d · Uptime Kuma", "UP", "ok"),
                 ("docs.example.com", "100 % · 30 d", "UP", "ok"),
             ]
         ),
@@ -447,10 +453,16 @@ ACTIVITY = [  # minutes ago, tone, text
 ]
 
 
-async def seed(sessionmaker: async_sessionmaker[AsyncSession], now: datetime) -> None:
-    """A fresh demo's tasks and recent activity; once, so what the user does with them stays."""
+async def seed(
+    sessionmaker: async_sessionmaker[AsyncSession], now: datetime, fresh: bool = False
+) -> None:
+    """A fresh demo's tasks and recent activity; once, so what the user does with them stays.
+    `fresh`: the day's again, in place of what is there (the public demo, each morning)."""
     async with sessionmaker() as db:
-        if await db.scalar(select(func.count()).select_from(Task)):
+        if fresh:
+            for model in (Task, ActivityEvent, Brief):
+                await db.execute(delete(model))
+        elif await db.scalar(select(func.count()).select_from(Task)):
             return
         today = now.date()
         for text in [
@@ -465,6 +477,29 @@ async def seed(sessionmaker: async_sessionmaker[AsyncSession], now: datetime) ->
             for ago, tone, text in ACTIVITY
         )
         await db.commit()
+
+
+async def each_morning(
+    sessionmaker: async_sessionmaker[AsyncSession], now: Callable[[], datetime]
+) -> None:
+    """The public demo's day again after midnight, so its tasks stay today's and what visitors
+    added from Ask goes."""
+    day = now().date()
+    while True:
+        await asyncio.sleep(60)
+        if now().date() != day:
+            day = now().date()
+            await seed(sessionmaker, now(), fresh=True)
+
+
+async def name_the_public_demo(
+    sessionmaker: async_sessionmaker[AsyncSession], box: SecretBox
+) -> None:
+    """The names a visitor of the public demo would have chosen at setup, which it skips."""
+    async with sessionmaker() as db:
+        if not await store.get_provider_settings(db, box, profile.PROVIDER):
+            names = {"name": "Tony", "assistant": "J.A.R.V.I.S.", "color": profile.DEFAULT_COLOR}
+            await store.save_provider_settings(db, box, profile.PROVIDER, names)
 
 
 QUICK_PLAN = "plan my day"
@@ -547,7 +582,9 @@ async def decide(
         return
     title = "Fix the failing tests on PR #318"
     async with sessionmaker() as db:
-        await add_task(db, f"{title} today at {hm(_fix_time(now))}", now.date())
+        # Once: asked again (or by another visitor of the public demo), it is already there.
+        if not await db.scalar(select(Task.id).where(Task.title == title, Task.done_at.is_(None))):
+            await add_task(db, f"{title} today at {hm(_fix_time(now))}", now.date())
     message = f"Task added: {title}"
     await record(sessionmaker, f"Asked {assistant}: {message}", "ok")
     yield _line(done={"id": PROPOSAL, "message": message})

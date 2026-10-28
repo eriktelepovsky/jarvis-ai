@@ -98,6 +98,7 @@ def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Temp
         return {
             "assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT),
             "demo": request.app.state.settings.demo,
+            "public_demo": request.app.state.settings.public_demo,
             "orb_hue": orb_hue(color),
         }
 
@@ -133,8 +134,12 @@ def create_app(
         await app.state.paces.load(app.state.sessionmaker, app.state.secret_box)
         for plugin in plugins.values():
             await plugin.connections_changed(app.state.connections)
+        if settings.public_demo:
+            await demo.name_the_public_demo(app.state.sessionmaker, app.state.secret_box)
         if settings.demo:
-            await demo.seed(app.state.sessionmaker, app_context(app).now)
+            await demo.seed(
+                app.state.sessionmaker, app_context(app).now, fresh=settings.public_demo
+            )
         app.state.brief = (demo.DemoBriefService if settings.demo else BriefService)(
             app.state.sessionmaker,
             app.state.secret_box,
@@ -153,11 +158,14 @@ def create_app(
             for plugin in plugins.values()
             if (job := plugin.background(lambda: app_context(app))) is not None
         ]
+        if settings.public_demo:
+            morning = demo.each_morning(app.state.sessionmaker, lambda: app_context(app).now)
+            background.append(asyncio.create_task(morning))
         async with app.state.sessionmaker() as db:
             app.state.auth = await load_auth_state(db)
             profile = await load_profile(db, app.state.secret_box)
             app.state.assistant, app.state.orb_color = profile["assistant"], profile["color"]
-        if not app.state.auth.password_set:
+        if not app.state.auth.password_set and not settings.public_demo:
             setup_url = f"{(settings.public_url or '').rstrip('/')}/setup"
             logger.warning(
                 "No password is set. Open %s on this machine, or from anywhere with %s?token=%s",

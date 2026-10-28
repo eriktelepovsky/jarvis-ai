@@ -37,8 +37,9 @@
         <a class="label" href="/integrations">Integrations</a>
         <a class="label" href="/settings/security">Security</a>
         {% if can_ask %}<button type="button" class="label" data-ask-open>Chat</button>{% endif %}
-        <form method="post" action="/logout" hx-boost="false"><button type="submit" class="label">Sign out</button></form>
+        {% if not public_demo %}<form method="post" action="/logout" hx-boost="false"><button type="submit" class="label">Sign out</button></form>{% endif %}
       </nav>
+      {% if public_demo %}<a class="label header-item" id="demo-note" href="https://github.com/eriktelepovsky/myorb" target="_blank" rel="noopener" title="Nothing can be changed in the public demo">Public demo <span class="dim">· Get myOrb</span></a>{% endif %}
       {% if setup %}<a class="label header-item" href="/integrations" title="The steps to set myOrb up">Get started <span class="dim">· {{ setup[0] }}/{{ setup[1] }}</span></a>{% endif %}
       <a class="label header-item warn" id="attention" href="/integrations" hidden></a>
     </div>

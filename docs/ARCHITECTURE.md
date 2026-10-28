@@ -110,7 +110,7 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 ### Installing plugins
 
 - **Built-in integrations** (Google, Jira, Slack, GitHub, Strava, weather and others) ship with myOrb. Nothing to install.
-- **Demo mode** (`MYORB_DEMO=1`, `demo.py`) swaps the plugins for ones with a made-up day and the brief service for one that writes the same morning brief; Ask streams a prewritten plan of what is left of the day. The real plugins' templates and the dashboard's code render it, so it doubles as the source of the README's screenshots.
+- **Demo mode** (`MYORB_DEMO=1`, `demo.py`) swaps the plugins for ones with a made-up day and the brief service for one that writes the same morning brief; Ask streams a prewritten plan of what is left of the day. The real plugins' templates and the dashboard's code render it, so it also produces the README's screenshots (`scripts/screenshots.py`). `MYORB_PUBLIC_DEMO=1` opens it to anyone. The access gate allows every request without a session, sends `/setup` and `/login` to the dashboard, and turns down every change except Ask with a 403 marked `X-Myorb-Demo`. `app.js` then leaves the page as it is and flashes the header's note. Each morning the tasks, activity and briefs are seeded again.
 - **Custom plugins** are Python packages. `MYORB_PLUGINS` lists them as pip would (names with versions, wheel URLs, local paths); `myorb serve` installs them with `uv` into `plugins/` in the data directory, which goes last on `sys.path`, so they survive image updates and cannot shadow myOrb's own packages. A custom image built on top of the official one works too. See [writing plugins](PLUGINS.md) and the [example plugin](../examples/myorb-plugin-example).
 
 ### Connecting accounts

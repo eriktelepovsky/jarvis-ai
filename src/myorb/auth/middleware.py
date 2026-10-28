@@ -10,6 +10,8 @@ from myorb.auth.sessions import expected_origin, is_authenticated
 
 logger = logging.getLogger(__name__)
 
+GITHUB = "https://github.com/eriktelepovsky/myorb"
+
 
 def _redirect(request: Request, url: str) -> Response:
     if request.headers.get("HX-Request"):
@@ -41,7 +43,8 @@ async def auth_middleware(
 ) -> Response:
     try:
         state = request.app.state.auth
-        authenticated = state.password_set and is_authenticated(request, state)
+        public_demo = request.app.state.settings.public_demo
+        authenticated = public_demo or (state.password_set and is_authenticated(request, state))
         decision = decide(
             AccessRequest(
                 path=request.url.path,
@@ -50,6 +53,7 @@ async def auth_middleware(
                 expected_origin=expected_origin(request),
                 password_set=state.password_set,
                 authenticated=authenticated,
+                public_demo=public_demo,
             )
         )
     except Exception:
@@ -67,3 +71,13 @@ async def auth_middleware(
             return _redirect(request, f"/login?next={quote(_return_to(request))}")
         case Decision.REJECT_ORIGIN:
             return PlainTextResponse("Cross-site request rejected.", status_code=403)
+        case Decision.HOME:
+            return _redirect(request, "/")
+        case Decision.READ_ONLY:
+            # app.js shows the demo's note instead of this page (X-Myorb-Demo).
+            return PlainTextResponse(
+                f"This is the public demo, so nothing can be changed here. "
+                f"To connect your own services, run myOrb yourself: {GITHUB}",
+                status_code=403,
+                headers={"X-Myorb-Demo": "read-only"},
+            )

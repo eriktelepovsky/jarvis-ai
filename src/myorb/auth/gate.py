@@ -10,6 +10,8 @@ ALWAYS_PUBLIC = frozenset({"/healthz", "/manifest.webmanifest", "/sw.js"})
 # Webhooks of plugins: called by other services and devices without a session or an Origin
 # header, and authenticated by the plugin itself with a secret token.
 HOOKS_PREFIX = "/hooks/"
+# What a visitor of the public demo may send: Ask, whose answers there are written in advance.
+DEMO_WRITES = frozenset({"/ask", "/ask/warm", "/ask/decide", "/ask/undo"})
 
 
 class Decision(Enum):
@@ -17,6 +19,8 @@ class Decision(Enum):
     SETUP = "setup"  # no password yet: send to the setup page
     LOGIN = "login"  # not signed in: send to the login page
     REJECT_ORIGIN = "reject_origin"  # cross-site state-changing request (CSRF)
+    HOME = "home"  # public demo: no setup or sign-in, send to the dashboard
+    READ_ONLY = "read_only"  # public demo: a change nobody may make there
 
 
 @dataclass(frozen=True)
@@ -27,6 +31,7 @@ class AccessRequest:
     expected_origin: str
     password_set: bool
     authenticated: bool
+    public_demo: bool = False
 
 
 def decide(request: AccessRequest) -> Decision:
@@ -37,6 +42,12 @@ def decide(request: AccessRequest) -> Decision:
         return Decision.ALLOW
     if request.method not in SAFE_METHODS and request.origin != request.expected_origin:
         return Decision.REJECT_ORIGIN
+    if request.public_demo:
+        if request.path in (SETUP_PATH, *PUBLIC_PATHS):
+            return Decision.HOME
+        if request.method in SAFE_METHODS or request.path in DEMO_WRITES:
+            return Decision.ALLOW
+        return Decision.READ_ONLY
     if not request.password_set:
         return Decision.ALLOW if request.path == SETUP_PATH else Decision.SETUP
     if request.authenticated or request.path in PUBLIC_PATHS:

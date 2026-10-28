@@ -2649,3 +2649,12 @@ form.htmx-request .btn[type="submit"]::before {
     display: none;
   }
 }
+
+/* The public demo's note in the header, flashing when a change was turned down (app.js) */
+.demo-flash {
+  animation: demo-flash 1.6s ease-out;
+}
+
+@keyframes demo-flash {
+  0%, 40% { color: var(--warn); }
+}

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,6 +28,15 @@ class Settings(BaseSettings):
     # Demo mode: a made-up day instead of the services, with the brief and Ask's answer written
     # in advance, so nothing is sent anywhere (see demo.py). Use a data_dir of its own.
     demo: bool = False
+    # The demo on a public address: open to everyone without signing in, with nothing to change
+    # but Ask, and the made-up day back each morning. Turns demo on too.
+    public_demo: bool = False
+
+    @model_validator(mode="after")
+    def _public_demo_is_a_demo(self) -> "Settings":
+        if self.public_demo:
+            self.demo = True
+        return self
 
     @property
     def database_url(self) -> str:

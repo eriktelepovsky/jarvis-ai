@@ -15,6 +15,7 @@ The smallest useful version for a daily morning routine.
 - [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
 - [x] Integrations page and setup checklist that guides the user through connecting services
 - [x] Sample data mode with fictional data for development and demos (`MYORB_DEMO=1`)
+- [x] Public demo anyone can try without signing in (`MYORB_PUBLIC_DEMO=1`)
 - [x] AI powered by Claude (Anthropic API)
 
 ### Features
