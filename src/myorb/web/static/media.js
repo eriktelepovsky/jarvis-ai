@@ -328,17 +328,20 @@
     dock.querySelector(".volume").hidden = !volumeOpen;
     dock.querySelector("[data-volume]").value = Math.round(prefs.volume * 100);
     dock.querySelector("[data-sound-volume]").value = Math.round(prefs.soundVolume * 100);
-    // Only ✕ on the player hides it (visibility, so the music keeps playing) and the dock's
-    // video button brings it back; Music on and off leave it be. There is a player once
-    // YouTube music has played since the page loaded (or is starting: the player comes once
-    // YouTube's script has loaded).
+    // The dock's video button hides the player and brings it back (visibility, so the music
+    // keeps playing); on a phone, without the dock, the ✕ on the player hides it. Music on and
+    // off leave it be. There is a player once YouTube music has played since the page loaded
+    // (or is starting: the player comes once YouTube's script has loaded).
     const player = Boolean(youtube.player || youtube.key);
     dock.querySelector(".music-player").hidden = !player;
     dock.querySelector(".music-player").classList.toggle("is-hidden", Boolean(prefs.videoHidden));
-    // The video button is there from the page's first load while the video is hidden and the
-    // music is YouTube's, played or not: with no player yet, it shows the video, paused.
-    dock.querySelector(".dock-controls [data-toggle='video']").hidden =
-      !(prefs.videoHidden && (player || youtubeSet(musicConfig)));
+    // The video button is there whenever the music is YouTube's, played or not: with no player
+    // yet, it shows the video, paused.
+    const video = dock.querySelector(".dock-controls [data-toggle='video']");
+    const shown = player && !prefs.videoHidden;
+    video.hidden = !(player || youtubeSet(musicConfig));
+    video.setAttribute("aria-pressed", String(shown));
+    video.title = shown ? "Hide the video (the music keeps playing)" : "Show the video";
   }
 
   let volumeOpen = false;
@@ -362,10 +365,10 @@
     } else if (name === "volume") {
       volumeOpen = !volumeOpen;
     } else if (name === "video") {
-      prefs.videoHidden = !prefs.videoHidden;
-      if (!prefs.videoHidden && !youtube.player && !youtube.key && youtubeSet(musicConfig)) {
-        startYouTube(musicConfig, { still: true });
-      }
+      // With no player yet, it always shows the video: paused, until the music is turned on.
+      const player = youtube.player || youtube.key;
+      prefs.videoHidden = player ? !prefs.videoHidden : false;
+      if (!player && youtubeSet(musicConfig)) startYouTube(musicConfig, { still: true });
     } else if (name === "music") {
       await toggleMusic();
     }
