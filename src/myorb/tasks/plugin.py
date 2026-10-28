@@ -78,6 +78,8 @@ class TasksPlugin(Plugin):
                         url_label="Edit",
                         actions=[Action("Done", f"/tasks/{task.id}/done")],
                         ref=f"task {task.id}",
+                        # For the numbers above the list, which show only theirs when clicked.
+                        tags=("open", name),
                     )
                 )
         rows = rows[:ROWS_SHOWN]
@@ -90,6 +92,7 @@ class TasksPlugin(Plugin):
                     tone="ok",
                     actions=[Action("Undo", f"/tasks/{task.id}/undo")],
                     ref=f"task {task.id}",
+                    tags=("done",),
                 )
             )
         return WidgetData(
@@ -97,9 +100,9 @@ class TasksPlugin(Plugin):
             summary="open" + (f" · {overdue} overdue" if overdue else ""),
             attention=overdue > 0,
             stats=[
-                Stat(len(tasks), "Open"),
-                Stat(overdue, "Overdue"),
-                Stat(len(done), "Done today"),
+                Stat(len(tasks), "Open", filter="open"),
+                Stat(overdue, "Overdue", filter="overdue"),
+                Stat(len(done), "Done today", filter="done"),
             ],
             list_title="Open tasks",
             rows=rows,

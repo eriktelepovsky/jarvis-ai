@@ -203,13 +203,16 @@ def test_widget_shows_open_tasks_with_actions(client: TestClient):
     assert "All tasks" in text
     assert '<span class="node-label">Tasks</span>' in text
     assert '<a class="row-btn" href="/tasks?edit=1">Edit</a>' in text
+    # The numbers show only their tasks when clicked.
+    assert 'data-filter="overdue"' in text and 'data-filter="done"' in text
+    assert 'data-tags="open overdue"' in text and 'data-tags="open someday"' in text
 
 
 def test_widget_can_undo_tasks_done_today(client: TestClient):
     client.post("/tasks", data={"text": "Water plants"})
     client.post("/tasks/1/done")
     text = client.get("/welcome/widgets").text
-    assert "✓ Done" in text
+    assert "✓ Done" in text and 'data-tags="done"' in text
     assert 'hx-post="/tasks/1/undo"' in text
     client.post("/tasks/1/undo")
     assert 'hx-post="/tasks/1/done"' in client.get("/welcome/widgets").text
