@@ -119,11 +119,12 @@ def travel_label(minutes: int) -> str:
 
 
 def start_of_way(
-    event: dict[str, Any], before: tuple[datetime, str, str] | None, credentials: dict[str, Any]
+    event: dict[str, Any], before: tuple[datetime, str] | None, credentials: dict[str, Any]
 ) -> tuple[str, str]:
-    """Where the way to an event starts, and what the dashboard calls it."""
+    """Where the way to an event starts, and what the dashboard calls it: "home", "work" or
+    the place of the event before (its address, as "from" asks for a place)."""
     if before and event["start"] - before[0] <= CHAIN:
-        return before[1], before[2]
+        return before[1], before[1]
     work = credentials.get("work")
     start = event["start"]
     if work and start.weekday() < 5 and WORK_HOURS[0] <= start.hour < WORK_HOURS[1]:
@@ -138,7 +139,7 @@ async def plan(
     it takes. Each is {"event", "start" (when to leave), "minutes", "length", "origin", "by"}."""
     _, by = MODES[credentials.get("mode") or "drive"]
     trips: list[dict[str, Any]] = []
-    before: tuple[datetime, str, str] | None = None
+    before: tuple[datetime, str] | None = None
     timed = sorted(
         (e for e in events if e.get("kind") != "now" and not e["all_day"]), key=lambda e: e["start"]
     )
@@ -147,7 +148,7 @@ async def plan(
         if not is_place(location):
             continue
         origin, origin_label = start_of_way(event, before, credentials)
-        before = (event["end"], location, event["title"])
+        before = (event["end"], location)
         if event["start"] <= now or origin.strip().lower() == location.strip().lower():
             continue
         if len(trips) >= MAX_TRIPS:

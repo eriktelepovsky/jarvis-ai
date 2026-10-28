@@ -897,7 +897,7 @@ def test_commute_plans_when_to_leave():
     trips = asyncio.run(plan(events, now, credentials, route))
     assert [(t["event"]["title"], t["origin"], f"{t['start']:%H:%M}") for t in trips] == [
         ("Quarterly meeting", "home", "07:30"),  # 25 min plus 5 min to spare before 08:00
-        ("Workshop", "Quarterly meeting", "09:30"),
+        ("Workshop", "Hlavná 1, Košice", "09:30"),  # from where the meeting was
         ("1:1", "work", "14:30"),
         ("Flight to Prague", "home", "18:05"),  # at the airport 90 minutes before
     ]
