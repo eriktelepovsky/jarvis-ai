@@ -2318,6 +2318,25 @@ button.row-btn {
   color: var(--ok);
 }
 
+/* The way to an event: dotted in the schedule's amber, as there. */
+.glance-item.travel {
+  background: rgb(245 196 106 / 8%);
+  border: 1px dotted var(--warn);
+}
+
+.glance-item.travel .glance-label {
+  color: var(--warn);
+}
+
+.glance-item.travel .glance-tip {
+  border-left-color: var(--warn);
+}
+
+.glance-item.travel .glance-tip-length {
+  color: var(--warn);
+  background: rgb(245 196 106 / 12%);
+}
+
 .glance-item.past {
   background: rgb(79 209 232 / 11%);
   border-color: rgb(79 209 232 / 40%);

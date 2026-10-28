@@ -123,7 +123,24 @@ def test_the_report_keeps_lunch_as_the_calendar_does():
     assert _with_lunch(items, at(8)) == {
         "items": items,
         "lunch": TimelineItem(at(12), at(12, 45), "Lunch"),
+        "travel": [],
     }
     # The user's own lunch event is the lunch, with its title, and no longer one of the events.
     own = TimelineItem(at(12), at(12, 30), "Obed s Petrom")
-    assert _with_lunch([*items, own], at(8)) == {"items": items, "lunch": own}
+    assert _with_lunch([*items, own], at(8)) == {"items": items, "lunch": own, "travel": []}
+
+
+def test_the_way_to_an_event_is_on_the_timeline_and_takes_the_time():
+    from myorb.brief.routes import _with_lunch
+
+    physio = TimelineItem(at(16), at(17), "Physio")
+    trip = {"event": {"title": "Physio", "start": at(16)}, "start": at(15, 37), "end": at(15, 55)}
+    day = glance(now=at(14), **_with_lunch([physio], at(14), [trip]))
+    assert [(p.item.title, p.kind, p.item.end) for p in day.items] == [
+        ("Free for focus", "focus", at(15, 37)),  # until the way there, not until the event
+        ("Leave for Physio", "travel", at(15, 55)),
+        ("Physio", "event", at(17)),
+        ("Free for focus", "focus", at(18)),
+    ]
+    assert day.count == 1
+    assert day.free_minutes == 240 - 18 - 60

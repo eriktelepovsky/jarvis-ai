@@ -498,6 +498,12 @@ class CalendarPlugin(Plugin):
             if e["kind"] != "now" and not e["all_day"] and not e["ignored"]
         ]
 
+    async def trips_today(self, context: WidgetContext) -> list[dict[str, Any]]:
+        """Today's ways to the events ahead (see commute.plan), for the report's timeline."""
+        loaded = [a for a in await self._accounts(context) if a.data is not None]
+        day = self._merged(loaded, context.now, await self._ignored(context))
+        return await self._trips(context, day["today"])
+
     async def brief(self, context: WidgetContext) -> BriefSection | None:
         loaded = [a for a in await self._accounts(context) if a.data is not None]
         if not loaded:
