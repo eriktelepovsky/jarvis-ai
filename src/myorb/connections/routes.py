@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from myorb.auth.sessions import expected_origin, is_secure
 from myorb.auth.tokens import sign, unsign
-from myorb.connections import google, store
+from myorb.connections import checklist, google, store
 from myorb.connections.form_routes import providers as form_providers
 from myorb.connections.models import Connection
 from myorb.connections.providers import Provider
@@ -142,6 +142,11 @@ async def _integrations_page(
             for plugin, provider in form_providers(request)
         },
         "google_pace": _google_pace(request),
+        "setup": await checklist.shown(request, db),
+        # Hidden with steps left: a link at the bottom brings it back.
+        "setup_hidden": not request.app.state.settings.demo
+        and await checklist.hidden(request, db)
+        and any(step.state != "done" for step in await checklist.steps(request, db)),
         "message": message,
         "error": error,
     }
@@ -216,6 +221,15 @@ async def integrations(
     if status == "connected" and provider and provider != google.PROVIDER:
         message = "The connection works."
     return await _integrations_page(request, db, message=message)
+
+
+@router.post("/integrations/setup/{choice}")
+async def show_or_hide_setup(request: Request, db: Db, choice: str) -> Response:
+    """Hide the Get started list, or bring it back."""
+    if choice not in ("hide", "show"):
+        raise HTTPException(status_code=404)
+    await checklist.hide(request, db, choice == "hide")
+    return RedirectResponse("/integrations", status_code=303)
 
 
 @router.get("/integrations/google/setup", response_class=HTMLResponse)

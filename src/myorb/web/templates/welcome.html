@@ -39,6 +39,7 @@
         {% if can_ask %}<button type="button" class="label" data-ask-open>Chat</button>{% endif %}
         <form method="post" action="/logout" hx-boost="false"><button type="submit" class="label">Sign out</button></form>
       </nav>
+      {% if setup %}<a class="label header-item" href="/integrations" title="The steps to set myOrb up">Get started <span class="dim">· {{ setup[0] }}/{{ setup[1] }}</span></a>{% endif %}
       <a class="label header-item warn" id="attention" href="/integrations" hidden></a>
     </div>
     <div class="header-controls">

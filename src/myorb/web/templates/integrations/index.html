@@ -82,7 +82,42 @@
 {% if message %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
 {% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
 
-<h2 class="label services-title">Connected sources</h2>
+{% if setup %}
+{% set done = setup | selectattr("state", "equalto", "done") | list | length %}
+{% set next = setup | selectattr("state", "equalto", "todo") | first %}
+<section class="panel setup" aria-labelledby="setup-title">
+  <div class="setup-head">
+    <div>
+      <h2 class="label" id="setup-title">Get started</h2>
+      <div class="muted setup-sub">{{ done }} of {{ setup | length }} done. Each step ticks itself once it works.</div>
+    </div>
+    <div class="setup-progress" role="progressbar" aria-label="Steps done" aria-valuemin="0" aria-valuemax="{{ setup | length }}" aria-valuenow="{{ done }}"><span style="width: {{ (100 * done / setup | length) | round }}%"></span></div>
+    <form method="post" action="/integrations/setup/hide"><button type="submit" class="btn btn-ghost btn-small" title="Hide this list; a link at the bottom of the page brings it back">Hide</button></form>
+  </div>
+  <ol class="setup-steps">
+    {% for step in setup %}
+    <li class="setup-step is-{{ step.state }}">
+      <span class="setup-mark" aria-hidden="true">{% if step.state == "done" %}✓{% else %}{{ loop.index }}{% endif %}</span>
+      <div style="min-width: 0">
+        <div class="setup-title"><strong>{{ step.title }}</strong>{% if not step.required %}<span class="label">Optional</span>{% endif %}</div>
+        <div class="muted setup-detail">{{ step.detail }}</div>
+      </div>
+      <div class="actions">
+        {% if step.state == "done" %}<span class="badge badge-ok">✓ Done</span>
+        {% elif step.state == "blocked" %}<span class="badge badge-neutral">○ Waiting</span>
+        {% else %}
+        {% set primary = "btn-primary" if step is sameas next else "btn-ghost btn-small" %}
+        {% if step.post %}<form method="post" action="{{ step.url }}" hx-boost="false"><button type="submit" class="btn {{ primary }}">{{ step.label }}</button></form>
+        {% else %}<a class="btn {{ primary }}" href="{{ step.url }}">{{ step.label }}</a>{% endif %}
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+<h2 class="label services-title" id="sources">Connected sources</h2>
 <div class="services">
   <section class="panel service" aria-label="Google">
     <div class="integration service-head" id="service-google">
@@ -165,4 +200,7 @@
     </div>
   </div>
 </section>
+{% if setup_hidden %}
+<form class="setup-show" method="post" action="/integrations/setup/show"><button type="submit" class="link-btn">Show the Get started list</button></form>
+{% endif %}
 {% endblock %}

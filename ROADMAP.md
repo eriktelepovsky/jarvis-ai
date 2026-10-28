@@ -13,7 +13,7 @@ The smallest useful version for a daily morning routine.
 - [x] Self-hosted deployment as a Docker image (VPS, NAS)
 - [x] Built-in login with password and passkeys
 - [x] Google OAuth connection (shared by Gmail, Calendar and later YouTube)
-- [ ] Integrations page and setup checklist that guides the user through connecting services
+- [x] Integrations page and setup checklist that guides the user through connecting services
 - [x] Sample data mode with fictional data for development and demos (`MYORB_DEMO=1`)
 - [x] AI powered by Claude (Anthropic API)
 

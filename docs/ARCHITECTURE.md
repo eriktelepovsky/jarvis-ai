@@ -117,7 +117,7 @@ Adding an integration has two steps: **installing** the plugin and **connecting*
 
 Users find out what to do in three places:
 
-1. **Onboarding** after the first login asks what the user wants to see (email, calendar, tasks…) and walks them through connecting it. It then becomes a **setup checklist**: each step's state (done, to do, blocked, skipped) is detected from the actual state of myOrb, never ticked by hand, and links to the place where the step is completed.
+1. **Get started**, a setup checklist on top of the Integrations page (`connections/checklist.py`), lists the steps in order: Claude, Google's OAuth client and account (needed), then the weather, a source of work and a passkey (optional). Each step's state (done, to do, waiting for an earlier one) is detected from the actual state of myOrb, never ticked by hand, and links to the place where the step is completed. The welcome screen's header shows its progress until every step is done or the list is hidden.
 2. **Integrations page** lists available integrations with a description, status per capability (see below), last sync and a **Connect** button.
 3. **Widgets without data** show "—" around the orb, and their details explain why with a call to action (e.g. "Connect Google").
 
