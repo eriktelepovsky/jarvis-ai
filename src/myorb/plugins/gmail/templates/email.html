@@ -25,10 +25,12 @@
   {% endif %}
   {# Open in Gmail, Unsubscribe (when the email's text has such a link) and Show images: in the
      row on a wide screen (images on the right), behind ⋮ on a phone so the buttons keep to one
-     line (welcome.css hides the one not in use). #}
+     line (welcome.css hides the one not in use). Unsubscribe hides where it comes from with
+     referrerpolicy, not rel=noreferrer: with that, an installed app on iOS first opens a blank
+     page Safari calls an invalid address. #}
   {% macro more(end) %}
   <a class="btn" href="{{ gmail_url }}" target="_blank" rel="noopener">Open in Gmail</a>
-  {% if unsubscribe %}<a class="btn" href="{{ unsubscribe }}" target="_blank" rel="noopener noreferrer" title="Opens the sender's page to unsubscribe">Unsubscribe</a>{% endif %}
+  {% if unsubscribe %}<a class="btn" href="{{ unsubscribe }}" target="_blank" rel="noopener" referrerpolicy="no-referrer" title="Opens the sender's page to unsubscribe">Unsubscribe</a>{% endif %}
   {% if blocked_domains %}
   <form class="{{ end }}" method="post" action="/email/{{ account.id }}/{{ thread_id }}/images"{{ view_form("/email/%d/%s/images" % (account.id, thread_id)) }}>
     {% for domain in blocked_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
