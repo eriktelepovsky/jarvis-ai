@@ -6,7 +6,9 @@ starts at home, at work on a weekday's working hours when a work address is set,
 event before when that was somewhere too and ended not long before.
 """
 
+import hashlib
 import re
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -43,7 +45,30 @@ NOT_A_PLACE = re.compile(
 FLIGHT_TITLE = re.compile(r"^\s*(flight|let)\b|\b[A-Z][A-Z0-9]\s?\d{3,4}\b", re.IGNORECASE)
 AIRPORT = re.compile(r"airport|letisko|flughafen|lotnisko|\bletiště\b", re.IGNORECASE)
 
+# After Google refuses a way (a wrong or restricted key, a spent quota), no way is asked for
+# this long: the dashboard asks on every page it loads, and each refusal is a request too.
+PAUSE = 15 * 60
+
 Route = Callable[[str, str, datetime], Awaitable[int | None]]
+
+
+class Pause:
+    """The keys Google refused lately. Kept by a hash of the key, so a key changed in the
+    settings is asked with at once."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._until: dict[str, float] = {}
+
+    @staticmethod
+    def _key(credentials: dict[str, Any]) -> str:
+        return hashlib.sha256(credentials["api_key"].encode()).hexdigest()
+
+    def paused(self, credentials: dict[str, Any]) -> bool:
+        return self._until.get(self._key(credentials), 0) > self._clock()
+
+    def refused(self, credentials: dict[str, Any]) -> None:
+        self._until[self._key(credentials)] = self._clock() + PAUSE
 
 
 def is_place(location: str | None) -> bool:
