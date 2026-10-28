@@ -549,6 +549,14 @@ a.ti:hover .t1 {
     scrollbar-width: thin;
     scrollbar-color: var(--line) transparent;
   }
+
+  /* The day's column also takes some of the room the orb keeps below it, as much more as it
+     takes above, so it stays in the middle between the menu and the corner with the version,
+     and a full day keeps more of what follows in view. */
+  .welcome-main > .side-left {
+    max-height: calc(100% + 64px);
+    margin-block: -32px;
+  }
 }
 
 .welcome-footer {
