@@ -1509,6 +1509,15 @@ a.ti:hover .t1 {
   border-radius: 8px;
 }
 
+.stat-num {
+  font-size: 24px;
+}
+
+.stat-label {
+  margin-top: 4px;
+  font-size: 9.5px;
+}
+
 /* A number on one line where there is room; on a phone a long one ("3 h 30 m") may wrap. */
 @media (min-width: 761px) {
   .modal-stat .num {
@@ -1588,6 +1597,64 @@ button.modal-stat[aria-pressed="true"] {
   padding-left: 26px;
   font-size: 12.5px;
   color: var(--text-2, #c9d4de);
+}
+
+/* The groups folded into one line on a phone (below). */
+.group-toggle {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .group-head {
+    display: none;
+  }
+
+  .group-toggle {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .group-toggle .group-current {
+    flex: 1;
+  }
+
+  .group-caret {
+    color: var(--text-3);
+    transition: transform 0.15s;
+  }
+
+  .group-list.is-open .group-caret {
+    transform: rotate(90deg);
+  }
+
+  .group-list:not(.is-open) > .group-item {
+    display: none;
+  }
+
+  /* The numbers lower, all on one line. */
+  .modal-stat {
+    padding: 7px 10px;
+  }
+
+  .stat-num {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    margin-top: 2px;
+    font-size: 8.5px;
+  }
 }
 
 .group-count {
