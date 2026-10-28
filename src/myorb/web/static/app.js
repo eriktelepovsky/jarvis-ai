@@ -112,14 +112,61 @@ document.addEventListener("click", (event) => {
   location.href = `x-safari-${link.href}`;
 });
 
+// The reply and forward panels open and close as an accordion: the panel grows from no height
+// (or shrinks to none) and what follows moves with it, from where it sits without the panel.
+function foldDraft(panel, open) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches || !panel.animate) return Promise.resolve();
+  const next = panel.nextElementSibling;
+  const style = getComputedStyle(panel);
+  const full = {
+    height: `${panel.offsetHeight}px`,
+    paddingTop: style.paddingTop,
+    paddingBottom: style.paddingBottom,
+    marginTop: style.marginTop,
+    marginBottom: style.marginBottom,
+    borderTopWidth: style.borderTopWidth,
+    opacity: 1,
+  };
+  const none = { height: "0px", paddingTop: "0px", paddingBottom: "0px", marginTop: "0px", marginBottom: "0px", borderTopWidth: "0px", opacity: 0 };
+  if (next) {
+    // The space the messages keep from the head differs with the panel there or not.
+    panel.style.display = "none";
+    const without = next.getBoundingClientRect().top;
+    panel.style.display = "";
+    Object.assign(panel.style, none);
+    none.marginBottom = `${without - next.getBoundingClientRect().top}px`;
+    for (const key of Object.keys(none)) panel.style[key] = "";
+  }
+  panel.style.overflow = "hidden";
+  const fold = panel.animate(open ? [none, full] : [full, none], { duration: 300, easing: "ease-out", fill: "forwards" });
+  return fold.finished.then(() => {
+    if (open) {
+      fold.cancel();
+      panel.style.overflow = "";
+    }
+  });
+}
+
+document.addEventListener("htmx:beforeSwap", (event) => {
+  if (event.detail.target?.matches?.(".email-draft-place")) event.detail.target.dataset.unfold = "";
+});
+document.addEventListener("htmx:afterSwap", (event) => {
+  if (event.detail.target?.dataset?.unfold === undefined) return;
+  const panel = document.getElementById("email-draft");
+  if (panel?.matches(".email-draft")) foldDraft(panel, true);
+});
+
 // Closing an email's reply panel leaves its place for the Reply button to fill again.
 document.addEventListener("click", (event) => {
   const panel = event.target.closest("[data-draft-close]")?.closest("#email-draft");
-  if (!panel) return;
-  const place = document.createElement("div");
-  place.id = "email-draft";
-  place.className = "email-draft-place";
-  panel.replaceWith(place);
+  if (!panel || panel.dataset.closing) return;
+  panel.dataset.closing = "true";
+  foldDraft(panel, false).then(() => {
+    const place = document.createElement("div");
+    place.id = "email-draft";
+    place.className = "email-draft-place";
+    panel.replaceWith(place);
+  });
 });
 
 // An email's frame is as tall as its content, so the page scrolls rather than the frame; a
