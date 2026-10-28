@@ -222,7 +222,7 @@
   </nav>
   <footer class="label welcome-footer">Click a number to open its details</footer>
   {# The versions and what each changed, in a dialog (welcome.js). #}
-  <button type="button" class="label welcome-version" data-open-releases title="What changed in each version">myOrb v{{ version }}</button>
+  <button type="button" class="label welcome-version" data-open-releases title="What changed in each version">myOrb v{{ version }}{% if demo %} · demo{% endif %}</button>
   <dialog class="modal modal-releases" id="releases" aria-labelledby="releases-title">
     <div class="releases-box" hx-get="/releases" hx-trigger="myorb:open">
       <div class="modal-head"><h2 id="releases-title">Versions</h2></div>

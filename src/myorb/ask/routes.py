@@ -17,6 +17,7 @@ import anthropic
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from myorb import demo
 from myorb.activity.store import record
 from myorb.ask.chat import ask_question, clean_history, decide, turn, warm
 from myorb.ask.context import dashboard
@@ -157,6 +158,9 @@ async def ask(request: Request) -> StreamingResponse:
     """Lines of JSON: {"conversation": id}, {"text": …} pieces, {"proposal": …} for actions
     to confirm, or {"error": …}."""
     body = await _body(request)
+    if request.app.state.settings.demo:
+        question = str((body.get("messages") or [{}])[-1].get("content", ""))
+        return _stream(demo.answer(question, widget_context(request).now))
 
     async def events() -> AsyncIterator[dict[str, Any]]:
         history = clean_history(body.get("messages"))
@@ -189,6 +193,8 @@ async def warm_up(request: Request) -> JSONResponse:
     the conversation (started now if the server has none) with its dashboard in Claude's
     cache. {"conversation": id}; nothing is lost when warming fails, the question just waits."""
     body = await _body(request)
+    if request.app.state.settings.demo:
+        return JSONResponse({"conversation": body.get("conversation")})
     try:
         client, model = await _client(request)
     except BriefError as error:
@@ -214,6 +220,12 @@ async def decide_actions(request: Request) -> StreamingResponse:
     """The user's answer to the proposed actions: {"conversation": id, "approved": [ids]}.
     Lines of {"done": …} for each, then Claude goes on as for /ask."""
     body = await _body(request)
+    if request.app.state.settings.demo:
+        approved = {str(i) for i in body.get("approved") or [] if isinstance(i, str)}
+        async with request.app.state.sessionmaker() as db:
+            assistant = (await load_profile(db, request.app.state.secret_box))["assistant"]
+        context = widget_context(request)
+        return _stream(demo.decide(context.sessionmaker, approved, context.now, assistant))
 
     async def events() -> AsyncIterator[dict[str, Any]]:
         conversation = request.app.state.ask_conversations.get(body.get("conversation"))
