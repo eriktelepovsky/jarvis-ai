@@ -118,6 +118,7 @@ document.addEventListener("click", (event) => {
   if (!panel) return;
   const place = document.createElement("div");
   place.id = "email-draft";
+  place.className = "email-draft-place";
   panel.replaceWith(place);
 });
 
@@ -138,8 +139,13 @@ function sizeEmailFrame(frame) {
   // An email laid out wider than the frame (a fixed 600–700px newsletter) is scaled down to
   // fit, as Gmail's app does, rather than scrolled sideways.
   page.style.zoom = "";
+  page.style.overflowX = "";
   const wide = page.scrollWidth / page.clientWidth;
   if (wide > 1.01) page.style.zoom = String(Math.max(0.4, 1 / wide));
+  // What fits does not scroll sideways: Safari on iOS would otherwise scroll the frame under a
+  // swipe to the next email, and leave the email cut off at its left.
+  if (wide <= 2.5) page.style.overflowX = "hidden";
+  page.scrollLeft = 0;
   let height = Math.ceil(Math.max(page.scrollHeight, frame.contentDocument.body?.scrollHeight || 0) * (Number(page.style.zoom) || 1)) + 1;
   frame.style.height = `${height}px`;
   // Browsers differ in whether a zoomed page reports its sizes zoomed. Content and frame are
