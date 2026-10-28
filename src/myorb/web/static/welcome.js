@@ -468,10 +468,17 @@
       event.stopImmediatePropagation();
       const form = document.querySelector("#page-view [data-mark-read]");
       if (!form) return goView(1);
-      form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && goView(1), { once: true });
       htmx.trigger(form, "submit");
     }
   }, true);
+
+  // Marked as read in the view, by M or the button alike: on to the next email. Listened on
+  // the form itself, as the answer replaces it before the request ends.
+  document.addEventListener("htmx:beforeRequest", (event) => {
+    const form = event.detail.elt;
+    if (!form.matches?.("#page-view [data-mark-read]")) return;
+    form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && goView(1), { once: true });
+  });
 
   // A number in the details filters the list next to it; clicking it again shows everything.
   // ...and the list can be narrowed to one group (a Jira workspace, a repository); both apply.

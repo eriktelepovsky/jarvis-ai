@@ -17,7 +17,7 @@
 
 <div class="email-actions panel-narrow">
   {% if can_mark_read and messages | selectattr("unread") | list %}
-  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"{{ view_form("/email/%d/%s/read" % (account.id, thread_id)) }} data-mark-read><button type="submit" class="btn btn-primary"{% if in_view %} title="M marks it as read and opens the next email" aria-keyshortcuts="m"{% endif %}>Mark as read{% if in_view %}<kbd class="btn-key">M</kbd>{% endif %}</button></form>
+  <form method="post" action="/email/{{ account.id }}/{{ thread_id }}/read"{{ view_form("/email/%d/%s/read" % (account.id, thread_id)) }} data-mark-read><button type="submit" class="btn btn-primary"{% if in_view %} title="Marks it as read and opens the next email (M)" aria-keyshortcuts="m"{% endif %}>Mark as read{% if in_view %}<kbd class="btn-key">M</kbd>{% endif %}</button></form>
   {% endif %}
   {% if can_draft and messages %}
   <button type="button" class="btn" hx-get="/email/{{ account.id }}/{{ thread_id }}/draft" hx-target="#email-draft" hx-swap="outerHTML">↩&#xFE0E; Reply</button>
