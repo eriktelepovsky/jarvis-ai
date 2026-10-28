@@ -44,7 +44,7 @@
 <section class="panel" aria-labelledby="passkeys-title">
   <div class="panel-header"><h2 class="label" id="passkeys-title">Passkeys</h2></div>
   <div class="panel-section">
-    <p class="muted" style="margin: 0">Sign in with Face ID, Touch ID, Windows Hello or a security key instead of your password.</p>
+    <p class="muted" style="margin: 0">Sign in with Face ID, Touch ID, Windows Hello or a security key. Once a passkey is added, only a passkey signs you in: the password alone no longer does. Add one on every device you use, or one synced through iCloud Keychain or Google Password Manager.</p>
     {% if passkeys %}
     <ul class="list">
       {% for passkey in passkeys %}
@@ -76,7 +76,7 @@
 <section class="panel" aria-labelledby="password-title">
   <div class="panel-header"><h2 class="label" id="password-title">Password</h2></div>
   <form method="post" action="/settings/security/password" class="panel-section form">
-    <p class="muted" style="margin: 0">Changing the password signs you out on all other devices.</p>
+    <p class="muted" style="margin: 0">Changing the password signs you out on all other devices.{% if passkeys %} With a passkey added, the password only confirms this change, it no longer signs you in.{% endif %}</p>
     {% if changed %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>The password was changed.</span></div>{% endif %}
     {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
     <div class="field">

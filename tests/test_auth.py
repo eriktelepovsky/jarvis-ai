@@ -356,6 +356,33 @@ def test_registering_passkey_requires_sign_in(client: TestClient):
     assert client.post("/settings/security/passkeys/options").status_code == 401
 
 
+def test_a_passkey_replaces_the_password(make_client: MakeClient, monkeypatch: pytest.MonkeyPatch):
+    import sys
+
+    from myorb import cli
+
+    client = make_client()
+    complete_setup(client)
+    authenticator = SoftAuthenticator()
+    register_passkey(client, authenticator)
+    client.cookies.clear()
+    login_page = client.get("/login").text
+    assert "data-passkey-login" in login_page and 'name="password"' not in login_page
+    response = client.post("/login", data={"password": PASSWORD})
+    assert response.status_code == 403 and "no longer signs you in" in response.text
+    options = client.post("/login/passkey/options").json()
+    response = client.post("/login/passkey/verify", json={"credential": authenticator.get(options)})
+    assert response.status_code == 200
+
+    # Every passkey lost: removed on the server, the password signs in again at once.
+    client.cookies.clear()
+    monkeypatch.setenv("MYORB_DATA_DIR", str(client.app.state.settings.data_dir))
+    monkeypatch.setattr(sys, "argv", ["myorb", "remove-passkeys", "--yes"])
+    cli.main()
+    assert passkey_rows(client) == []
+    assert client.post("/login", data={"password": PASSWORD}).url.path == "/"
+
+
 def passkey_rows(client: TestClient) -> list[Passkey]:
     async def query() -> list[Passkey]:
         async with client.app.state.sessionmaker() as db:

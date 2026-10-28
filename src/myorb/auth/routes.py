@@ -89,6 +89,12 @@ async def login(
     state = request.app.state.auth
     client, now = client_id(request), time.time()
     context = {"next": safe_next(next), "has_passkeys": bool(await store.list_passkeys(db))}
+    if context["has_passkeys"]:
+        # With a passkey, the password alone signs nobody in: a passkey with user verification
+        # is two factors, the password one. Refused before it is checked, so this says nothing
+        # about whether it was right.
+        context["error"] = "Sign in with a passkey. The password alone no longer signs you in."
+        return _render(request, "auth/login.html", context, status_code=403)
     if state.throttle.is_blocked(client, now):
         context["error"] = "Too many failed attempts. Try again in a few minutes."
         return _render(request, "auth/login.html", context, status_code=429)
