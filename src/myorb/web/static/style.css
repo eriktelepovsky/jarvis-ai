@@ -2754,6 +2754,10 @@ form.htmx-request .btn[type="submit"]::before {
   font-size: 12.5px;
 }
 
+.palette-close {
+  flex: none;
+}
+
 .palette-empty {
   padding: 12px 10px;
 }
@@ -2765,9 +2769,15 @@ form.htmx-request .btn[type="submit"]::before {
   border-top: 1px solid var(--line-soft);
 }
 
+/* On a phone: below the notch and above the keyboard's reach, with no keys to explain. */
 @media (max-width: 600px) {
   .palette {
-    margin-top: 16px;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 32px);
+    margin-top: calc(env(safe-area-inset-top) + 12px);
+  }
+
+  .palette-foot {
+    display: none;
   }
 
   .palette-item {

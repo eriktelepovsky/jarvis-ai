@@ -68,6 +68,15 @@ class Input:
 
 
 @dataclass(frozen=True)
+class HistoryDay:
+    """One day of a row's status history (Row.history): a bar, with its hours on a click."""
+
+    label: str  # e.g. "Tue 28 Oct"
+    # Each hour so far: "u" up, "d" down (for any part of it), "-" not known (not watched yet).
+    hours: str
+
+
+@dataclass(frozen=True)
 class Row:
     """One item in a widget's details, e.g. an email or an event."""
 
@@ -99,6 +108,8 @@ class Row:
     link: str = ""
     # More the list's search finds the row by, not shown, e.g. the start of an email's text.
     search: str = ""
+    # Its status by day, oldest first, shown as green and red bars (e.g. a monitor's 30 days).
+    history: tuple[HistoryDay, ...] = ()
 
 
 @dataclass(frozen=True)

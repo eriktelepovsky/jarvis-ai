@@ -3496,3 +3496,118 @@ button.welcome-version:focus-visible {
 .welcome .side.is-cut-top.is-cut-bottom {
   mask-image: linear-gradient(transparent, #000 48px, #000 calc(100% - 64px), transparent);
 }
+
+/* A row's status history (Row.history): a bar a day under it, and a chosen day by the hour. */
+.history,
+.history-hours {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 3px;
+  align-items: stretch;
+  margin-top: -2px;
+}
+
+.history {
+  grid-row: 2;
+  height: 18px;
+}
+
+/* The bars go under the title, the badge and buttons stay beside it. */
+.modal-row:has(.history) > :first-child {
+  grid-area: 1 / 1;
+}
+
+.modal-row:has(.history) > .badge,
+.modal-row:has(.history) > span:nth-last-child(2):empty {
+  grid-area: 1 / 2;
+}
+
+.modal-row:has(.history) > .row-actions {
+  grid-area: 1 / 3;
+}
+
+.history-bar,
+.history-hour {
+  flex: 1;
+  max-width: 10px;
+  padding: 0;
+  background: var(--ok);
+  border: 0;
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.history-bar {
+  cursor: pointer;
+}
+
+.history-bar:hover,
+.history-bar:focus-visible,
+.history-bar[aria-pressed="true"] {
+  opacity: 1;
+  outline: 1px solid var(--text);
+  outline-offset: 1px;
+}
+
+:is(.history-bar, .history-hour).is-down {
+  background: var(--fail);
+}
+
+:is(.history-bar, .history-hour).is-none {
+  background: var(--line-strong);
+}
+
+.history-hours {
+  grid-row: 3;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+}
+
+.history-hours[hidden] {
+  display: none;
+}
+
+.history-hours-bars {
+  display: flex;
+  gap: 3px;
+  height: 22px;
+}
+
+.history-hour {
+  max-width: none;
+}
+
+/* The hours still to come today. */
+.history-hour.is-later {
+  background: none;
+  border: 1px dashed var(--line);
+}
+
+.history-hours-scale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* Search in the header: the word on a wide screen, a magnifier where the header is tight. */
+.palette-open .palette-icon {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .palette-open .palette-icon {
+    display: block;
+  }
+
+  .palette-open .palette-word {
+    display: none;
+  }
+}

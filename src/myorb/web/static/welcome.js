@@ -480,6 +480,37 @@
     form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && goView(1), { once: true });
   });
 
+  // A day of a row's status history (the bars under a monitor): its 24 hours below them, red
+  // where anything was down; clicked again, they go.
+  const HOUR_STATE = { u: ["up", "Up"], d: ["down", "Down at times"], "-": ["none", "Not watched yet"] };
+  document.addEventListener("click", (event) => {
+    const bar = event.target.closest("[data-history-day]");
+    if (!bar) return;
+    const row = bar.closest(".modal-row");
+    const panel = row.querySelector(".history-hours");
+    const showing = bar.getAttribute("aria-pressed") === "true";
+    row.querySelectorAll("[data-history-day]").forEach((other) => other.setAttribute("aria-pressed", "false"));
+    panel.hidden = showing;
+    if (showing) return;
+    bar.setAttribute("aria-pressed", "true");
+    const head = document.createElement("span");
+    head.className = "label";
+    head.textContent = `${bar.dataset.label} · by the hour`;
+    const bars = document.createElement("span");
+    bars.className = "history-hours-bars";
+    [...bar.dataset.historyDay.padEnd(24, " ")].forEach((state, hour) => {
+      const cell = document.createElement("span");
+      const [name, label] = HOUR_STATE[state] || ["later", ""];
+      cell.className = `history-hour is-${name}`;
+      if (label) cell.title = `${String(hour).padStart(2, "0")}:00 · ${label}`;
+      bars.append(cell);
+    });
+    const scale = document.createElement("span");
+    scale.className = "history-hours-scale";
+    scale.append(...["00", "06", "12", "18", "24"].map((text) => Object.assign(document.createElement("span"), { textContent: text })));
+    panel.replaceChildren(head, bars, scale);
+  });
+
   // A number in the details filters the list next to it; clicking it again shows everything.
   // ...and the list can be narrowed to one group (a Jira workspace, a repository); both apply.
   // Lower case without diacritics, so "zaznam" finds "Záznam".
@@ -1235,7 +1266,9 @@
 
   // Narrower than the three columns, they are three screens side by side (welcome.css): the
   // orb's in the middle, shown first; swiped between, or chosen in the bar below them.
-  const panesBox = document.querySelector(".welcome-main");
+  // The welcome page's elements: found again for each page (bindPanes), as hx-boost brings a
+  // new one back from another page without loading this script again.
+  let panesBox = null;
   const narrowPanes = () => matchMedia("(max-width: 1279px)").matches;
   const paneAt = () => (panesBox ? Math.round(panesBox.scrollLeft / Math.max(1, panesBox.clientWidth)) : 1);
   // A phone on its side lays them out otherwise: the chosen screen takes the orb's place, with
@@ -1244,7 +1277,7 @@
   const PANES = ["#welcome .side-left", "#welcome .orb", "#welcome .side-right"];
   const paneEl = (index) => document.querySelector(PANES[index]);
   const GAP = 72; // the orb's circles reach past its box
-  const welcomeBox = document.getElementById("welcome");
+  let welcomeBox = null;
   let stripWidth = 0;
   // Where the strip is, in screens (1: the orb in place), moved each frame by a slide: the
   // move and the cut computed together, as Safari does not keep two transitions in step.
@@ -1271,13 +1304,11 @@
     });
   }
   let paneShown = 1;
-  showPane(1, false);
-  markPane(1);
-  panesBox?.addEventListener("scroll", () => {
+  function paneScrolled() {
     if (sideways()) return;
     paneShown = paneAt();
     markPane();
-  }, { passive: true });
+  }
   // A new width keeps the screen that was shown.
   window.addEventListener("resize", () => showPane(paneShown, false));
   // On a phone on its side nothing scrolls sideways: a swipe across the screen goes to the
@@ -1343,9 +1374,6 @@
   window.addEventListener("resize", markCut);
   // Its panels load, and grow or shrink (Hide past…), after the page.
   const cutWatch = new ResizeObserver(markCut);
-  document.querySelectorAll("#welcome .side, #welcome .side > *").forEach((el) => cutWatch.observe(el));
-  markCut();
-  layoutStrip();
   // Until the page's styles apply, its screens have no size to be placed by: placed again
   // once they have one, and whenever it changes (the window turned, the styles loaded late).
   let placedAt = "";
@@ -1358,8 +1386,6 @@
     else showPane(paneShown, false);
     markPane(paneShown);
   });
-  if (panesBox) placeWatch.observe(panesBox);
-  if (paneEl(0)) placeWatch.observe(paneEl(0));
   addEventListener("load", () => {
     placedAt = "";
     if (sideways()) layoutStrip();
@@ -1368,11 +1394,11 @@
 
   let swipeFrom = null;
   let swipe = null; // whether the drag is sideways, once it is known
-  welcomeBox?.addEventListener("touchstart", (event) => {
+  function swipeStart(event) {
     swipeFrom = sideways() && event.touches.length === 1 ? event.touches[0] : null;
     swipe = null;
-  }, { passive: true });
-  welcomeBox?.addEventListener("touchmove", (event) => {
+  }
+  function swipeMove(event) {
     if (!swipeFrom) return;
     const touch = event.touches[0];
     const dx = touch.clientX - swipeFrom.clientX;
@@ -1382,8 +1408,8 @@
     // Past the first or last screen the strip gives a little only.
     const edge = (dx > 0 && paneShown === 0) || (dx < 0 && paneShown === 2);
     layoutStrip(edge ? dx / 4 : dx);
-  }, { passive: true });
-  welcomeBox?.addEventListener("touchend", (event) => {
+  }
+  function swipeEnd(event) {
     if (!swipeFrom) return;
     const dx = event.changedTouches[0].clientX - swipeFrom.clientX;
     const moved = swipe;
@@ -1397,7 +1423,32 @@
       sound("click");
     }
     layoutStrip(0, true);
-  }, { passive: true });
+  }
+
+  // A welcome page, the first or one brought back from another page: on the orb's screen,
+  // with what watches its size, swipes and scrolling bound to its own elements.
+  function bindPanes() {
+    panesBox = document.querySelector(".welcome-main");
+    welcomeBox = document.getElementById("welcome");
+    panesBox?.addEventListener("scroll", paneScrolled, { passive: true });
+    welcomeBox?.addEventListener("touchstart", swipeStart, { passive: true });
+    welcomeBox?.addEventListener("touchmove", swipeMove, { passive: true });
+    welcomeBox?.addEventListener("touchend", swipeEnd, { passive: true });
+    paneShown = 1;
+    stripAt = null;
+    showPane(1, false);
+    markPane(1);
+    cutWatch.disconnect();
+    document.querySelectorAll("#welcome .side, #welcome .side > *").forEach((el) => cutWatch.observe(el));
+    markCut();
+    layoutStrip();
+    placeWatch.disconnect();
+    placedAt = "";
+    if (panesBox) placeWatch.observe(panesBox);
+    if (paneEl(0)) placeWatch.observe(paneEl(0));
+    showHidden();
+  }
+
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-pane]");
     if (!button) return;
@@ -1430,7 +1481,6 @@
       button.setAttribute("aria-pressed", String(hide));
     });
   }
-  showHidden();
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-hide-toggle]");
     if (!button) return;
@@ -2006,6 +2056,7 @@
     // A page restored from history is a new element, even with the same id.
     if (!page || page === welcomePage) return;
     welcomePage = page;
+    bindPanes();
     // A link back from another page (an email's Back) names the details to open again.
     if (location.hash.startsWith("#detail-")) {
       const dialog = document.getElementById(location.hash.slice(1));

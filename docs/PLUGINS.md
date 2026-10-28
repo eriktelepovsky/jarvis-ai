@@ -65,6 +65,7 @@ class WalletPlugin(Plugin):
 | `attention` | Amber node and tile: something needs the user. Such a node is drawn large, one with `0` or no value small; the widget's `weight` only adjusts the size a little. |
 | `stats` | Up to three `Stat(value, label)` boxes. With `filter="review"`, clicking the box shows only the rows with that tag in `Row(tags=("review",))`. |
 | `list_title`, `rows` | A list of `Row(title, subtitle, badge, tone, url, actions)`. `tone` is `ok`, `warn`, `fail`, `info` or `neutral`. `actions` are buttons that POST to a URL. |
+| `Row(history=…)` | A status history shown as a bar a day under the row: a tuple of `HistoryDay(label, hours)`, oldest first, where `hours` has a letter for each hour so far, `u` for up, `d` for down and `-` for unknown. A day with any `d` is red. A click on a day shows its hours. Uptime uses it for each monitor's 30 days. |
 | `group_label` | With `Row(group=…)`, e.g. `"workspaces"`: when the rows belong to more than one group, the groups are listed under the numbers to show one of them. `Row(subgroup=…)`, e.g. a Jira project, lists finer groups under each group. |
 | `action` | The main button, a `Link(label, url)`. |
 | `actions` | Buttons in the footer that POST, e.g. `Action("Mark all as seen", url, {"ids": …})`; the widgets reload afterwards. |
