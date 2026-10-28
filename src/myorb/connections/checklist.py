@@ -49,11 +49,12 @@ async def steps(request: Request, db: AsyncSession) -> list[Step]:
 
     return [
         Step(
-            "Connect Claude",
-            "Your own Anthropic API key: Claude writes the daily brief and answers what you ask.",
+            "Connect an AI",
+            "Claude, or OpenAI, Gemini, Mistral or a local model, with your own API key: it "
+            "writes the daily brief and answers what you ask.",
             state(claude is not None),
             "/integrations/claude",
-            "Connect Claude",
+            "Connect an AI",
             required=True,
         ),
         Step(

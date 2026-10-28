@@ -101,6 +101,7 @@ def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Temp
             "assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT),
             "demo": request.app.state.settings.demo,
             "public_demo": request.app.state.settings.public_demo,
+            "ai_name": getattr(request.app.state, "ai_name", "Claude"),
             "orb_hue": orb_hue(color),
         }
 
@@ -173,6 +174,9 @@ def create_app(
             if "work" in plugins:
                 plugins["work"].merged = await load_merged(db, app.state.secret_box)
             app.state.assistant, app.state.orb_color = profile["assistant"], profile["color"]
+        ai = await app.state.brief.settings()
+        # The AI's name on the pages ("Claude", "OpenAI"…); updated when it is changed.
+        app.state.ai_name = ai.name if ai else "Claude"
         if not app.state.auth.password_set and not settings.public_demo:
             setup_url = f"{(settings.public_url or '').rstrip('/')}/setup"
             logger.warning(

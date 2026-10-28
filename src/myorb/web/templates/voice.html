@@ -59,7 +59,7 @@
         {% if code == brief_language %}
         <label class="label preload" title="The brief is written in this language: it is always read in advance"><input type="checkbox" checked disabled> Preload</label>
         {% else %}
-        <label class="label preload" title="Read each new brief in this language in advance (translated by Claude)"><input type="checkbox" name="preload_{{ code }}" {% if code in settings.preload %}checked{% endif %}> Preload</label>
+        <label class="label preload" title="Read each new brief in this language in advance (translated by {{ ai_name }})"><input type="checkbox" name="preload_{{ code }}" {% if code in settings.preload %}checked{% endif %}> Preload</label>
         {% endif %}
       </div>
       {% endif %}

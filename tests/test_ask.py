@@ -218,7 +218,7 @@ def test_streamed_answers_are_counted(client: TestClient, claude: FakeClaude):
 
 def test_ask_explains_what_went_wrong(client: TestClient, claude: FakeClaude):
     assert ask(client, [{"role": "user", "content": "Hi?"}]) == [
-        {"error": "Connect Claude in Integrations to ask questions."}
+        {"error": "Connect an AI in Integrations to ask questions."}
     ]
     connect(client)
     assert ask(client, [])[0] == {"error": "Ask a question."}

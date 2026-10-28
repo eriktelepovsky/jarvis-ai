@@ -79,7 +79,7 @@ async def write_summary(request: Request) -> Response:
         assistant = (await load_profile(db, request.app.state.secret_box))["assistant"]
     try:
         content = await summarize(
-            service.client(settings.api_key, settings.workspace_id),
+            service.client(settings),
             settings.model,
             emails,
             widget_context(request).now,
@@ -385,7 +385,7 @@ async def write_draft(
     try:
         messages, own = await _conversation(request, account, thread_id)
         body = await write_reply(
-            service.client(settings.api_key, settings.workspace_id),
+            service.client(settings),
             settings.model,
             messages,
             own,

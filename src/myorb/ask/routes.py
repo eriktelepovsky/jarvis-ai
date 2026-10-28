@@ -48,13 +48,14 @@ async def _body(request: Request) -> dict[str, Any]:
     return body if isinstance(body, dict) else {}
 
 
-async def _client(request: Request) -> tuple[anthropic.AsyncAnthropic, str]:
-    """Claude's client and the model chosen for the brief."""
+async def _client(request: Request) -> tuple[Any, str]:
+    """The AI's client (Claude's, or one answering as it, see brief/compatible.py) and the model
+    chosen for the brief."""
     service = request.app.state.brief
     settings = await service.settings()
     if settings is None:
-        raise BriefError("Connect Claude in Integrations to ask questions.")
-    return service.client(settings.api_key, settings.workspace_id), settings.model
+        raise BriefError("Connect an AI in Integrations to ask questions.")
+    return service.client(settings), settings.model
 
 
 def _refresh_action(plugins: list[Plugin], links: dict[str, str]) -> AskAction:

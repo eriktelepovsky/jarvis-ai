@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from myorb.activity.store import record
 from myorb.brief import spend
+from myorb.brief.compatible import ANTHROPIC, SERVICES, CompatibleClient
 from myorb.brief.models import Brief
 from myorb.brief.writer import (
     DEFAULT_MODEL,
@@ -53,6 +54,17 @@ class ClaudeSettings:
     model: str = DEFAULT_MODEL
     # Needed for API keys that are not scoped to a workspace (organization-wide keys).
     workspace_id: str = ""
+    # Which AI writes: Claude, or a service with an OpenAI-compatible API (compatible.py) at
+    # base_url (empty: the service's usual address).
+    service: str = ANTHROPIC
+    base_url: str = ""
+
+    @property
+    def name(self) -> str:
+        """The AI's name for the user: "Claude", "OpenAI", "Ollama"…"""
+        if self.service == ANTHROPIC:
+            return "Claude"
+        return SERVICES.get(self.service, SERVICES["compatible"]).name
 
     @property
     def brief_clock(self) -> clock:
@@ -84,12 +96,25 @@ class BriefService:
         # Run after a brief is written, without holding it up (e.g. reading it in advance).
         self.on_written: Callable[[Brief], Awaitable[None]] | None = None
         self._after: set[asyncio.Task] = set()
+        self._http: httpx2.AsyncClient | None = None
 
     @property
     def generating(self) -> bool:
         return self._lock.locked()
 
-    def client(self, api_key: str, workspace_id: str = "") -> anthropic.AsyncAnthropic:
+    def client(self, settings: ClaudeSettings) -> Any:
+        """The AI's client: Anthropic's, or one that answers the same calls (compatible.py)."""
+        if settings.service != ANTHROPIC:
+            # Local models can take minutes for a brief.
+            self._http = self._http or httpx2.AsyncClient(
+                transport=self._transport, timeout=httpx2.Timeout(300, connect=10)
+            )
+            return CompatibleClient(
+                settings.service, settings.base_url, settings.api_key, settings.model, self._http
+            )
+        return self._claude(settings.api_key, settings.workspace_id)
+
+    def _claude(self, api_key: str, workspace_id: str = "") -> anthropic.AsyncAnthropic:
         # Every answer that is not streamed is counted on its way in (see spend.py).
         hooks = {"response": [spend.response_hook(self._sessionmaker)]}
         http_client = (
@@ -103,8 +128,10 @@ class BriefService:
         )
 
     async def record_usage(self, model: str, usage: Any) -> None:
-        """Count a streamed answer, which the client's response hook leaves alone."""
-        await spend.record(self._sessionmaker, model, usage)
+        """Count a streamed answer, which the client's response hook leaves alone. Only
+        Claude's: the other services' prices are not known."""
+        if model.startswith("claude"):
+            await spend.record(self._sessionmaker, model, usage)
 
     async def spent_eur(self, http: httpx2.AsyncClient, days: int = 30) -> tuple[float, str]:
         """What myOrb spent on Claude in the last `days`: in euros, or in dollars when the
@@ -129,12 +156,21 @@ class BriefService:
             await store.delete_provider_settings(db, PROVIDER)
         self.error = None
 
-    async def check_key(
-        self, api_key: str, model: str = DEFAULT_MODEL, workspace_id: str = ""
-    ) -> str | None:
-        """Return why the API key does not work, or None if it does. Costs no tokens."""
+    async def check_key(self, settings: ClaudeSettings) -> str | None:
+        """Return why the settings do not work (the key, the address, the model), or None if
+        they do. Costs no tokens."""
+        if settings.service != ANTHROPIC:
+            try:
+                models = await self.client(settings).models()
+            except BriefError as error:
+                return str(error)
+            if models and settings.model not in models:
+                offered = ", ".join(models[:12]) + (" …" if len(models) > 12 else "")
+                return f"{settings.name} has no model {settings.model}. It offers: {offered}"
+            return None
+        api_key, model, workspace_id = settings.api_key, settings.model, settings.workspace_id
         try:
-            await self.client(api_key, workspace_id).models.retrieve(model)
+            await self._claude(api_key, workspace_id).models.retrieve(model)
         except anthropic.AuthenticationError:
             return "Claude rejected this API key."
         except anthropic.PermissionDeniedError:
@@ -161,8 +197,8 @@ class BriefService:
                 return translations[language]
             settings = await self.settings()
             if settings is None:
-                raise BriefError("Connect Claude to translate the brief.")
-            client = self.client(settings.api_key, settings.workspace_id)
+                raise BriefError("Connect an AI in Integrations to translate the brief.")
+            client = self.client(settings)
             paragraphs = await translate(client, brief.content["summary"], language)
             # A new dict, so SQLAlchemy sees the JSON column change.
             brief.content = {
@@ -215,14 +251,14 @@ class BriefService:
             self._last_attempt = self._clock()
             settings = await self.settings()
             if settings is None:
-                raise BriefError("Connect Claude in Integrations first.")
+                raise BriefError("Connect an AI in Integrations first.")
             context = self._context()
             sections, timeline = await asyncio.gather(
                 self._sections(context), self._timeline(context)
             )
             try:
                 written = await write_brief(
-                    self.client(settings.api_key, settings.workspace_id),
+                    self.client(settings),
                     sections,
                     context.now,
                     settings.language,

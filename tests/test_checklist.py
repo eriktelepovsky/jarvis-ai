@@ -9,7 +9,7 @@ def test_get_started_lists_the_steps_until_hidden(client: TestClient):
     assert "Get started" in page and "0 of 6 done" in page
     # Google's account waits for its OAuth client; Claude is the next step.
     assert 'class="setup-step is-blocked"' in page
-    assert 'href="/integrations/claude">Connect Claude</a>' in page
+    assert 'href="/integrations/claude">Connect an AI</a>' in page
     assert "Get started <span" in client.get("/").text
 
     client.post("/integrations/setup/hide")

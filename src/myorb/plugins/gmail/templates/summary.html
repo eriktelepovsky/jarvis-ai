@@ -1,7 +1,7 @@
 {# The AI summary of unread emails, in the email details under the numbers. #}
 <div class="email-summary" id="email-summary">
   <div class="row spread" style="align-items: baseline">
-    <span class="label">Summary · Claude</span>
+    <span class="label">Summary · {{ ai_name }}</span>
     {% if count %}
     <button type="button" class="btn btn-ghost email-summary-btn" hx-post="/email/summary" hx-target="#email-summary" hx-swap="outerHTML" hx-disabled-elt="this">
       {{ "Update" if summary else "Summarize " ~ count ~ " unread" }}

@@ -23,6 +23,7 @@ Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anythin
 - **Command palette:** ⌘K (Ctrl+K) or Search in the header finds anything on the dashboard: an email, an event, a task, a pull request, an issue or a monitor, opened in its details. It also runs commands (the daily brief, quick actions, music, the pages), and asks the assistant what matches nothing.
 - **Side columns:** today's schedule with when to leave for lunch, tasks, priorities from the brief and the weather on the left; quick actions and what happened lately on the right.
 - **Music and sounds:** generated ambient music or any YouTube video or playlist while you work, and quiet interface sounds.
+- **Your choice of AI:** Claude by default. OpenAI, Gemini, Mistral or a local model through Ollama or LM Studio also work, via their OpenAI-compatible API. myOrb is made and tested with Claude: with other models, how well Ask's actions work depends on the model, and only Claude's cost is counted.
 - **Yours:** self-hosted, a password and passkeys for sign-in, works on a phone and installs as an app. Claude's cost is counted in euros. Extend it with [plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md).
 
 ![The daily brief: the day at a glance, a summary, what needs you and every source with its change since yesterday](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/report.jpg)
@@ -174,7 +175,7 @@ Open the setup link from the log at `https://myorb.example.com/setup?token=…`.
 Then, in myOrb:
 
 - **Google:** in your OAuth client in Google Cloud Console, add the redirect URI `https://myorb.example.com/integrations/google/callback`. You can keep using the same client as for local development.
-- **Claude:** add your Anthropic API key in Integrations → Claude.
+- **AI:** in Integrations → AI, add your Anthropic API key for Claude, or choose OpenAI, Gemini, Mistral, Ollama, LM Studio or another OpenAI-compatible API with its address, key and model.
 
 ### Settings
 
