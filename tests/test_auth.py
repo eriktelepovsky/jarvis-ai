@@ -102,6 +102,13 @@ def access(**overrides: Any) -> AccessRequest:
         (access(path="/login", method="POST", origin="null"), Decision.REJECT_ORIGIN),
         (access(method="POST", authenticated=True), Decision.REJECT_ORIGIN),
         (access(method="POST", origin=ORIGIN, authenticated=True), Decision.ALLOW),
+        # The public demo: open to all, with nothing to change but Ask.
+        (access(public_demo=True, password_set=False), Decision.ALLOW),
+        (access(path="/setup", public_demo=True, password_set=False), Decision.HOME),
+        (access(path="/login", public_demo=True), Decision.HOME),
+        (access(path="/ask", method="POST", origin=ORIGIN, public_demo=True), Decision.ALLOW),
+        (access(path="/tasks", method="POST", origin=ORIGIN, public_demo=True), Decision.READ_ONLY),
+        (access(path="/ask", method="POST", public_demo=True), Decision.REJECT_ORIGIN),
     ],
 )
 def test_access_decision(request_: AccessRequest, decision: Decision):

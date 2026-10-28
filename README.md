@@ -6,7 +6,7 @@ myOrb is your personal AI-powered daily briefing dashboard. It connects to email
 
 ![myOrb welcome screen: the orb with numbers from email, calendar, tasks, pull requests, Jira, finance, Slack, uptime, sleep and YouTube; today's schedule with when to leave for lunch, tasks, priorities from the brief and the weather on the left; quick actions, recent activity and a YouTube player on the right](https://raw.githubusercontent.com/eriktelepovsky/myorb/main/docs/images/welcome.jpg)
 
-*The welcome screen, with sample data.*
+*The welcome screen, with sample data. Try it yourself in the [public demo](https://myorb-demo.telepovsky.sk).*
 
 Your assistant is yours to name: call it J.A.R.V.I.S., Iris, HAL 9000 or anything else at setup, and it greets you, sits in the middle of the orb and writes your brief under that name.
 
@@ -67,6 +67,10 @@ MYORB_DEMO=1 MYORB_DATA_DIR=demo-data uv run myorb serve
 ```
 
 It shows a made-up day of Tony's: the calendar with a commute, email, pull requests, Jira, finance and the weather are invented, and the brief and the answer to **Plan today** are written in advance. None of your services is called and nothing goes to Claude. Tasks you add or tick stay in the demo's database.
+
+`MYORB_PUBLIC_DEMO=1` runs the same demo for anyone, as at [myorb-demo.telepovsky.sk](https://myorb-demo.telepovsky.sk). There is no sign-in, nothing can be changed except through Ask, and every morning brings the made-up day back.
+
+The README's screenshots come from demo mode. To take them again, run `uv run --with playwright --with pillow python scripts/screenshots.py`. It needs Google Chrome and writes `docs/images/`.
 
 ### Local domain
 
@@ -181,6 +185,7 @@ Then, in myOrb:
 | `MYORB_DATA_DIR` | `data` (`/data` in Docker) | Where the database and the generated key are stored. |
 | `MYORB_PLUGINS` | none | Custom plugins to install at startup, as for pip: `myorb-wallet==1.2`, a wheel URL or a mounted directory. See [writing plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md). |
 | `MYORB_DEMO` | off | `1` shows a made-up day instead of your services (see [Try it with sample data](#try-it-with-sample-data)). Use a data directory of its own. |
+| `MYORB_PUBLIC_DEMO` | off | `1` opens the demo to anyone without signing in. Changes are turned off and the day starts over each morning. Never use it with your own data. |
 | `MYORB_HOST`, `MYORB_PORT` | `127.0.0.1`, `8000` (`0.0.0.0` in Docker) | Interface and port to listen on. |
 
 ### Updates and backups

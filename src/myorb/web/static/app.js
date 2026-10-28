@@ -10,6 +10,23 @@ if ("serviceWorker" in navigator) {
 // Moving between pages and sending forms (hx-boost on <body>) replaces only #app, so the
 // media dock and its music keep playing. Forms that lead to another site (OAuth) or change who
 // is signed in have hx-boost="false" and submit as usual.
+// The public demo turns changes down (X-Myorb-Demo): its note in the header shows why, the
+// page stays as it is.
+document.addEventListener("htmx:beforeSwap", (event) => {
+  if (event.detail.xhr.getResponseHeader("X-Myorb-Demo") !== "read-only") return;
+  event.detail.shouldSwap = false;
+  event.detail.isError = false;
+  event.stopImmediatePropagation();
+  // A task's checkbox ticks before it is sent: back as it was.
+  const box = event.detail.elt;
+  if (box?.type === "checkbox") box.checked = !box.checked;
+  const note = document.getElementById("demo-note");
+  if (!note) return;
+  note.classList.remove("demo-flash");
+  void note.offsetWidth;
+  note.classList.add("demo-flash");
+});
+
 document.addEventListener("htmx:beforeSwap", (event) => {
   if (!event.detail.boosted) return;
   // A page without #app (e.g. sign-in, after the session ended): opened as a whole.
