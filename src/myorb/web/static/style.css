@@ -1537,16 +1537,29 @@ code,
   box-shadow: 0 20px 50px -20px rgb(0 0 0 / 80%), 0 0 40px -20px var(--accent-glow);
 }
 
+/* Only on a phone, where the dock with its video button is not shown: ✕ in a row over the
+   video hides it. */
 .music-player-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px 6px 12px;
+  display: none;
 }
 
-.music-player-head .icon-btn {
-  width: 26px;
-  height: 26px;
+@media (max-width: 720px), (orientation: landscape) and (max-height: 560px) {
+  .music-player-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 6px 12px;
+  }
+
+  .music-player-head .icon-btn {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+.dock-controls [data-toggle="video"][aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--line-accent);
 }
 
 .music-player iframe {
