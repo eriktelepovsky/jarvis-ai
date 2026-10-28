@@ -1910,6 +1910,13 @@ code,
   opacity: 1;
 }
 
+/* Remove, or the Uptime Kuma badge in its place: one width, so the group fields line up. */
+.monitor-end {
+  display: flex;
+  justify-content: flex-end;
+  width: 96px;
+}
+
 /* Uptime settings: adding a monitor on the left, the monitors on the right */
 
 .uptime-layout {
@@ -2657,4 +2664,123 @@ form.htmx-request .btn[type="submit"]::before {
 
 @keyframes demo-flash {
   0%, 40% { color: var(--warn); }
+}
+
+/* The command palette (palette.js, ⌘K): a search line and what it finds, near the top. */
+.palette {
+  width: min(640px, calc(100% - 32px));
+  max-height: min(560px, calc(100vh - 96px));
+  margin: 12vh auto auto;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: #0b0f14;
+  border: 1px solid var(--line-accent);
+  border-radius: 14px;
+  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 85%), 0 0 60px -22px rgb(79 209 232 / 45%);
+}
+
+.palette[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.palette::backdrop {
+  background: rgb(3 6 8 / 74%);
+  backdrop-filter: blur(6px);
+}
+
+.palette-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.palette-prompt {
+  font-family: var(--font-mono);
+  color: var(--accent);
+}
+
+.palette-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.palette-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.palette-item {
+  display: grid;
+  grid-template-columns: 96px minmax(0, auto) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 10px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.palette-item[aria-selected="true"] {
+  background: var(--surface-3);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.palette-kind {
+  overflow: hidden;
+  font-size: 10px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-title {
+  font-weight: 500;
+}
+
+.palette-detail {
+  font-size: 12.5px;
+}
+
+.palette-empty {
+  padding: 12px 10px;
+}
+
+.palette-foot {
+  padding: 8px 16px;
+  font-size: 10px;
+  color: var(--text-3);
+  border-top: 1px solid var(--line-soft);
+}
+
+@media (max-width: 600px) {
+  .palette {
+    margin-top: 16px;
+  }
+
+  .palette-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+/* A row the palette went to, in its details. */
+.modal-row.is-found {
+  animation: palette-found 1.8s ease-out;
+}
+
+@keyframes palette-found {
+  0%, 30% { background: var(--surface-3); box-shadow: inset 2px 0 0 var(--accent); }
 }

@@ -39,6 +39,7 @@ def lines(response) -> list[dict]:
 def test_demo_shows_a_made_up_day(demo_client: TestClient):
     page = demo_client.get("/").text
     assert "· demo</button>" in page
+    assert "data-palette-open" in page and "palette.js" in page
     assert "Design review: Mark 85" in demo_client.get("/panels/calendar/today").text
     assert "Book flight to Monaco" in demo_client.get("/panels/tasks/today").text
     assert "Pepper Potts" in demo_client.get("/welcome/widget/demo/unread").text

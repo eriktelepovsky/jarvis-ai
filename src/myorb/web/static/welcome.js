@@ -1942,7 +1942,10 @@
     if (orbWidgets?.classList.contains("is-placed") && slot.querySelector(".node-loading")) slot.dataset.late = "true";
     const open = slot.querySelector("dialog[data-detail][open]");
     if (open && open.id === reopen) kept = keep(open);
-    if (open && open.id !== reopen) {
+    // Nor any number while details (or the palette) are open: what changes behind them shows through their
+    // blurred backdrop for a moment, as a flash of the orb.
+    const shown = document.querySelector("dialog[data-detail][open], dialog.palette[open]");
+    if (shown && shown.id !== reopen) {
       event.detail.shouldSwap = false;
       delete slot.dataset.due;
       startRing(slot, { due: true }); // the next round, with the details still showing
