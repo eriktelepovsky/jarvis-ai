@@ -103,8 +103,11 @@ def parse_event(
         "video_url": video,
         "url": event.get("htmlLink"),
         "calendar": None if calendar.get("primary") else calendar.get("summary"),
-        # Shown as "Free" in Google Calendar: it leaves the time open for focus.
-        "free": event.get("transparency") == "transparent",
+        # Shown as "Free" in Google Calendar: it leaves the time open for focus. Not an event
+        # Gmail made from an email (a booking, a flight): Gmail marks every one free, the user
+        # did not.
+        "free": event.get("transparency") == "transparent"
+        and event.get("eventType") != "fromGmail",
         # What Ask needs to change the event (see actions.py).
         "id": event.get("id", ""),
         # The series a repeating event belongs to: ignoring one day ignores them all.
@@ -192,13 +195,14 @@ def events_on(
 
 def _busy(events: list[dict[str, Any]], trips: list[dict[str, Any]]) -> list[TimelineItem]:
     """What takes today's time: the events (not those shown as free or ignored) and the ways
-    to them."""
+    to them. An event shown as free still takes it when the user goes there."""
+    gone_to = {(t["event"]["title"], t["event"]["start"]) for t in trips}
     return [
         TimelineItem(e["start"], e["end"], e["title"])
         for e in events
         if e.get("kind") != "now"
         and not e["all_day"]
-        and not e.get("free")
+        and (not e.get("free") or (e["title"], e["start"]) in gone_to)
         and not e.get("ignored")
     ] + [TimelineItem(t["start"], t["end"], "Travel") for t in trips]
 
