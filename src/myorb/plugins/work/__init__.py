@@ -59,13 +59,16 @@ class WorkPlugin(Plugin):
 
 
 def merge(parts: list[tuple[str, WidgetData]]) -> WidgetData:
-    """The services' numbers as one: rows grouped by service, then by its workspace; what is
+    """The services' numbers as one: rows grouped by workspace, named with its service (e.g.
+    "swida · Jira"), then by project, as each service groups them; what is
     overdue first, the backlog last."""
     if not parts:
         return WidgetData(value=None, connected=False)
     shown = [(name, data) for name, data in parts if data.value is not None]
     rows = [
-        replace(row, group=name, subgroup=row.group) for name, data in shown for row in data.rows
+        replace(row, group=f"{row.group} · {name}" if row.group else name)
+        for name, data in shown
+        for row in data.rows
     ]
     rows.sort(key=lambda row: ("overdue" not in row.tags, "backlog" in row.tags))
     tagged = lambda tag: sum(tag in row.tags for row in rows)  # noqa: E731
@@ -86,7 +89,7 @@ def merge(parts: list[tuple[str, WidgetData]]) -> WidgetData:
             Stat(tagged("progress"), "In progress", filter="progress"),
         ],
         list_title="Assigned to you",
-        group_label="services",
+        group_label="workspaces",
         rows=rows,
         links=links,
         source=" and ".join(name for name, _ in parts),
