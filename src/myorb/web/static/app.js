@@ -260,8 +260,9 @@ function layoutGlance(track) {
       label.style.maxWidth = `${width}px`;
       start = anchor - width;
     }
-    // Only meetings join: lunch and focus blocks never start where one does.
-    const meeting = !item.matches(".lunch, .focus");
+    // Only meetings join: lunch, focus blocks and ways to events never start where one does.
+    // A meeting joined to the way there would take on its colour, as if it were the way too.
+    const meeting = !item.matches(".lunch, .focus, .travel");
     const joined = !fits(which) && meeting && lanes.find(({ last }) => last?.meeting && start - GLANCE_GAP - last.start < GLANCE_MIN);
     if (joined) {
       const line = document.createElement("span");
@@ -273,7 +274,7 @@ function layoutGlance(track) {
       joined.end = Math.max(joined.end, joined.last.start + joined.last.label.offsetWidth);
       return;
     }
-    // Lunch and focus blocks make way: their outline says what they are.
+    // Lunch, focus blocks and ways make way: their outline says what they are.
     if (!fits(which) && !meeting) {
       label.hidden = true;
       return;
