@@ -548,6 +548,10 @@
       button.querySelector(".group-count").textContent = count;
       button.classList.toggle("is-empty", !count);
     });
+    // The folded line on a phone counts with the group it shows.
+    const shownCount = dialog.querySelector('[data-group-value][aria-pressed="true"] .group-count');
+    const foldedCount = dialog.querySelector("[data-group-toggle] .group-count");
+    if (shownCount && foldedCount) foldedCount.textContent = shownCount.textContent;
     // Without a group or search, a number shows what the service said (it may count more
     // than the list holds, e.g. Gmail's unread beyond the newest listed).
     const narrowed = Boolean(group || words.length);
@@ -582,7 +586,29 @@
     dialog.querySelectorAll("[data-group-value]").forEach((other) => other.setAttribute("aria-pressed", "false"));
     button.setAttribute("aria-pressed", "true");
     applyFilters(dialog);
+    foldGroups(dialog, false);
   }
+
+  // On a phone the groups are one line (welcome.css): it shows the group chosen and its count,
+  // and opens the list; choosing one folds it again.
+  function foldGroups(dialog, open) {
+    const list = dialog.querySelector(".group-list");
+    const toggle = list?.querySelector("[data-group-toggle]");
+    if (!toggle) return;
+    list.classList.toggle("is-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    const chosen = list.querySelector('[data-group-value][aria-pressed="true"]');
+    if (!chosen) return;
+    toggle.querySelector(".group-current").textContent = chosen.querySelector(".trunc").textContent;
+    toggle.querySelector(".group-count").textContent = chosen.querySelector(".group-count").textContent;
+  }
+
+  document.addEventListener("click", (event) => {
+    const toggle = event.target.closest("dialog [data-group-toggle]");
+    if (!toggle) return;
+    foldGroups(toggle.closest("dialog"), toggle.getAttribute("aria-expanded") !== "true");
+    sound("click");
+  });
 
   document.addEventListener("click", (event) => {
     // A link that also changes something here (opening a video marks it seen): refresh after.

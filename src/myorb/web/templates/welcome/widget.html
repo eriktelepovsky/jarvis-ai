@@ -33,9 +33,9 @@
       <div class="modal-stats">
         {% for stat in data.stats %}
         {% if stat.filter %}
-        <button type="button" class="modal-stat is-filter" data-filter="{{ stat.filter }}" aria-pressed="false" title="Show only these"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></button>
+        <button type="button" class="modal-stat is-filter" data-filter="{{ stat.filter }}" aria-pressed="false" title="Show only these"><div class="num stat-num">{{ stat.value }}</div><div class="label stat-label">{{ stat.label }}</div></button>
         {% else %}
-        <div class="modal-stat"><div class="num" style="font-size: 24px">{{ stat.value }}</div><div class="label" style="font-size: 9.5px; margin-top: 4px">{{ stat.label }}</div></div>
+        <div class="modal-stat"><div class="num stat-num">{{ stat.value }}</div><div class="label stat-label">{{ stat.label }}</div></div>
         {% endif %}
         {% endfor %}
       </div>
@@ -45,7 +45,9 @@
       {% if data.group_label and (groups | unique | list | length > 1 or subgroup_count > 1) %}
       {# One button per workspace or repository: narrows the list next to it. #}
       <div class="group-list" role="group" aria-label="Filter by {{ data.group_label }}">
-        <span class="label">{{ data.group_label }}</span>
+        <span class="label group-head">{{ data.group_label }}</span>
+        {# On a phone the list is folded into this line, which shows the group chosen. #}
+        <button type="button" class="group-toggle" data-group-toggle aria-expanded="false"><span class="label">{{ data.group_label }}</span><span class="group-current trunc">All {{ data.group_label }}</span><span class="group-count">{{ data.rows | length }}</span><span class="group-caret" aria-hidden="true">▸</span></button>
         <button type="button" class="group-item" data-group-value="" aria-pressed="true"><span class="trunc">All {{ data.group_label }}</span><span class="group-count">{{ data.rows | length }}</span></button>
         {% for name in groups | unique | sort %}
         <button type="button" class="group-item" data-group-value="{{ name }}" aria-pressed="false"><span class="trunc">{{ name }}</span><span class="group-count">{{ groups | select("equalto", name) | list | length }}</span></button>
