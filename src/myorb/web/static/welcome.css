@@ -1181,6 +1181,19 @@ a.ti:hover .t1 {
 
 /* Numbers around the orb */
 
+/* Registered, so a circle moves round the ring and changes size gradually. */
+@property --angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --s {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
 .orb-widgets {
   position: absolute;
   inset: 0;
@@ -2670,6 +2683,32 @@ button.row-btn {
 .refresh-btn.htmx-request svg,
 dialog.is-refreshing .refresh-btn svg {
   animation: spin 1s linear infinite;
+}
+
+/* On the first load the numbers wait for each other (welcome.js, a few seconds at most), then
+   come in one after another round the ring; after that a circle glides to its new place and
+   size, and one that arrives late comes in on its own. */
+.orb-widgets.is-gathering .place {
+  visibility: hidden;
+}
+
+.orb-widgets.is-placed .place {
+  transition: --angle 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.orb-widgets.is-placed .node {
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, --s 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.place.is-new .node:not(.node-loading) {
+  animation: node-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1.25) var(--delay, 0ms) backwards;
+}
+
+@keyframes node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
 }
 
 /* Circles shown while the numbers load */

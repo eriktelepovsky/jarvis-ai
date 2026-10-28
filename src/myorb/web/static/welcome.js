@@ -1668,6 +1668,38 @@
     lastHover = target;
   });
 
+  // Sets a value without the transition to it, for the next change to start from.
+  function startAt(el, name, value) {
+    el.style.transition = "none";
+    el.style.setProperty(name, value);
+    void el.offsetWidth;
+    el.style.transition = "";
+  }
+
+  // On the first load the numbers wait for each other, so they do not jump round the ring as
+  // each one arrives, then come in one after another; a slow service is not waited for long.
+  const orbWidgets = document.getElementById("orb-widgets");
+  const orbMotion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (orbWidgets && orbMotion) {
+    orbWidgets.classList.add("is-gathering");
+    setTimeout(() => revealOrb(), 2500);
+  }
+
+  function revealOrb() {
+    if (!orbWidgets?.classList.contains("is-gathering")) return;
+    orbWidgets.classList.remove("is-gathering");
+    orbWidgets.querySelectorAll(".place").forEach((place, index) => {
+      place.style.setProperty("--delay", `${index * 70}ms`);
+      place.classList.add("is-new");
+    });
+    // The places as they are, before any transition: the next change glides.
+    requestAnimationFrame(() => orbWidgets.classList.add("is-placed"));
+  }
+
+  orbWidgets?.addEventListener("animationend", (event) => {
+    if (event.animationName === "node-in") event.target.closest(".place")?.classList.remove("is-new");
+  });
+
   // The numbers around the orb load one by one (each slot on its own). After each arrives,
   // the places around the orb, the dialogs' "n / m" and the status line are set again.
   function layoutOrb() {
@@ -1692,13 +1724,24 @@
     });
     // Each circle gets a share of the ring as large as itself, so large neighbours (several
     // that need attention) do not overlap while small ones sit closer. The first stays on top.
+    nodes.forEach((node) => {
+      if (node.dataset.sized === undefined) startAt(node, "--s", node.dataset.size);
+      node.dataset.sized = "";
+    });
     const sizes = places.map((place) => Number(place.querySelector(".node")?.style.getPropertyValue("--s")) || 1);
     const total = sizes.reduce((sum, size) => sum + size, 0);
     let along = 0;
     places.forEach((place, index) => {
-      place.style.setProperty("--angle", `${(360 * along) / total}deg`);
+      const angle = `${(360 * along) / total}deg`;
+      // A number just loaded sets out from where the one it replaces was, not from the top.
+      const slot = place.closest("[data-slot]");
+      if (place.dataset.placed === undefined) startAt(place, "--angle", slot?.dataset.angle || angle);
+      place.dataset.placed = "";
+      place.style.setProperty("--angle", angle);
+      if (slot) slot.dataset.angle = angle;
       along += (sizes[index] + (sizes[index + 1] ?? sizes[0])) / 2;
     });
+    if (!loading) revealOrb();
     const loaded = nodes.filter((node) => node.dataset.hasValue === "true").length;
     const needs = nodes.filter((node) => node.dataset.needs === "true").length;
     const sources = needs === 1 ? "source needs" : "sources need";
@@ -1889,6 +1932,7 @@
   document.addEventListener("htmx:beforeSwap", (event) => {
     if (!event.detail.target.matches?.("[data-slot]")) return;
     const slot = event.detail.target;
+    if (orbWidgets?.classList.contains("is-placed") && slot.querySelector(".node-loading")) slot.dataset.late = "true";
     const open = slot.querySelector("dialog[data-detail][open]");
     if (open && open.id === reopen) kept = keep(open);
     if (open && open.id !== reopen) {
@@ -1909,6 +1953,9 @@
     const slot = event.detail.target;
     const due = slot.dataset.due === "true";
     delete slot.dataset.due;
+    // A number that arrives after the others came in comes in on its own.
+    if (slot.dataset.late) slot.querySelector(".place")?.classList.add("is-new");
+    delete slot.dataset.late;
     startRing(slot, { due });
     layoutOrb();
     fitActivity(); // the activity column is centred beside the orb, which may have grown
