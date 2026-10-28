@@ -13,7 +13,7 @@ from granian.utils.proxies import wrap_asgi_with_proxy_headers
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PrefixLoader, select_autoescape
 from starlette.responses import Response
 
-from myorb import __version__, music, profile, voice
+from myorb import __version__, demo, music, profile, voice
 from myorb.activity import routes as activity_routes
 from myorb.activity.changes import WidgetWatch
 from myorb.ask import routes as ask_routes
@@ -97,6 +97,7 @@ def create_templates(plugins: dict[str, Plugin], timezone: tzinfo) -> Jinja2Temp
         color = getattr(request.app.state, "orb_color", DEFAULT_COLOR)
         return {
             "assistant": getattr(request.app.state, "assistant", DEFAULT_ASSISTANT),
+            "demo": request.app.state.settings.demo,
             "orb_hue": orb_hue(color),
         }
 
@@ -111,7 +112,8 @@ def create_app(
     """Create the myOrb app. `http_transport` replaces outgoing HTTP calls in tests."""
     settings = settings or Settings()
     add_to_path(plugins_dir(settings.data_dir))
-    plugins = discover_plugins() if plugins is None else plugins
+    if plugins is None:
+        plugins = demo.plugins() if settings.demo else discover_plugins()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -131,7 +133,9 @@ def create_app(
         await app.state.paces.load(app.state.sessionmaker, app.state.secret_box)
         for plugin in plugins.values():
             await plugin.connections_changed(app.state.connections)
-        app.state.brief = BriefService(
+        if settings.demo:
+            await demo.seed(app.state.sessionmaker, app_context(app).now)
+        app.state.brief = (demo.DemoBriefService if settings.demo else BriefService)(
             app.state.sessionmaker,
             app.state.secret_box,
             plugins=lambda: list(app.state.plugins.values()),

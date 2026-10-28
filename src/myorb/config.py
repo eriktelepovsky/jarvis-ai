@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     timezone: str | None = None
     # Custom plugins to install at startup, as for pip: names, versions, URLs or local paths.
     plugins: str | None = None
+    # Demo mode: a made-up day instead of the services, with the brief and Ask's answer written
+    # in advance, so nothing is sent anywhere (see demo.py). Use a data_dir of its own.
+    demo: bool = False
 
     @property
     def database_url(self) -> str:

@@ -58,6 +58,16 @@ Settings come from `MYORB_*` environment variables or a `.env` file in the proje
 MYORB_TIMEZONE=Europe/Bratislava
 ```
 
+### Try it with sample data
+
+To look around before connecting anything, start myOrb in demo mode, with a data directory of its own:
+
+```sh
+MYORB_DEMO=1 MYORB_DATA_DIR=demo-data uv run myorb serve
+```
+
+It shows a made-up day of Tony's: the calendar with a commute, email, pull requests, Jira, finance and the weather are invented, and the brief and the answer to **Plan today** are written in advance. None of your services is called and nothing goes to Claude. Tasks you add or tick stay in the demo's database.
+
 ### Local domain
 
 To open myOrb at http://myorb.localhost instead, run it on port 80 with `uv run myorb serve --host 0.0.0.0 --port 80`, or put `MYORB_HOST=0.0.0.0` and `MYORB_PORT=80` in `.env`. macOS allows port 80 without `sudo` only on all network interfaces, so myOrb is then also reachable from your local network, protected by the login. Addresses ending in `.localhost` point to your own computer in macOS and modern browsers, so no hosts entry is needed. Passkeys only work at the address where they were added, so always use the same one.
@@ -170,6 +180,7 @@ Then, in myOrb:
 | `MYORB_SECRET_KEY` | generated in the data directory | Key that encrypts connected accounts and API keys. Keep it outside the data volume and do not lose it: changing it means connecting all accounts again. |
 | `MYORB_DATA_DIR` | `data` (`/data` in Docker) | Where the database and the generated key are stored. |
 | `MYORB_PLUGINS` | none | Custom plugins to install at startup, as for pip: `myorb-wallet==1.2`, a wheel URL or a mounted directory. See [writing plugins](https://github.com/eriktelepovsky/myorb/blob/main/docs/PLUGINS.md). |
+| `MYORB_DEMO` | off | `1` shows a made-up day instead of your services (see [Try it with sample data](#try-it-with-sample-data)). Use a data directory of its own. |
 | `MYORB_HOST`, `MYORB_PORT` | `127.0.0.1`, `8000` (`0.0.0.0` in Docker) | Interface and port to listen on. |
 
 ### Updates and backups
