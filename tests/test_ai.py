@@ -64,6 +64,8 @@ def test_a_local_model_writes_the_brief(client: TestClient, ollama: FakeOllama):
     assert connect(client).url.path == "/integrations"  # no API key needed
     page = client.get("/integrations").text
     assert "<strong>Ollama</strong>" in page and "with llama3.2" in page
+    field = 'name="model_name" value="llama3.2"'
+    assert field in client.get("/integrations/claude").text and "<function" not in page
 
     client.post("/command", data={"text": "Water the plants today"})
     content = json.dumps(BRIEF)
