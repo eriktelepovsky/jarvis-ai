@@ -1,6 +1,8 @@
 """Commute: how long the way to today's events takes, with the traffic expected then, and when
 to leave.
 
+A way of at most 2 km is walked, however the user travels otherwise.
+
 Google's Routes API, with an API key of a Google Cloud project that has it enabled. The way
 starts at home, at work on a weekday's working hours when a work address is set, or at the
 event before when that was somewhere too and ended not long before.
@@ -26,6 +28,8 @@ MODES = {
     "walk": ("WALK", "on foot"),
     "bicycle": ("BICYCLE", "by bike"),
 }
+# A way this short (in meters) is walked, however the user travels otherwise.
+WALKED = 2000
 # Arriving this long before an event starts; before a flight takes off, longer.
 MARGIN = timedelta(minutes=5)
 FLIGHT_MARGIN = timedelta(minutes=90)
@@ -49,7 +53,8 @@ AIRPORT = re.compile(r"airport|letisko|flughafen|lotnisko|\bletiště\b", re.IGN
 # this long: the dashboard asks on every page it loads, and each refusal is a request too.
 PAUSE = 15 * 60
 
-Route = Callable[[str, str, datetime], Awaitable[int | None]]
+# A way's minutes and how it is travelled (a key of MODES); None when there is no way.
+Route = Callable[[str, str, datetime], Awaitable[tuple[int, str] | None]]
 
 
 class Pause:
@@ -85,10 +90,32 @@ async def route_minutes(
     origin: str,
     destination: str,
     departure: datetime | None = None,
-) -> int | None:
+) -> tuple[int, str] | None:
     """Minutes from `origin` to `destination` (addresses), leaving at `departure`, with the
-    traffic expected then when driving; None when there is no way."""
-    mode, _ = MODES[credentials.get("mode") or "drive"]
+    traffic expected then when driving, and how the way is travelled: on foot when it is at
+    most WALKED long by car or public transport. None when there is no way."""
+    chosen = credentials.get("mode") or "drive"
+    key = credentials["api_key"]
+    found = await _route(http, key, MODES[chosen][0], origin, destination, departure)
+    if found is None:
+        return None
+    minutes, meters = found
+    if chosen in ("drive", "transit") and meters <= WALKED:
+        walked = await _route(http, key, "WALK", origin, destination, departure)
+        if walked is not None:
+            return walked[0], "walk"
+    return minutes, chosen
+
+
+async def _route(
+    http: httpx2.AsyncClient,
+    api_key: str,
+    mode: str,
+    origin: str,
+    destination: str,
+    departure: datetime | None,
+) -> tuple[int, int] | None:
+    """Minutes and meters of the way, travelled by `mode` (the Routes API's)."""
     body: dict[str, Any] = {
         "origin": {"address": origin},
         "destination": {"address": destination},
@@ -104,13 +131,16 @@ async def route_minutes(
         ROUTES,
         SERVICE,
         json=body,
-        headers={"X-Goog-Api-Key": credentials["api_key"], "X-Goog-FieldMask": "routes.duration"},
+        headers={
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
+        },
     )
     routes = (data or {}).get("routes") or []
     if not routes:
         return None
     seconds = int(str(routes[0].get("duration", "0s")).rstrip("s") or 0)
-    return max(1, round(seconds / 60))
+    return max(1, round(seconds / 60)), int(routes[0].get("distanceMeters") or 0)
 
 
 def travel_label(minutes: int) -> str:
@@ -137,7 +167,6 @@ async def plan(
 ) -> list[dict[str, Any]]:
     """Today's ways to the events still ahead that happen somewhere: when to leave and how long
     it takes. Each is {"event", "start" (when to leave), "minutes", "length", "origin", "by"}."""
-    _, by = MODES[credentials.get("mode") or "drive"]
     trips: list[dict[str, Any]] = []
     before: tuple[datetime, str] | None = None
     timed = sorted(
@@ -156,9 +185,10 @@ async def plan(
         margin = FLIGHT_MARGIN if is_flight(event) else MARGIN
         # The traffic of when the user leaves, guessed; never in the past, which the API refuses.
         departure = max(now + timedelta(minutes=1), event["start"] - margin - GUESS)
-        minutes = await route(origin, location, departure)
-        if minutes is None:
+        way = await route(origin, location, departure)
+        if way is None:
             continue
+        minutes, mode = way
         trips.append(
             {
                 "event": event,
@@ -167,7 +197,7 @@ async def plan(
                 "minutes": minutes,
                 "length": travel_label(minutes),
                 "origin": origin_label,
-                "by": by,
+                "by": MODES[mode][1],
                 "flight": margin == FLIGHT_MARGIN,
             }
         )
@@ -203,7 +233,7 @@ class Commute(Provider):
             "Travel by",
             "text",
             "drive, transit, walk or bicycle",
-            help="Driving uses the traffic expected when you leave.",
+            help="Driving uses the traffic expected when you leave. Ways up to 2 km are walked.",
             required=False,
         ),
     ]

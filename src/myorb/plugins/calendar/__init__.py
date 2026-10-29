@@ -397,12 +397,14 @@ class CalendarPlugin(Plugin):
             return []
         account = accounts[0]
 
-        async def route(origin: str, destination: str, departure: datetime) -> int | None:
+        async def route(
+            origin: str, destination: str, departure: datetime
+        ) -> tuple[int, str] | None:
             # The same way asked again within a quarter of an hour comes from the cache.
             slot = departure.replace(minute=departure.minute // 15 * 15, second=0, microsecond=0)
             key = f"commute:{account.id}:{origin}|{destination}|{slot:%Y-%m-%d %H:%M}"
 
-            async def fetch() -> int | None:
+            async def fetch() -> tuple[int, str] | None:
                 if self.commute_pause.paused(account.credentials):
                     raise ProviderError("Google refused a way a moment ago.")
                 try:

@@ -916,19 +916,20 @@ def test_commute_plans_when_to_leave():
     ]
     asked = []
 
-    async def route(origin: str, destination: str, departure: datetime) -> int | None:
+    async def route(origin: str, destination: str, departure: datetime) -> tuple | None:
         asked.append((origin, destination, departure))
-        return 25
+        return (12, "walk") if destination == "Office, Košice" else (25, "drive")
 
     credentials = {"home": "Home St 1", "work": "Work St 2", "mode": "drive", "api_key": "k"}
     trips = asyncio.run(plan(events, now, credentials, route))
     assert [(t["event"]["title"], t["origin"], f"{t['start']:%H:%M}") for t in trips] == [
         ("Quarterly meeting", "home", "07:30"),  # 25 min plus 5 min to spare before 08:00
         ("Workshop", "Hlavná 1, Košice", "09:30"),  # from where the meeting was
-        ("1:1", "work", "14:30"),
+        ("1:1", "work", "14:43"),  # a short way, walked
         ("Flight to Prague", "home", "18:05"),  # at the airport 90 minutes before
     ]
     assert asked[1][0] == "Hlavná 1, Košice" and trips[0]["length"] == "25 min"
+    assert [t["by"] for t in trips] == ["by car", "by car", "on foot", "by car"]
     # The traffic of when the user leaves, never in the past.
     assert asked[0][2] == now.replace(hour=7, minute=25)
     late = asyncio.run(plan(events, now.replace(hour=10, minute=5), credentials, route))
@@ -953,21 +954,34 @@ def test_commute_asks_google_routes():
             return httpx2.Response(403, json={"error": {"status": "PERMISSION_DENIED"}})
         if "Nowhere" in request.content.decode():
             return httpx2.Response(200, json={})
-        return httpx2.Response(200, json={"routes": [{"duration": "1530s"}]})
+        if "Near" in request.content.decode():
+            walked = jsonlib.loads(request.content)["travelMode"] == "WALK"
+            return httpx2.Response(
+                200,
+                json={
+                    "routes": [{"duration": "1100s" if walked else "120s", "distanceMeters": 1400}]
+                },
+            )
+        return httpx2.Response(
+            200, json={"routes": [{"duration": "1530s", "distanceMeters": 21000}]}
+        )
 
     async def run():
         async with httpx2.AsyncClient(transport=httpx2.MockTransport(routes)) as http:
             credentials = {"api_key": "key", "mode": "drive"}
             when = datetime(2026, 10, 26, 7, 25, tzinfo=TZ)
-            assert await route_minutes(http, credentials, "A", "B", when) == 26
+            assert await route_minutes(http, credentials, "A", "B", when) == (26, "drive")
             headers, body = sent[-1]
-            assert headers["X-Goog-FieldMask"] == "routes.duration"
+            assert headers["X-Goog-FieldMask"] == "routes.duration,routes.distanceMeters"
             assert body["travelMode"] == "DRIVE" and body["routingPreference"] == "TRAFFIC_AWARE"
             assert body["departureTime"] == "2026-10-26T06:25:00Z"  # CET
             transit = {"api_key": "key", "mode": "transit"}
             await route_minutes(http, transit, "A", "B")
             assert sent[-1][1]["travelMode"] == "TRANSIT" and "routingPreference" not in sent[-1][1]
             assert await route_minutes(http, credentials, "A", "Nowhere") is None
+            # Up to 2 km, the way is walked, though the user drives.
+            assert await route_minutes(http, credentials, "A", "Near", when) == (18, "walk")
+            assert sent[-1][1]["travelMode"] == "WALK"
             provider = Commute()
             values = {"api_key": "key", "home": "Home", "work": "", "mode": ""}
             verified = await provider.verify(http, values)

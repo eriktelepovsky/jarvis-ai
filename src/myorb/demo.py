@@ -349,8 +349,8 @@ class DemoCalendar(CalendarPlugin):
 
     async def _trips(self, context: WidgetContext, events: list[dict[str, Any]]) -> list:
         # As if set up with Google Routes: the real plan, only the way's length made up.
-        async def route(origin: str, destination: str, departure: datetime) -> int | None:
-            return {"Nobu Malibu": 17}.get(destination)
+        async def route(origin: str, destination: str, departure: datetime) -> tuple | None:
+            return (17, "drive") if destination == "Nobu Malibu" else None
 
         home = {"home": "10880 Malibu Point", "mode": "drive"}
         return await plan([e for e in events if not e.get("ignored")], context.now, home, route)
