@@ -74,13 +74,92 @@
   </div>
 {% endmacro %}
 
+{# A service as a tile: its logo, its name and how it is. #}
+{% macro tile(key, name, logo_html, state, status) %}
+  <button type="button" class="service-tile is-{{ state }}" data-service-open="{{ key }}" aria-haspopup="dialog">
+    {{ logo_html }}
+    <span class="service-tile-name trunc">{{ name }}</span>
+    <span class="service-tile-status">{{ status }}</span>
+  </button>
+{% endmacro %}
+
+{# What a tile opens: the service's panel, its accounts and buttons, as before the tiles. A
+   service that has just changed opens again on arrival, with the message in it. #}
+{% macro service_dialog(key, name) %}
+  <dialog class="service-dialog" data-service="{{ key }}" aria-label="{{ name }}"{% if open_service == key %} data-open-now{% endif %}>
+    <div class="service-dialog-head"><span class="label">Integration</span><button type="button" class="icon-btn" data-service-close aria-label="Close" title="Close (Esc)">✕</button></div>
+    {% if open_service == key %}
+    {% if message %}<div class="alert alert-success" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
+    {% if error %}<div class="alert alert-error" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+    {% endif %}
+    <section class="panel service" aria-label="{{ name }}">{{ caller() }}</section>
+  </dialog>
+{% endmacro %}
+
+{% macro logo_letters(letters) %}<span class="integration-logo" aria-hidden="true">{{ letters }}</span>{% endmacro %}
+
+{% macro voice_logo() %}<span class="integration-logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></span>{% endmacro %}
+
+{# How many checks of these accounts failed. #}
+{% macro problem_count(accounts) %}{% set ns = namespace(n=0) %}{% for connection in accounts if connection.capabilities %}{% set ns.n = ns.n + connection.capabilities | rejectattr("ok") | list | length %}{% endfor %}{{ ns.n }}{% endmacro %}
+
+{# A connected service's tile: green, or red with its problems. #}
+{% macro account_tile(key, name, logo_html, accounts, off_status) %}
+  {% set problems = problem_count(accounts) | trim | int %}
+  {% if not accounts %}{{ tile(key, name, logo_html, "off", off_status) }}
+  {% elif problems %}{{ tile(key, name, logo_html, "fail", problems ~ (" problem" if problems == 1 else " problems")) }}
+  {% else %}{{ tile(key, name, logo_html, "ok", (accounts | length ~ " connected") if accounts | length > 1 else "Connected") }}{% endif %}
+{% endmacro %}
+
+{% macro google_service() %}
+  {{ account_tile("google", "Google", logo("G", "google"), connections, "No account" if client else "Not set up") }}
+  {% call service_dialog("google", "Google") %}
+    <div class="integration service-head" id="service-google">
+      {{ logo("G", "google") }}
+      <div style="min-width: 0">
+        <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar · YouTube</span></div>
+        <div class="muted" style="font-size: 12.5px">{% if not client %}myOrb connects through your own Google Cloud OAuth client. Setting it up takes about 10 minutes and is free.{% elif not connections %}The OAuth client is set up. Connect your Google account.{% else %}Email, calendar and YouTube subscriptions of your Google accounts.{% endif %}</div>
+      </div>
+      {{ pace(google_pace if connections else none) }}
+      <div class="actions">
+        {% if not client %}<span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/google/setup">Set up Google</a>
+        {% else %}
+        {% if not connections %}<span class="badge badge-neutral">○ No account</span>{% endif %}
+        <a class="btn btn-ghost btn-small" href="/integrations/google/setup">OAuth client</a>
+        <form method="post" action="/integrations/google/connect" hx-boost="false"><button type="submit" class="btn {{ 'btn-ghost btn-small' if connections else 'btn-primary' }}">{{ "+ Add account" if connections else "Connect a Google account" }}</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% for connection in connections %}{{ account_row(connection, "google") }}{% endfor %}
+  {% endcall %}
+{% endmacro %}
+
+{% macro provider_service(provider, accounts) %}
+  {{ account_tile(provider.id, provider.name, logo(provider.logo, provider.icon), accounts, "Not connected") }}
+  {% call service_dialog(provider.id, provider.name) %}
+    <div class="integration service-head" id="service-{{ provider.id }}">
+      {{ logo(provider.logo, provider.icon) }}
+      <div style="min-width: 0">
+        <div class="integration-name"><strong>{{ provider.name }}</strong>{% if accounts | length > 1 %}<span class="label">{{ accounts | length }} connected</span>{% endif %}</div>
+        <div class="muted" style="font-size: 12.5px">{{ provider.summary }}</div>
+      </div>
+      {{ pace(paces[provider.id]) }}
+      <div class="actions">
+        {% if not accounts %}<span class="badge badge-neutral">○ Not connected</span>{% endif %}
+        {% if not accounts or provider.multiple %}<a class="btn {{ 'btn-primary' if not accounts else 'btn-ghost btn-small' }}" href="/integrations/{{ provider.id }}/connect">{{ "+ Add " ~ provider.account_noun if accounts else "Connect" }}</a>{% endif %}
+      </div>
+    </div>
+    {% for connection in accounts %}{{ account_row(connection, provider.id, provider.choices_label, editable=True) }}{% endfor %}
+  {% endcall %}
+{% endmacro %}
+
 {% block content %}
 <div class="page-title">
   <div><div class="label">Settings</div><h1>Integrations</h1></div>
 </div>
 
-{% if message %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
-{% if error %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
+{% if message and not open_service %}<div class="alert alert-success panel-narrow" role="status"><span class="alert-tag">✓ DONE</span><span>{{ message }}</span></div>{% endif %}
+{% if error and not open_service %}<div class="alert alert-error panel-narrow" role="alert"><span class="alert-tag">✕ ERROR</span><span>{{ error }}</span></div>{% endif %}
 
 {% if setup %}
 {% set done = setup | selectattr("state", "equalto", "done") | list | length %}
@@ -117,50 +196,29 @@
 </section>
 {% endif %}
 
-<h2 class="label services-title" id="sources">Connected sources</h2>
-<div class="services">
-  <section class="panel service" aria-label="Google">
-    <div class="integration service-head" id="service-google">
-      {{ logo("G", "google") }}
-      <div style="min-width: 0">
-        <div class="integration-name"><strong>Google</strong><span class="label">Gmail · Calendar · YouTube</span></div>
-        <div class="muted" style="font-size: 12.5px">{% if not client %}myOrb connects through your own Google Cloud OAuth client. Setting it up takes about 10 minutes and is free.{% elif not connections %}The OAuth client is set up. Connect your Google account.{% else %}Email, calendar and YouTube subscriptions of your Google accounts.{% endif %}</div>
-      </div>
-      {{ pace(google_pace if connections else none) }}
-      <div class="actions">
-        {% if not client %}<span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/google/setup">Set up Google</a>
-        {% else %}
-        {% if not connections %}<span class="badge badge-neutral">○ No account</span>{% endif %}
-        <a class="btn btn-ghost btn-small" href="/integrations/google/setup">OAuth client</a>
-        <form method="post" action="/integrations/google/connect" hx-boost="false"><button type="submit" class="btn {{ 'btn-ghost btn-small' if connections else 'btn-primary' }}">{{ "+ Add account" if connections else "Connect a Google account" }}</button></form>
-        {% endif %}
-      </div>
-    </div>
-    {% for connection in connections %}{{ account_row(connection, "google") }}{% endfor %}
-  </section>
-
-  {% for provider, accounts in providers %}
-  <section class="panel service" aria-label="{{ provider.name }}">
-    <div class="integration service-head" id="service-{{ provider.id }}">
-      {{ logo(provider.logo, provider.icon) }}
-      <div style="min-width: 0">
-        <div class="integration-name"><strong>{{ provider.name }}</strong>{% if accounts | length > 1 %}<span class="label">{{ accounts | length }} connected</span>{% endif %}</div>
-        <div class="muted" style="font-size: 12.5px">{{ provider.summary }}</div>
-      </div>
-      {{ pace(paces[provider.id]) }}
-      <div class="actions">
-        {% if not accounts %}<span class="badge badge-neutral">○ Not connected</span>{% endif %}
-        {% if not accounts or provider.multiple %}<a class="btn {{ 'btn-primary' if not accounts else 'btn-ghost btn-small' }}" href="/integrations/{{ provider.id }}/connect">{{ "+ Add " ~ provider.account_noun if accounts else "Connect" }}</a>{% endif %}
-      </div>
-    </div>
-    {% for connection in accounts %}{{ account_row(connection, provider.id, provider.choices_label, editable=True) }}{% endfor %}
-  </section>
-  {% endfor %}
+{# The services as tiles, connected first; each opens what its panel used to show. #}
+<div id="sources"></div>
+{% if connections or providers | selectattr(1) | list %}
+<h2 class="label services-title">Connected</h2>
+<div class="service-tiles">
+  {% if connections %}{{ google_service() }}{% endif %}
+  {% for provider, accounts in providers if accounts %}{{ provider_service(provider, accounts) }}{% endfor %}
 </div>
+{% endif %}
+{% if not connections or providers | rejectattr(1) | list %}
+<h2 class="label services-title">Available</h2>
+<div class="service-tiles">
+  {% if not connections %}{{ google_service() }}{% endif %}
+  {% for provider, accounts in providers if not accounts %}{{ provider_service(provider, accounts) }}{% endfor %}
+</div>
+{% endif %}
 
 <h2 class="label services-title">Features</h2>
-<section class="panel service" aria-label="Features">
+<div class="service-tiles">
   {% for name, settings in plugin_settings %}
+  {% set key = "feature-" ~ name | lower | replace(" ", "-") %}
+  {{ tile(key, name, logo_letters(settings.logo), "plain", "Settings") }}
+  {% call service_dialog(key, name) %}
   <div class="integration">
     <span class="integration-logo" aria-hidden="true">{{ settings.logo }}</span>
     <div>
@@ -169,7 +227,11 @@
     </div>
     <div class="actions"><a class="btn" href="{{ settings.url }}">Settings</a></div>
   </div>
+  {% endcall %}
   {% endfor %}
+
+  {{ tile("feature-music", "Music", logo_letters("♪"), "plain", "Welcome screen") }}
+  {% call service_dialog("feature-music", "Music") %}
   <div class="integration">
     <span class="integration-logo" aria-hidden="true">♪</span>
     <div>
@@ -178,18 +240,25 @@
     </div>
     <div class="actions"><a class="btn" href="/integrations/music">Settings</a></div>
   </div>
+  {% endcall %}
 
+  {{ tile("feature-voice", "Voice", voice_logo(), "ok" if voice.azure else "plain", "Azure Speech" if voice.azure else "Browser voices") }}
+  {% call service_dialog("feature-voice", "Voice") %}
   <div class="integration">
-    <span class="integration-logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></span>
+    {{ voice_logo() }}
     <div>
       <div class="integration-name"><strong>Voice</strong><span class="label">Read aloud</span></div>
       <div class="muted" style="font-size: 12.5px">{% if voice.azure %}Microsoft Azure Speech reads the brief.{% else %}The browser's own voices read the brief, or natural voices from Microsoft Azure Speech.{% endif %}</div>
     </div>
     <div class="actions">{% if voice.azure %}<span class="badge badge-ok">✓ Azure Speech</span>{% endif %}<a class="btn" href="/integrations/voice">Settings</a></div>
   </div>
+  {% endcall %}
 
+  {% set ai_logo = logo("AI", "anthropic") if not claude or claude.service == "anthropic" else logo("AI") %}
+  {{ tile("feature-ai", claude.name if claude else "AI", ai_logo, "ok" if claude else "off", "Connected" if claude else "Not set up") }}
+  {% call service_dialog("feature-ai", claude.name if claude else "AI") %}
   <div class="integration">
-    {{ logo("AI", "anthropic") if not claude or claude.service == "anthropic" else logo("AI") }}
+    {{ ai_logo }}
     <div>
       <div class="integration-name"><strong>{{ claude.name if claude else "AI" }}</strong><span class="label">Daily brief · Ask</span></div>
       <div class="muted" style="font-size: 12.5px">{% if claude %}Writes your brief every day at {{ claude.brief_time }} with {{ model_name(claude.model) }}.{% if claude_spent and claude.service == "anthropic" %} {{ claude_spent[1] }}{{ "%.2f" | format(claude_spent[0]) }} in the last 30 days.{% endif %}{% else %}Writes a short daily brief from your calendar, email and tasks and answers what you ask: Claude, OpenAI, Gemini, Mistral or a local model, with your own API key.{% endif %}</div>
@@ -199,7 +268,8 @@
       {% else %}<span class="badge badge-neutral">○ Not set up</span><a class="btn btn-primary" href="/integrations/claude">Connect an AI</a>{% endif %}
     </div>
   </div>
-</section>
+  {% endcall %}
+</div>
 {% if setup_hidden %}
 <form class="setup-show" method="post" action="/integrations/setup/show"><button type="submit" class="link-btn">Show the Get started list</button></form>
 {% endif %}

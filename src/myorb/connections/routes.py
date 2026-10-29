@@ -116,7 +116,12 @@ async def _integrations_page(
     message: str | None = None,
     error: str | None = None,
     status_code: int = 200,
+    open_service: str | None = None,
 ) -> Response:
+    providers = [
+        (provider, await store.list_connections(db, provider.id))
+        for _, provider in form_providers(request)
+    ]
     context = {
         "client": await oauth_client(request, db),
         "connections": await store.list_connections(db, google.PROVIDER),
@@ -133,10 +138,7 @@ async def _integrations_page(
             )
             if plugin.settings
         ],
-        "providers": [
-            (provider, await store.list_connections(db, provider.id))
-            for _, provider in form_providers(request)
-        ],
+        "providers": providers,
         "paces": {
             provider.id: await _pace(request, plugin, provider)
             for plugin, provider in form_providers(request)
@@ -149,6 +151,10 @@ async def _integrations_page(
         and any(step.state != "done" for step in await checklist.steps(request, db)),
         "message": message,
         "error": error,
+        # The service a change came from opens again, with the message in it.
+        "open_service": open_service
+        if open_service in {google.PROVIDER, *(provider.id for provider, _ in providers)}
+        else None,
     }
     return _render(request, "integrations/index.html", context, status_code)
 
@@ -182,7 +188,7 @@ async def choose_pace(request: Request, service: str) -> Response:
         raise HTTPException(status_code=400, detail="Choose one of the paces offered")
     state = request.app.state
     await state.paces.choose(state.sessionmaker, state.secret_box, service, seconds)
-    return RedirectResponse("/integrations?status=pace", status_code=303)
+    return RedirectResponse(f"/integrations?status=pace&provider={service}", 303)
 
 
 def forget_cached(request: Request, connection_id: int) -> None:
@@ -220,7 +226,7 @@ async def integrations(
     message = MESSAGES.get(status or "")
     if status == "connected" and provider and provider != google.PROVIDER:
         message = "The connection works."
-    return await _integrations_page(request, db, message=message)
+    return await _integrations_page(request, db, message=message, open_service=provider)
 
 
 @router.post("/integrations/setup/{choice}")
@@ -345,7 +351,7 @@ async def _finish_connect(request: Request, db: AsyncSession, code: str, verifie
     )
     forget_cached(request, connection.id)
     await test_connection(request, db, connection)
-    return RedirectResponse("/integrations?status=connected", status_code=303)
+    return RedirectResponse("/integrations?status=connected&provider=google", 303)
 
 
 async def _connection_or_404(db: AsyncSession, connection_id: int) -> Connection:
@@ -359,7 +365,7 @@ async def _connection_or_404(db: AsyncSession, connection_id: int) -> Connection
 async def google_test(request: Request, db: Db, connection_id: int) -> Response:
     connection = await _connection_or_404(db, connection_id)
     await test_connection(request, db, connection)
-    return RedirectResponse("/integrations?status=tested", status_code=303)
+    return RedirectResponse("/integrations?status=tested&provider=google", 303)
 
 
 @router.post("/integrations/google/{connection_id}/disconnect")
@@ -369,4 +375,4 @@ async def google_disconnect(request: Request, db: Db, connection_id: int) -> Res
     await google.revoke(request.app.state.http, credentials["refresh_token"])
     forget_cached(request, connection.id)
     await store.delete_connection(db, connection)
-    return RedirectResponse("/integrations?status=disconnected", status_code=303)
+    return RedirectResponse("/integrations?status=disconnected&provider=google", 303)

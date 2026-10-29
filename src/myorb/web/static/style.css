@@ -2075,6 +2075,138 @@ form.htmx-request .btn[type="submit"]::before {
   height: 44px; /* as tall as the field */
 }
 
+/* Integrations as tiles: a logo, a name and how it is, five or six to a row (three on a
+   phone). A click opens the service's panel in a dialog. */
+.service-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.service-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+
+.service-tile:hover,
+.service-tile:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--line-accent);
+}
+
+.service-tile-name {
+  max-width: 100%;
+  font-weight: 500;
+}
+
+.service-tile-status {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.service-tile-status::before {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  content: "";
+  background: var(--line-strong);
+  border-radius: 50%;
+}
+
+.service-tile.is-ok .service-tile-status::before { background: var(--ok); }
+.service-tile.is-fail { border-color: var(--fail-line); }
+.service-tile.is-fail .service-tile-status { color: var(--fail); }
+.service-tile.is-fail .service-tile-status::before { background: var(--fail); }
+.service-tile.is-plain .service-tile-status::before { display: none; }
+
+.service-dialog {
+  width: min(760px, calc(100% - 32px));
+  max-height: calc(100dvh - 64px);
+  padding: 0;
+  overflow: auto;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line-accent);
+  border-radius: var(--r-dialog);
+  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 85%);
+}
+
+.service-dialog::backdrop {
+  background: rgb(3 6 8 / 74%);
+  backdrop-filter: blur(6px);
+}
+
+.service-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 10px 18px;
+}
+
+.service-dialog > .alert {
+  margin: 0 12px 10px;
+}
+
+/* The panel fills the dialog; its menus need room to open below the last account. */
+.service-dialog > .service {
+  margin: 0 12px 12px;
+}
+
+/* Narrower than the page: the numbers go under the name. */
+.service-dialog .integration.service-head {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+
+.service-dialog .pace {
+  grid-column: 2 / -1;
+  grid-row: 2;
+}
+
+@media (max-width: 720px) {
+  .service-dialog .pace {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .service-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .service-tile {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .service-tile-name {
+    font-size: 13px;
+  }
+
+  .service-tile-status {
+    font-size: 11px;
+  }
+
+  .service-dialog {
+    max-height: calc(100dvh - env(safe-area-inset-top) - 24px);
+    margin-top: calc(env(safe-area-inset-top) + 12px);
+  }
+}
+
 /* Integrations: how often a service is asked, and an account's actions in a menu */
 
 /* The numbers sit in the middle of the row, in fixed columns that line up from service to

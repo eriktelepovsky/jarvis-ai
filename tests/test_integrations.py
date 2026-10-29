@@ -157,6 +157,24 @@ def test_test_and_disconnect(client: TestClient, apis: FakeApis):
     assert client.post(f"/integrations/github/{connection_id}/test").status_code == 404
 
 
+def test_services_are_tiles_and_a_changed_one_opens(client: TestClient, apis: FakeApis):
+    text = client.get("/integrations").text
+    assert 'data-service-open="github"' in text and "data-open-now" not in text
+    github(apis)
+    response = client.post("/integrations/github/connect", data={"token": "ghp_good"})
+    assert response.url.params["provider"] == "github"
+    # GitHub is connected now, so its tile comes first, and its dialog opens with the message.
+    connected = response.text.split(">Available<")[0]
+    assert 'data-service-open="github"' in connected
+    assert 'data-service-open="gitlab"' not in connected
+    dialog = re.search(r'<dialog[^>]*data-service="github"[^>]*>.*?</dialog>', response.text, re.S)
+    assert dialog and "data-open-now" in dialog.group(0)
+    assert "The connection works." in dialog.group(0)
+    # A provider that is not a service opens nothing, and the message stays on top.
+    text = client.get("/integrations?status=connected&provider=nothing").text
+    assert "data-open-now" not in text and "The connection works." in text
+
+
 def test_pull_requests_widget_from_github(client: TestClient, apis: FakeApis):
     # Not shown around the orb until a code host is connected.
     assert 'data-open="detail-code_review-pulls"' not in client.get("/welcome/widgets").text

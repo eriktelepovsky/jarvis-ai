@@ -374,3 +374,47 @@ document.addEventListener("htmx:afterRequest", (event) => {
   form.closest("dialog")?.close();
   if (location.pathname === "/tasks") htmx.ajax("GET", "/tasks", { target: "#app", select: "#app", swap: "outerHTML" });
 });
+
+// Integrations: each service is a tile that opens its panel in a dialog. A link to
+// /integrations#service-<id> opens that service, and so does the page a change of it led to.
+function serviceDialog(key) {
+  return document.querySelector(`dialog.service-dialog[data-service="${CSS.escape(key)}"]`);
+}
+
+function openService(dialog) {
+  if (!dialog || dialog.open) return;
+  dialog.removeAttribute("data-open-now");
+  dialog.showModal();
+  history.replaceState(history.state, "", `${location.pathname}${location.search}#service-${dialog.dataset.service}`);
+}
+
+function openArrivedService() {
+  const hash = location.hash.startsWith("#service-") ? location.hash.slice(9) : "";
+  openService(document.querySelector("dialog.service-dialog[data-open-now]") || (hash && serviceDialog(hash)));
+}
+
+document.addEventListener("click", (event) => {
+  const tile = event.target.closest("[data-service-open]");
+  if (tile) {
+    openService(serviceDialog(tile.dataset.serviceOpen));
+    return;
+  }
+  const dialog = event.target.closest("dialog.service-dialog");
+  if (!dialog) return;
+  // The close button, or a click on the backdrop around the dialog.
+  const box = dialog.getBoundingClientRect();
+  const outside = event.target === dialog && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom);
+  if (outside || event.target.closest("[data-service-close]")) dialog.close();
+});
+
+// Closed (also with Esc): the address no longer names it.
+document.addEventListener("close", (event) => {
+  if (!event.target.matches?.("dialog.service-dialog")) return;
+  if (location.hash.startsWith("#service-")) history.replaceState(history.state, "", `${location.pathname}${location.search}`);
+}, true);
+
+window.addEventListener("hashchange", openArrivedService);
+document.addEventListener("htmx:afterSettle", openArrivedService);
+document.addEventListener("htmx:pushedIntoHistory", openArrivedService);
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", openArrivedService);
+else openArrivedService();
