@@ -1067,6 +1067,7 @@ def test_commute_shows_when_to_leave(monkeypatch):
     assert any("10:00–12:00 (2 h), 12:45–18:00" in line for line in section.lines)
     nxt = asyncio.run(plugin._next(context))
     assert nxt["leave"] == now.replace(hour=7, minute=10) and nxt["leave_soon"]
+    assert nxt["leave_in"] == "in 10 m"  # counts down to leaving, not to the meeting
     panel = asyncio.run(plugin._today(context))
     assert [e["kind"] for e in panel["day"]["today"]][:3] == ["now", "travel", "event"]
 

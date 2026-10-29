@@ -714,6 +714,8 @@ class CalendarPlugin(Plugin):
             "event": event,
             "leave": trip["start"] if trip else None,
             "leave_soon": bool(trip) and trip["start"] - context.now <= timedelta(minutes=15),
+            # When there is a way to go, the time left counts down to leaving, not to the event.
+            "leave_in": until(trip["start"], context.now) if trip else None,
             "when": (
                 until(event["start"], context.now)
                 if event["start"].date() == context.now.date()
