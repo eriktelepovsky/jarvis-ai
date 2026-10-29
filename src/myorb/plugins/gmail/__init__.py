@@ -38,8 +38,9 @@ UNREAD_SHOWN = 100
 BRIEF_UNREAD = 15
 # How long a conversation marked as read from myOrb stays out of the lists (see unread_of).
 MARKED_KEPT = 15 * 60
-# Message headers are read this many at a time, to stay within Gmail's rate limits.
-PARALLEL = 10
+# Message headers are read this many at a time, to stay within Gmail's rate limits (250
+# units a second per user; a conversation's headers cost 10).
+PARALLEL = 5
 # Counting today's emails stops here; more is shown as "500+".
 TODAY_LIMIT = 500
 ICON = "M3 6h18v12H3zM3 7l9 6 9-6"

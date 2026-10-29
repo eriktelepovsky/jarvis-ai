@@ -184,6 +184,17 @@ def is_api_disabled(response: httpx2.Response) -> bool:
     )
 
 
+def is_rate_limited(response: httpx2.Response) -> bool:
+    """Too many requests: 429, or 403 with a rate-limit reason (as Gmail and Calendar answer),
+    not a missing permission."""
+    if response.status_code == 429:
+        return True
+    reason = _error_reason(response)
+    return response.status_code == 403 and any(
+        word in reason for word in ("rateLimitExceeded", "RateLimitExceeded", "RATE_LIMIT_EXCEEDED")
+    )
+
+
 def _error_reason(response: httpx2.Response) -> str:
     try:
         error = response.json().get("error", {})

@@ -481,9 +481,49 @@
   });
 
   // A day of a row's status history (the bars under a monitor): its 24 hours below them, red
-  // where anything was down; clicked again, they go.
+  // where anything was down; clicked again, they go. An hour opens its 60 minutes the same way.
   const HOUR_STATE = { u: ["up", "Up"], d: ["down", "Down at times"], "-": ["none", "Not watched yet"] };
+  const MINUTE_STATE = { u: ["up", "Up"], d: ["down", "Down"], "-": ["none", "Not watched yet"] };
+  const two = (number) => String(number).padStart(2, "0");
+
+  function scaleOf(marks) {
+    const scale = document.createElement("span");
+    scale.className = "history-hours-scale";
+    scale.append(...marks.map((text) => Object.assign(document.createElement("span"), { textContent: text })));
+    return scale;
+  }
+
   document.addEventListener("click", (event) => {
+    const hourCell = event.target.closest("[data-history-hour]");
+    if (hourCell) {
+      const panel = hourCell.closest(".history-hours");
+      panel.querySelector(".history-minutes")?.remove();
+      const showing = hourCell.getAttribute("aria-pressed") === "true";
+      panel.querySelectorAll("[data-history-hour]").forEach((other) => other.setAttribute("aria-pressed", "false"));
+      if (showing) return;
+      hourCell.setAttribute("aria-pressed", "true");
+      const hour = Number(hourCell.dataset.historyHour);
+      // Hours not listed were up throughout.
+      const listed = (panel.dataset.minutes || "").split(" ").find((entry) => entry.startsWith(`${hour}:`));
+      const letters = listed ? listed.slice(listed.indexOf(":") + 1) : "u".repeat(60);
+      const box = document.createElement("span");
+      box.className = "history-minutes";
+      const head = document.createElement("span");
+      head.className = "label";
+      head.textContent = `${two(hour)}:00–${two(hour + 1)}:00 · by the minute`;
+      const bars = document.createElement("span");
+      bars.className = "history-minutes-bars";
+      [...letters.padEnd(60, " ")].forEach((state, minute) => {
+        const cell = document.createElement("span");
+        const [name, label] = MINUTE_STATE[state] || ["later", ""];
+        cell.className = `history-minute is-${name}`;
+        if (label) cell.title = `${two(hour)}:${two(minute)} · ${label}`;
+        bars.append(cell);
+      });
+      box.append(head, bars, scaleOf([":00", ":15", ":30", ":45", ":60"]));
+      panel.append(box);
+      return;
+    }
     const bar = event.target.closest("[data-history-day]");
     if (!bar) return;
     const row = bar.closest(".modal-row");
@@ -499,16 +539,20 @@
     const bars = document.createElement("span");
     bars.className = "history-hours-bars";
     [...bar.dataset.historyDay.padEnd(24, " ")].forEach((state, hour) => {
-      const cell = document.createElement("span");
       const [name, label] = HOUR_STATE[state] || ["later", ""];
+      // An hour that has been (watched) opens by the minute; the rest are only drawn.
+      const cell = document.createElement(state === "u" || state === "d" ? "button" : "span");
       cell.className = `history-hour is-${name}`;
-      if (label) cell.title = `${String(hour).padStart(2, "0")}:00 · ${label}`;
+      if (cell.tagName === "BUTTON") {
+        cell.type = "button";
+        cell.dataset.historyHour = hour;
+        cell.setAttribute("aria-pressed", "false");
+      }
+      if (label) cell.title = `${two(hour)}:00 · ${label}`;
       bars.append(cell);
     });
-    const scale = document.createElement("span");
-    scale.className = "history-hours-scale";
-    scale.append(...["00", "06", "12", "18", "24"].map((text) => Object.assign(document.createElement("span"), { textContent: text })));
-    panel.replaceChildren(head, bars, scale);
+    panel.dataset.minutes = bar.dataset.minutes || "";
+    panel.replaceChildren(head, bars, scaleOf(["00", "06", "12", "18", "24"]));
   });
 
   // A number in the details filters the list next to it; clicking it again shows everything.

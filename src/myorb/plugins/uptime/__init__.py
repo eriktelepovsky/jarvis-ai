@@ -68,6 +68,7 @@ def history(monitor: Monitor, incidents: list[Incident], now: datetime) -> tuple
     for back in range(WINDOW.days - 1, -1, -1):
         day = (today - timedelta(days=back)).replace(tzinfo=None)
         hours = ""
+        minutes = []
         for hour in range(24):
             # Through UTC, so a day that changes to or from summer time has its true hours.
             start = day.replace(hour=hour).replace(tzinfo=now.tzinfo).astimezone(UTC)
@@ -76,12 +77,32 @@ def history(monitor: Monitor, incidents: list[Incident], now: datetime) -> tuple
             end = start + timedelta(hours=1)
             if end <= added:
                 hours += "-"
-            elif any(s < end and e > start for s, e in spans):
-                hours += "d"
-            else:
-                hours += "u"
-        days.append(HistoryDay(day.strftime("%a %-d %b"), hours))
+                continue
+            hours += "d" if _down(spans, start, end) else "u"
+            # By the minute where the hour is not simply up: an outage, the monitor added or
+            # the hour still going.
+            if hours[-1] == "d" or start < added or end > now:
+                minutes.append((hour, _minutes(spans, start, added, now)))
+        days.append(HistoryDay(day.strftime("%a %-d %b"), hours, tuple(minutes)))
     return tuple(days)
+
+
+def _down(spans: list[tuple[datetime, datetime]], start: datetime, end: datetime) -> bool:
+    return any(s < end and e > start for s, e in spans)
+
+
+def _minutes(
+    spans: list[tuple[datetime, datetime]], hour: datetime, added: datetime, now: datetime
+) -> str:
+    """An hour by the minute, as far as it has gone: "u", "d" or "-" (not watched yet)."""
+    letters = ""
+    for minute in range(60):
+        start = hour + timedelta(minutes=minute)
+        if start >= now:  # the minute going on is not known yet
+            break
+        end = start + timedelta(minutes=1)
+        letters += "-" if end <= added else "d" if _down(spans, start, end) else "u"
+    return letters
 
 
 def _utc(value: datetime) -> datetime:
