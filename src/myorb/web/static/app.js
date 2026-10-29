@@ -418,3 +418,30 @@ document.addEventListener("htmx:afterSettle", openArrivedService);
 document.addEventListener("htmx:pushedIntoHistory", openArrivedService);
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", openArrivedService);
 else openArrivedService();
+
+// A menu in a service's dialog (an account's ⋯) would be cut off by the dialog's edge: it
+// opens over it instead, below its button or above it where there is no room below.
+document.addEventListener("toggle", (event) => {
+  const menu = event.target;
+  if (!menu.matches?.("details.menu") || !menu.closest("dialog.service-dialog")) return;
+  const panel = menu.querySelector(".menu-panel");
+  if (!panel) return;
+  if (!menu.open) {
+    panel.removeAttribute("style");
+    return;
+  }
+  const button = menu.querySelector("summary").getBoundingClientRect();
+  const below = window.innerHeight - button.bottom;
+  Object.assign(panel.style, {
+    position: "fixed",
+    right: `${window.innerWidth - button.right}px`,
+    top: below > panel.offsetHeight + 12 ? `${button.bottom + 6}px` : "auto",
+    bottom: below > panel.offsetHeight + 12 ? "auto" : `${window.innerHeight - button.top + 6}px`,
+  });
+}, true);
+
+// Scrolled, the menu would stay where it was: it closes.
+document.addEventListener("scroll", (event) => {
+  if (!event.target.matches?.("dialog.service-dialog")) return;
+  event.target.querySelectorAll("details.menu[open]").forEach((menu) => menu.removeAttribute("open"));
+}, true);

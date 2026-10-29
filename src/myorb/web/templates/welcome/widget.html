@@ -91,11 +91,12 @@
       <div class="modal-row{% if open_row %} is-link{% endif %}" data-tags="{{ row.tags | join(' ') }}" data-group="{{ row.group }}" data-subgroup="{{ row.subgroup }}"{% if row.search %} data-search="{{ row.search }}"{% endif %}>
         {% if open_row %}<a class="row-link" href="{{ row.url }}"{% if row.new_tab or not row.url.startswith("/") %} target="_blank" rel="noopener"{% endif %}{% if row.new_tab and row.url.startswith("/") %} data-refresh-after{% endif %}{% if row.open_row %} data-view{% endif %}>{% else %}<span style="min-width: 0">{% endif %}<span class="trunc" style="display: block; font-weight: 500">{% if row.mark %}<span class="row-mark" aria-hidden="true">{{ row.mark }}</span>{% endif %}{{ row.title }}</span>{% if row.subtitle %}<span class="muted trunc" style="display: block; font-size: 12.5px">{{ row.subtitle }}</span>{% endif %}{% if open_row %}</a>{% else %}</span>{% endif %}
         {% if row.history %}
-        {# A bar a day, red when anything was down; a click shows that day by the hour (welcome.js). #}
+        {# A bar a day, red when anything was down; a click shows that day by the hour, and an hour
+           by the minute (welcome.js). #}
         <span class="history" role="group" aria-label="{{ row.title }}: the last {{ row.history | length }} days">
           {% for day in row.history %}
           {% set state = "d" if "d" in day.hours else ("u" if "u" in day.hours else "-") %}
-          <button type="button" class="history-bar is-{{ {'d': 'down', 'u': 'up', '-': 'none'}[state] }}" data-history-day="{{ day.hours }}" data-label="{{ day.label }}" aria-pressed="false" title="{{ day.label }} · {{ {'d': 'Down at times', 'u': 'Up', '-': 'Not watched yet'}[state] }}"></button>
+          <button type="button" class="history-bar is-{{ {'d': 'down', 'u': 'up', '-': 'none'}[state] }}" data-history-day="{{ day.hours }}"{% if day.minutes %} data-minutes="{% for hour, letters in day.minutes %}{{ hour }}:{{ letters }}{% if not loop.last %} {% endif %}{% endfor %}"{% endif %} data-label="{{ day.label }}" aria-pressed="false" title="{{ day.label }} · {{ {'d': 'Down at times', 'u': 'Up', '-': 'Not watched yet'}[state] }}"></button>
           {% endfor %}
         </span>
         <span class="history-hours" hidden></span>

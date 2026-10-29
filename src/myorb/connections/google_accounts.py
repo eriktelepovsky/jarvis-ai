@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from myorb.connections import google, store
 from myorb.crypto import SecretBox
 
+# How often a request Google turns down as too many at once is tried again, and the wait
+# before the first retry in seconds (longer each time).
+RATE_RETRIES = 3
+RATE_WAIT = 1.0
+
 # Renew access tokens a minute before Google expires them.
 EXPIRY_MARGIN = 60
 
@@ -84,7 +89,8 @@ class GoogleAccounts:
     ) -> Any:
         """Call a Google API endpoint as the account, with a JSON body or `content` (of
         `content_type`). Raises GoogleError with a readable message."""
-        for attempt in range(2):
+        renewed = False
+        for attempt in range(RATE_RETRIES + 2):
             token = await self._access_token(account)
             try:
                 response = await self._http.request(
@@ -98,10 +104,23 @@ class GoogleAccounts:
                 )
             except httpx2.HTTPError as error:
                 raise google.GoogleError("Google could not be reached.") from error
-            if response.status_code == 401 and attempt == 0:
+            if response.status_code == 401 and renewed:
+                break
+            if response.status_code == 401:
                 # The token was revoked or expired early; get a new one and retry once.
                 self.forget(account.id)
+                renewed = True
                 continue
+            if google.is_rate_limited(response):
+                # Too many requests at once (Gmail answers that with 403, too): a moment later
+                # they go through. Several details opened together reach the limit.
+                if attempt < RATE_RETRIES:
+                    await asyncio.sleep(RATE_WAIT * (attempt + 1))
+                    continue
+                raise google.GoogleError(
+                    f"Google asked myOrb to slow down ({api_name} rate limit). It tries again "
+                    "shortly."
+                )
             if response.status_code == 200:
                 return response.json()
             if response.status_code == 204:  # e.g. deleted

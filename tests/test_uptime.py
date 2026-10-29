@@ -166,3 +166,9 @@ def test_history_is_a_bar_a_day_by_the_hour():
     assert days[-10].hours == "-" * 24
     # The day summer time ended has 25 hours, but 24 bars by the clock.
     assert len(days[-4].hours) == 24
+    # By the minute only where an hour was not simply up: 03:10–03:14, and 09:00–09:30 so far.
+    minutes = dict(days[-1].minutes)
+    assert sorted(minutes) == [3, 9]
+    assert minutes[3] == "u" * 10 + "dddd" + "u" * 46
+    assert minutes[9] == "u" * 20 + "d" * 10  # 09:20 on, up to 09:30 now
+    assert dict(days[-9].minutes) == {}  # added on the hour: 14:00

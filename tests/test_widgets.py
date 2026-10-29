@@ -267,6 +267,31 @@ def test_disabled_api_is_shown(client: TestClient, fake_google: FakeGoogle):
     assert "1 source needs attention" in text
 
 
+def test_rate_limit_is_waited_out_not_a_missing_permission(
+    client: TestClient, fake_google: FakeGoogle, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr("myorb.connections.google_accounts.RATE_WAIT", 0)
+    connect_google(client, fake_google)
+    limited = httpx2.Response(
+        403, json={"error": {"errors": [{"reason": "userRateLimitExceeded"}]}}
+    )
+    calls: list[str] = []
+
+    def at_first_too_many(request: httpx2.Request) -> httpx2.Response:
+        calls.append(request.url.path)
+        return limited if len(calls) <= 2 else gmail_api(request)
+
+    fake_google.routes[GMAIL] = at_first_too_many
+    text = client.get("/welcome/widgets").text
+    assert "no permission" not in text and "needs attention" not in text
+    # Limited for good: said as such, not as a permission.
+    client.post("/integrations/google/1/disconnect")
+    connect_google(client, fake_google)
+    fake_google.routes[GMAIL] = lambda request: limited
+    text = client.get("/welcome/widgets").text
+    assert "Google asked myOrb to slow down" in text and "no permission" not in text
+
+
 def test_missing_permission_is_shown(client: TestClient, fake_google: FakeGoogle):
     fake_google.granted_scopes = " ".join(google.BASE_SCOPES)
     connect_google(client, fake_google)

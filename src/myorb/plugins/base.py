@@ -74,6 +74,9 @@ class HistoryDay:
     label: str  # e.g. "Tue 28 Oct"
     # Each hour so far: "u" up, "d" down (for any part of it), "-" not known (not watched yet).
     hours: str
+    # The hours not up throughout, by the minute in the same letters: {hour: 60 letters}.
+    # An hour left out was up all of it.
+    minutes: tuple[tuple[int, str], ...] = ()
 
 
 @dataclass(frozen=True)
