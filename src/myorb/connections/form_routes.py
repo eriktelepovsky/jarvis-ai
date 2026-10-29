@@ -127,7 +127,7 @@ async def test(request: Request, db: Db, provider_id: str, connection_id: int) -
         ]
     await store.save_check(db, connection, capabilities)
     forget_cached(request, provider_id, connection_id)
-    return RedirectResponse("/integrations?status=tested", status_code=303)
+    return RedirectResponse(f"/integrations?status=tested&provider={provider_id}", 303)
 
 
 @router.post("/integrations/{provider_id}/{connection_id}/disconnect")
