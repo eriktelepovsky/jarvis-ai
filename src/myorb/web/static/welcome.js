@@ -205,6 +205,72 @@
     if (next && next !== current) openDialog(next);
   }
 
+  // On a phone a details dialog follows a finger sideways, as an email does: let go far
+  // enough, and the next number's details slide in (to the left) or the previous one's.
+  const phone = window.matchMedia("(max-width: 760px)");
+  let drag = null; // a finger on a details dialog
+
+  function shift(dialog, x, animate) {
+    dialog.style.transition = animate ? "transform 0.18s ease-out" : "none";
+    dialog.style.transform = x ? `translateX(${x}px)` : "";
+  }
+
+  document.addEventListener("touchstart", (event) => {
+    drag = null;
+    const dialog = event.target.closest?.("dialog[data-detail][open]");
+    if (!dialog || !phone.matches || event.touches.length !== 1) return;
+    // Fields and the status bars keep their own touches.
+    if (event.target.closest("input, textarea, select, .history, .history-hours")) return;
+    const touch = event.touches[0];
+    drag = { dialog, x: touch.clientX, y: touch.clientY, dx: 0, sideways: null, at: Date.now() };
+  }, { passive: true, capture: true });
+
+  document.addEventListener("touchmove", (event) => {
+    if (!drag) return;
+    const touch = event.touches[0];
+    const dx = touch.clientX - drag.x;
+    const dy = touch.clientY - drag.y;
+    if (drag.sideways === null && Math.abs(dx) + Math.abs(dy) > 10) {
+      drag.sideways = Math.abs(dx) > Math.abs(dy) * 1.5;
+    }
+    if (!drag.sideways) return;
+    event.preventDefault(); // no scrolling the list meanwhile
+    drag.dx = dx;
+    shift(drag.dialog, dx, false);
+  }, { passive: false, capture: true });
+
+  document.addEventListener("touchend", (event) => {
+    if (!drag?.sideways) {
+      drag = null;
+      return;
+    }
+    const { dialog, dx, at } = drag;
+    drag = null;
+    const width = dialog.offsetWidth;
+    // Far enough, or a quick flick.
+    const far = Math.abs(dx) > width * 0.25 || (Math.abs(dx) > 40 && Date.now() - at < 250);
+    if (!far || dialogs().length < 2) {
+      shift(dialog, 0, true);
+      return;
+    }
+    const step = dx < 0 ? 1 : -1;
+    shift(dialog, -step * window.innerWidth, true);
+    setTimeout(() => {
+      const before = dialogs().find((other) => other.open);
+      stepDialog(dialog, step);
+      shift(dialog, 0, false);
+      const next = dialogs().find((other) => other.open);
+      if (!next || next === before) return;
+      shift(next, step * window.innerWidth, false);
+      requestAnimationFrame(() => requestAnimationFrame(() => shift(next, 0, true)));
+    }, 180);
+  });
+
+  document.addEventListener("touchcancel", () => {
+    if (drag?.sideways) shift(drag.dialog, 0, true);
+    drag = null;
+  });
+
   // A row that opens as a whole (an email) opens over its details, so Back shows the list just
   // as it was. The view is a history entry: the phone's back gesture closes it too. A swipe (or
   // ← →) moves to the next or previous row the list shows.
