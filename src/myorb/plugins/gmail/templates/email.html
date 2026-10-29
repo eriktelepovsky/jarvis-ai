@@ -65,7 +65,7 @@
   </summary>
   {% if message.html %}
   {# No scripts; same origin only so the page can size the frame to its content. #}
-  <iframe class="email-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ frame_document(message.html, message.images) }}" title="Email from {{ message.sender }}" data-email-frame></iframe>
+  <iframe class="email-frame" referrerpolicy="no-referrer" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="{{ frame_document(message.html, message.images) }}" title="Email from {{ message.sender }}" data-email-frame></iframe>
   {% else %}
   <div class="email-text">{{ message.text }}</div>
   {% endif %}

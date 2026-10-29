@@ -804,9 +804,11 @@ def test_email_opens_in_myorb_and_is_marked_read(client: TestClient, fake_google
     assert "Mark as read" in page and 'action="/email/1/t1/images"' in page
     # Back opens the email details again rather than the bare welcome screen.
     assert 'href="/#detail-gmail-inbox"' in page
-    assert (
-        "https:"
-        in client.get("/email/1/t1", params={"images": "true"}).text.split("img-src")[1][:30]
+    shown = client.get("/email/1/t1", params={"images": "true"}).text
+    assert "https:" in shown.split("img-src")[1][:30]
+    # Asked for without a referrer: some senders turn other sites' requests down.
+    assert "name=&#34;referrer&#34; content=&#34;no-referrer&#34;" in shown or (
+        "name=&quot;referrer&quot; content=&quot;no-referrer&quot;" in shown
     )
 
     modified.clear()

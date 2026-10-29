@@ -186,13 +186,16 @@ def _people(value: str) -> str:
 
 
 def frame_document(body_html: str, images: bool) -> str:
-    """The email's HTML as the frame's document: its own styles, links opening a new tab."""
+    """The email's HTML as the frame's document: its own styles, links opening a new tab.
+    Its images are asked for without a referrer: it would tell the sender where the email was
+    read, and senders that guard their images from other sites (Tatra banka) turn it down."""
     policy = IMAGES_ALLOWED if images else IMAGES_BLOCKED
     # A refresh would take the frame to another page; scripts cannot run in it anyway.
     body_html = re.sub(r"<meta[^>]*http-equiv\s*=\s*[\"']?refresh[^>]*>", "", body_html, flags=re.I)
     return (
         f'<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" '
-        f'content="{policy}"><base target="_blank"><style>{FRAME_STYLE}</style>{body_html}'
+        f'content="{policy}"><meta name="referrer" content="no-referrer">'
+        f'<base target="_blank"><style>{FRAME_STYLE}</style>{body_html}'
     )
 
 
