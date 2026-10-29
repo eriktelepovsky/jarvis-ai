@@ -3734,17 +3734,7 @@ button.history-hour {
   color: var(--text-3);
 }
 
-/* Search in the header: the word on a wide screen, a magnifier where the header is tight. */
+/* Search in the header: a magnifier; ⌘K is in its tooltip. */
 .palette-open .palette-icon {
-  display: none;
-}
-
-@media (max-width: 600px) {
-  .palette-open .palette-icon {
-    display: block;
-  }
-
-  .palette-open .palette-word {
-    display: none;
-  }
+  display: block;
 }
