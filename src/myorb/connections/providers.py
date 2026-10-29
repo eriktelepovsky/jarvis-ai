@@ -113,9 +113,15 @@ class ConnectedAccount:
 
 def status_error(response: httpx2.Response, service: str) -> ProviderError:
     """A readable error for a failed request to a service."""
-    if response.status_code in (401, 403):
+    if response.status_code == 401:
         return ProviderError(
-            f"{service} rejected the credentials. Check them and their permissions."
+            f"{service} rejected the credentials: they are wrong, expired or revoked. "
+            "Enter new ones."
+        )
+    if response.status_code == 403:
+        return ProviderError(
+            f"{service} rejected the credentials: they lack a permission this needs. "
+            "Check their permissions."
         )
     if response.status_code == 404:
         return ProviderError(f"{service} did not find it. Check the address.")

@@ -1127,9 +1127,11 @@ a.ti:hover .t1 {
     white-space: nowrap;
   }
 
+  /* Clear of the next-event chip above even when the header is tall (an alert above the
+     clock) and the free row between them has no height left. */
   .greeting {
     grid-area: greeting;
-    margin: 0 0 20px;
+    margin: 20px 0;
     padding-left: 26px;
     font-size: 28px;
     text-align: left;
