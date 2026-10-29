@@ -113,7 +113,7 @@ async def save_claude(
             workspace_id=workspace_id,
             service=service,
             base_url=base_url,
-            model_name=model_name,
+            typed_model=model_name,
         )
         return _render(request, "brief/settings.html", context, status_code=400)
     await brief.save_settings(settings)

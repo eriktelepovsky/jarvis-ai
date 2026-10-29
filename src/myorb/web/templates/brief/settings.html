@@ -56,7 +56,7 @@
     </div>
     <div class="field" data-ai-only="other">
       <label class="label" for="model-name">Model</label>
-      <input class="input" id="model-name" name="model_name" value="{{ model_name if model_name is defined else (settings.model if settings and settings.service != 'anthropic' else '') }}" autocomplete="off" spellcheck="false" placeholder="As the service names it, e.g. llama3.2">
+      <input class="input" id="model-name" name="model_name" value="{{ typed_model if typed_model is defined else (settings.model if settings and settings.service != 'anthropic' else '') }}" autocomplete="off" spellcheck="false" placeholder="As the service names it, e.g. llama3.2">
       <span class="muted" style="font-size: 12.5px">myOrb checks it with the service when you save, and lists the models it offers if it has no such one.</span>
     </div>
     <div class="field">
