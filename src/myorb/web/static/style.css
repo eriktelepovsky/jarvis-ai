@@ -2161,9 +2161,17 @@ form.htmx-request .btn[type="submit"]::before {
   margin: 0 12px 10px;
 }
 
-/* The panel fills the dialog; its menus need room to open below the last account. */
+/* The dialog is the panel: no second frame inside it, the whole width for the service. */
 .service-dialog > .service {
-  margin: 0 12px 12px;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.service-dialog > .service > .account:last-child {
+  border-radius: 0;
 }
 
 /* Narrower than the page: the numbers go under the name. */
