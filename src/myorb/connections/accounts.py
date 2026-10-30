@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from myorb.connections import store
@@ -24,6 +26,20 @@ class Connections:
             connection = await db.get(Connection, connection_id)
             if connection is not None:
                 connection.credentials = self._box.encrypt(credentials)
+                await db.commit()
+
+    async def rejected(self, connection_id: int, detail: str) -> None:
+        """Keep that the service refused the credentials while loading data, as a failed test,
+        so the integrations page says so at once, also after a restart. A test or new
+        credentials replace it."""
+        failed = [
+            {"id": "account", "label": "Access to the account", "ok": False, "detail": detail}
+        ]
+        async with self._sessionmaker() as db:
+            connection = await db.get(Connection, connection_id)
+            if connection is not None and connection.capabilities != failed:
+                connection.capabilities = failed
+                connection.checked_at = datetime.now(UTC)
                 await db.commit()
 
     async def list(self, provider: str) -> list[ConnectedAccount]:

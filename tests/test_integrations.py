@@ -272,7 +272,10 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     client.get("/welcome/widgets")
     page = client.get("/integrations").text
     assert page.count("1 problem") == 2  # on the tile and on the account
-    assert "Loading its data" in page and "wrong, expired or revoked" in page
+    assert "Access to the account" in page and "wrong, expired or revoked" in page
+    # Kept as a failed test, so it still shows when the cache is empty after a restart.
+    client.app.state.cache.invalidate("bitbucket:")
+    assert client.get("/integrations").text.count("1 problem") == 2
 
 
 # Jira
