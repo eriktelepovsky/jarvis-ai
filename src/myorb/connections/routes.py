@@ -12,7 +12,7 @@ from myorb.auth.tokens import sign, unsign
 from myorb.connections import checklist, google, store
 from myorb.connections.form_routes import providers as form_providers
 from myorb.connections.models import Connection
-from myorb.connections.providers import Provider
+from myorb.connections.providers import Provider, ProviderError, RateLimited
 from myorb.db import get_db
 from myorb.paces import FIXED, GOOGLE, GOOGLE_PLUGINS, OPTIONS
 from myorb.plugins import Plugin
@@ -122,9 +122,10 @@ async def _integrations_page(
         (provider, await store.list_connections(db, provider.id))
         for _, provider in form_providers(request)
     ]
+    context_connections = await store.list_connections(db, google.PROVIDER)
     context = {
         "client": await oauth_client(request, db),
-        "connections": await store.list_connections(db, google.PROVIDER),
+        "connections": context_connections,
         "claude": (claude := await request.app.state.brief.settings()),
         # What myOrb spent on Claude in the last 30 days, shown next to it.
         "claude_spent": (
@@ -139,6 +140,9 @@ async def _integrations_page(
             if plugin.settings
         ],
         "providers": providers,
+        "failing": _failing(
+            request, [*context_connections, *(c for _, cs in providers for c in cs)]
+        ),
         "paces": {
             provider.id: await _pace(request, plugin, provider)
             for plugin, provider in form_providers(request)
@@ -157,6 +161,29 @@ async def _integrations_page(
         else None,
     }
     return _render(request, "integrations/index.html", context, status_code)
+
+
+def _failing(request: Request, connections: list[Connection]) -> dict[int, list[dict[str, Any]]]:
+    """Per connection, what failed since its last test while loading its data, as failed
+    capabilities: an expired key shows here before anyone tests the connection. Not what its
+    test already says, and not a service only asking to wait."""
+    failing: dict[int, list[dict[str, Any]]] = {}
+    for connection in connections:
+        tested = {c.get("detail") for c in connection.capabilities or [] if not c["ok"]}
+        details = dict.fromkeys(
+            str(error)
+            for error in request.app.state.cache.failures(f"{connection.provider}:{connection.id}:")
+            if isinstance(error, ProviderError | google.GoogleError)
+            and not isinstance(error, RateLimited | google.GoogleRateLimited)
+        )
+        problems = [
+            {"label": "Loading its data", "ok": False, "detail": detail}
+            for detail in details
+            if detail not in tested
+        ]
+        if problems:
+            failing[connection.id] = problems
+    return failing
 
 
 def _google_pace(request: Request) -> dict[str, Any]:

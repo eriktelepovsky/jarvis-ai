@@ -62,8 +62,13 @@ def connected_status(results: list[AccountResult], source: str, setup: Link) -> 
         }
     times = [r.updated_at for r in results if r.data is not None and r.updated_at]
     status: dict[str, Any] = {"source": source, "updated_at": min(times) if times else None}
-    if problem := next((r for r in results if r.error), None):
+    failing = [r for r in results if r.error]
+    if problem := next(iter(failing), None):
         status["message"] = f"{problem.provider.name} · {problem.account}: {problem.error}"
+        if more := len(failing) - 1:
+            status["message"] += (
+                f" {more} more {'account fails' if more == 1 else 'accounts fail'} too."
+            )
         # A service that only asks to wait is not broken: a note, nothing to check, and it does
         # not count as needing attention.
         if problem.waiting:

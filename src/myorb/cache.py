@@ -44,6 +44,9 @@ class Cache:
         # it replaces how long the plugin keeps the data fresh.
         self._pace = pace
         self._entries: dict[str, Cached] = {}
+        # The error of a key's last fetch, while it keeps failing; also when nothing was ever
+        # fetched for it, so the integrations page can tell the user (see failures).
+        self._failed: dict[str, Exception] = {}
         self._fetches: dict[str, asyncio.Task] = {}
 
     async def get(
@@ -82,12 +85,14 @@ class Cache:
             value = await fetch()
         except Exception as error:
             logger.warning("Refreshing %s failed", key, exc_info=True)
+            self._failed[key] = error
             if previous := self._entries.get(key):
                 # Keep showing the last good value, flagged with the error.
                 self._entries[key] = Cached(previous.value, previous.fetched_at, error)
             raise
         finally:
             self._fetches.pop(key, None)
+        self._failed.pop(key, None)
         entry = Cached(value, self._clock())
         self._entries[key] = entry
         return entry
@@ -95,3 +100,9 @@ class Cache:
     def invalidate(self, prefix: str) -> None:
         for key in [key for key in self._entries if key.startswith(prefix)]:
             del self._entries[key]
+        for key in [key for key in self._failed if key.startswith(prefix)]:
+            del self._failed[key]
+
+    def failures(self, prefix: str) -> list[Exception]:
+        """The errors of the keys under `prefix` whose last fetch failed."""
+        return [error for key, error in self._failed.items() if key.startswith(prefix)]

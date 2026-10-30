@@ -6,15 +6,15 @@
 
 {# A connected account under its service: works, or what does not and how to fix it. #}
 {% macro account_row(connection, provider_id, choices_label=None, editable=False) %}
-  {% set problems = connection.capabilities | rejectattr("ok") | list if connection.capabilities else [] %}
+  {% set problems = (connection.capabilities | rejectattr("ok") | list if connection.capabilities else []) + failing.get(connection.id, []) %}
   <div class="account">
     <div style="min-width: 0">
       <strong class="trunc" style="display: block; font-weight: 500">{{ connection.account }}</strong>
       <div class="mono muted" style="font-size: 11.5px">{% if connection.checked_at %}Tested {{ connection.checked_at | localtime }}{% else %}Not tested yet{% endif %}</div>
     </div>
     <div class="actions">
-      {% if not connection.capabilities %}<span class="badge badge-neutral">○ Not tested</span>
-      {% elif problems %}<span class="badge badge-fail">✕ {{ problems | length }} {{ "problem" if problems | length == 1 else "problems" }}</span>
+      {% if problems %}<span class="badge badge-fail">✕ {{ problems | length }} {{ "problem" if problems | length == 1 else "problems" }}</span>
+      {% elif not connection.capabilities %}<span class="badge badge-neutral">○ Not tested</span>
       {% else %}<span class="badge badge-ok" title="{{ connection.capabilities | map(attribute='label') | join(', ') }}">✓ Connected</span>{% endif %}
       {# The account's actions in one menu, so the list stays calm: only states stand out. #}
       <details class="menu">
@@ -100,8 +100,8 @@
 
 {% macro voice_logo() %}<span class="integration-logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></span>{% endmacro %}
 
-{# How many checks of these accounts failed. #}
-{% macro problem_count(accounts) %}{% set ns = namespace(n=0) %}{% for connection in accounts if connection.capabilities %}{% set ns.n = ns.n + connection.capabilities | rejectattr("ok") | list | length %}{% endfor %}{{ ns.n }}{% endmacro %}
+{# How many checks of these accounts failed, and loads of their data since. #}
+{% macro problem_count(accounts) %}{% set ns = namespace(n=0) %}{% for connection in accounts %}{% set ns.n = ns.n + (connection.capabilities or []) | rejectattr("ok") | list | length + failing.get(connection.id, []) | length %}{% endfor %}{{ ns.n }}{% endmacro %}
 
 {# A connected service's tile: green, or red with its problems. #}
 {% macro account_tile(key, name, logo_html, accounts, off_status) %}
