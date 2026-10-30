@@ -1691,8 +1691,7 @@ button.modal-stat[aria-pressed="true"] {
     border-bottom: 0;
   }
 
-  .list-head + .modal-row,
-  .list-head + .list-search {
+  .list-head + .modal-row {
     border-top: 0;
   }
 }
