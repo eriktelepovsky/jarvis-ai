@@ -79,6 +79,10 @@ class GoogleError(Exception):
     """A Google request failed. The message is safe to show to the user."""
 
 
+class GoogleRateLimited(GoogleError):
+    """Google asked to wait: nothing for the user to fix."""
+
+
 @dataclass(frozen=True)
 class OAuthClient:
     client_id: str

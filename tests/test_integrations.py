@@ -265,6 +265,15 @@ def test_bitbucket_pull_requests(client: TestClient, apis: FakeApis):
     assert "✕ CI failing" in text
     assert "merged long ago" not in text
 
+    # The token expires: the integrations page says so before anyone tests the connection.
+    assert "problem" not in client.get("/integrations").text
+    apis.routes[(host, "/2.0/repositories/acme/infra/pullrequests")] = basic("x", "y", {})
+    client.app.state.cache.invalidate("bitbucket:")
+    client.get("/welcome/widgets")
+    page = client.get("/integrations").text
+    assert page.count("1 problem") == 2  # on the tile and on the account
+    assert "Loading its data" in page and "wrong, expired or revoked" in page
+
 
 # Jira
 

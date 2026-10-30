@@ -117,7 +117,7 @@ class GoogleAccounts:
                 if attempt < RATE_RETRIES:
                     await asyncio.sleep(RATE_WAIT * (attempt + 1))
                     continue
-                raise google.GoogleError(
+                raise google.GoogleRateLimited(
                     f"Google asked myOrb to slow down ({api_name} rate limit). It tries again "
                     "shortly."
                 )

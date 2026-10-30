@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from myorb.cache import Cache, refreshing
 
 
@@ -78,3 +80,23 @@ def test_refresh_button(make_client):
     assert response.status_code == 204
     assert response.headers["HX-Trigger"] == "myorb:refresh"
     assert client.post("/welcome/widgets/tasks/nothing/refresh").status_code == 404
+
+
+def test_failures_are_kept_until_a_fetch_succeeds():
+    cache = Cache()
+
+    async def failing() -> int:
+        raise ValueError("expired")
+
+    async def run() -> None:
+        with pytest.raises(ValueError):
+            await cache.get("a:1:x", failing, fresh=60, max_age=600)
+        assert [str(e) for e in cache.failures("a:1:")] == ["expired"]
+        assert cache.failures("a:2:") == []
+        await cache.get("a:1:x", fetch_one, fresh=60, max_age=600)
+        assert cache.failures("a:1:") == []
+
+    async def fetch_one() -> int:
+        return 1
+
+    asyncio.run(run())
