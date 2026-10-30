@@ -143,6 +143,10 @@ async def request_json(
         raise ProviderError(f"{service} could not be reached.") from error
     if response.status_code >= 400:
         raise status_error(response, service)
+    # Jira answers a search with wrong or expired credentials as if asked by no one: 200 and
+    # nothing found. Only this header says the sign-in failed.
+    if "AUTHENTICATED_FAILED" in response.headers.get("x-seraph-loginreason", ""):
+        raise status_error(httpx2.Response(401), service)
     if response.status_code == 204 or not response.content:
         return None  # e.g. a change that answers "204 No Content"
     try:

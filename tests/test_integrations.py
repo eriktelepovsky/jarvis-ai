@@ -598,3 +598,21 @@ def test_a_service_pace_is_chosen(client: TestClient, apis: FakeApis):
     # Back to the default.
     client.post("/integrations/jira/pace", data={"seconds": "default"})
     assert 'data-refresh="180"' in client.get("/welcome/widget/jira/assigned").text
+
+
+def test_jira_with_expired_credentials_is_a_problem_not_an_empty_list():
+    import asyncio
+
+    from myorb.connections.providers import ProviderError, request_json
+
+    def anonymous(request: httpx2.Request) -> httpx2.Response:
+        # As Jira Cloud answers a wrong or expired API token: as if no one asked.
+        headers = {"X-Seraph-LoginReason": "AUTHENTICATED_FAILED"}
+        return httpx2.Response(200, json={"issues": [], "isLast": True}, headers=headers)
+
+    async def run() -> None:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(anonymous)) as http:
+            with pytest.raises(ProviderError, match="Jira rejected the credentials"):
+                await request_json(http, "GET", "https://a.atlassian.net/x", "Jira")
+
+    asyncio.run(run())
