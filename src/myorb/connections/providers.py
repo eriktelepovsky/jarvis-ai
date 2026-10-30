@@ -34,6 +34,10 @@ class ProviderError(Exception):
     """The values do not work. The message is safe to show to the user."""
 
 
+class Rejected(ProviderError):
+    """The service refused the credentials (HTTP 401 or 403): the user has to fix them."""
+
+
 class RateLimited(ProviderError):
     """The service asks to be asked less often (HTTP 429). Nothing is wrong with the
     connection: myOrb asks again later, and there is nothing for the user to fix."""
@@ -114,12 +118,12 @@ class ConnectedAccount:
 def status_error(response: httpx2.Response, service: str) -> ProviderError:
     """A readable error for a failed request to a service."""
     if response.status_code == 401:
-        return ProviderError(
+        return Rejected(
             f"{service} rejected the credentials: they are wrong, expired or revoked. "
             "Enter new ones."
         )
     if response.status_code == 403:
-        return ProviderError(
+        return Rejected(
             f"{service} rejected the credentials: they lack a permission this needs. "
             "Check their permissions."
         )

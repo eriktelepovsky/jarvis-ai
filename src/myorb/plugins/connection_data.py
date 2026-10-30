@@ -5,7 +5,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
-from myorb.connections.providers import ConnectedAccount, Provider, ProviderError, RateLimited
+from myorb.connections.providers import (
+    ConnectedAccount,
+    Provider,
+    ProviderError,
+    RateLimited,
+    Rejected,
+)
 from myorb.plugins.base import Link, WidgetContext
 
 CHECK = Link("Check the connection", "/integrations")
@@ -37,8 +43,12 @@ async def load_connected(
         try:
             cached = await context.cache.get(key, lambda: fetch(provider, account), fresh, max_age)
         except ProviderError as error:
+            if isinstance(error, Rejected):
+                await context.connections.rejected(account.id, str(error))
             waiting = isinstance(error, RateLimited)
             return AccountResult(provider, account.account, error=str(error), waiting=waiting)
+        if isinstance(cached.error, Rejected):
+            await context.connections.rejected(account.id, str(cached.error))
         error = str(cached.error) if isinstance(cached.error, ProviderError) else None
         if cached.error and not error:
             error = "The last update failed."
