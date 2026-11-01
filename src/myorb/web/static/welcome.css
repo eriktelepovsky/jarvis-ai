@@ -1950,6 +1950,13 @@ a.row-btn:hover {
   border-top: 1px solid var(--line-soft);
 }
 
+/* On a phone, in line with the head and the body. */
+@media (max-width: 760px) {
+  .modal-foot {
+    padding: 12px 16px;
+  }
+}
+
 /* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
